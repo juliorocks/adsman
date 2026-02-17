@@ -10,9 +10,12 @@ export interface AdAccount {
 }
 
 export function getAuthUrl(state: string) {
+    const appId = process.env.META_APP_ID?.trim() || "";
+    const redirectUri = process.env.META_REDIRECT_URI?.trim() || "";
+
     const params = new URLSearchParams({
-        client_id: process.env.META_APP_ID!,
-        redirect_uri: process.env.META_REDIRECT_URI!,
+        client_id: appId,
+        redirect_uri: redirectUri,
         state: state,
         scope: "email,ads_management,ads_read",
         response_type: "code",
@@ -25,10 +28,14 @@ export function getAuthUrl(state: string) {
 }
 
 export async function exchangeCodeForToken(code: string) {
+    const appId = process.env.META_APP_ID?.trim() || "";
+    const appSecret = process.env.META_APP_SECRET?.trim() || "";
+    const redirectUri = process.env.META_REDIRECT_URI?.trim() || "";
+
     const params = new URLSearchParams({
-        client_id: process.env.META_APP_ID!,
-        client_secret: process.env.META_APP_SECRET!,
-        redirect_uri: process.env.META_REDIRECT_URI!,
+        client_id: appId,
+        client_secret: appSecret,
+        redirect_uri: redirectUri,
         code: code,
     });
 
