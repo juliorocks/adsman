@@ -14,8 +14,8 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
         return (
             <div
                 className={`h-5 w-5 rounded-md border-2 flex items-center justify-center cursor-pointer transition-colors ${checked
-                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
-                        : 'bg-white border-slate-300 hover:border-emerald-400'
+                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                    : 'bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-500'
                     } ${className}`}
                 onClick={(e) => {
                     e.stopPropagation();

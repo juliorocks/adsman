@@ -50,8 +50,8 @@ export function CampaignList({ campaigns }: { campaigns: Campaign[] }) {
                         <div
                             key={campaign.id}
                             className={`flex items-center p-3 rounded-xl border transition-all cursor-pointer group ${isSelected
-                                    ? 'bg-emerald-50 border-emerald-200 shadow-sm'
-                                    : 'bg-white border-slate-100 hover:border-emerald-200 hover:bg-slate-50/50'
+                                ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-900/50 shadow-sm'
+                                : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-emerald-200 dark:hover:border-emerald-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50'
                                 }`}
                             onClick={() => toggleCampaign(campaign.id)}
                         >
@@ -59,26 +59,26 @@ export function CampaignList({ campaigns }: { campaigns: Campaign[] }) {
                                 <Checkbox
                                     checked={isSelected}
                                     onCheckedChange={() => toggleCampaign(campaign.id)}
-                                    className="border-slate-300 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
+                                    className="border-slate-300 dark:border-slate-600 data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
                                 />
                             </div>
 
-                            <div className={`p-2 rounded-lg mr-3 ${isSelected ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-50 text-slate-400 group-hover:bg-emerald-50 group-hover:text-emerald-600'}`}>
+                            <div className={`p-2 rounded-lg mr-3 ${isSelected ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-900/20 group-hover:text-emerald-600 dark:group-hover:text-emerald-400'}`}>
                                 <Layers className="h-5 w-5" />
                             </div>
 
                             <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-semibold truncate ${isSelected ? 'text-emerald-900' : 'text-slate-700'}`}>
+                                <p className={`text-sm font-semibold truncate ${isSelected ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-700 dark:text-slate-200'}`}>
                                     {campaign.name}
                                 </p>
                                 <div className="flex items-center gap-2 mt-0.5">
                                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${campaign.status === "ACTIVE"
-                                            ? 'bg-emerald-100 text-emerald-700'
-                                            : 'bg-slate-100 text-slate-500'
+                                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                                         }`}>
                                         {campaign.status.toLowerCase()}
                                     </span>
-                                    <span className="text-[10px] text-slate-400">
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
                                         Criada em {new Date(campaign.created_at).toLocaleDateString('pt-BR')}
                                     </span>
                                 </div>

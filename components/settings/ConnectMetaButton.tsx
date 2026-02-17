@@ -29,15 +29,15 @@ export function ConnectMetaButton({ isConnected }: { isConnected: boolean }) {
     };
 
     return (
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 shadow-sm">
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1877F2]/10 text-[#1877F2]">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1877F2]/10 dark:bg-[#1877F2]/20 text-[#1877F2]">
                         <Facebook className="h-6 w-6" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-medium text-slate-900">Meta Ads (Facebook/Instagram)</h3>
-                        <p className="text-sm text-slate-500">
+                        <h3 className="text-lg font-medium text-slate-900 dark:text-white">Meta Ads (Facebook/Instagram)</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
                             {isConnected
                                 ? "Sua conta está conectada e sincronizando dados."
                                 : "Conecte para gerenciar campanhas e analisar métricas."}
@@ -47,7 +47,7 @@ export function ConnectMetaButton({ isConnected }: { isConnected: boolean }) {
                 <div className="flex space-x-2">
                     {isConnected ? (
                         <>
-                            <Button variant="outline" className="border-green-200 bg-green-50 text-green-700 hover:bg-green-50 cursor-default">
+                            <Button variant="outline" className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 cursor-default">
                                 Conectado
                             </Button>
                             <Button
@@ -55,7 +55,7 @@ export function ConnectMetaButton({ isConnected }: { isConnected: boolean }) {
                                 size="icon"
                                 onClick={handleDisconnect}
                                 disabled={isDisconnecting}
-                                className="text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                className="text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                                 title="Desconectar"
                             >
                                 <LogOut className="h-5 w-5" />
