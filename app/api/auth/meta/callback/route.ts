@@ -20,7 +20,13 @@ export async function GET(request: NextRequest) {
 
         // Mock User for Dev Mode if Supabase Auth fails
         let user = supabaseUser;
-        if (!user && (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_MOCK_MODE === "true")) {
+
+        // Check for dev_session cookie explicitly (works in Production too for this test)
+        const { cookies } = await import("next/headers");
+        const devSession = cookies().get("dev_session");
+
+        if (!user && (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_MOCK_MODE === "true" || devSession)) {
+            console.log("Using Dev Session User");
             user = { id: "mock_user_id_dev", email: "dev@example.com" } as any;
         }
 
