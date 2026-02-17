@@ -8,6 +8,7 @@ import { getIntegration } from "@/lib/data/settings";
 import { Button } from "@/components/ui/button";
 import { RecommendationCard } from "@/components/dashboard/RecommendationCard";
 import { CreativeCard } from "@/components/dashboard/CreativeCard";
+import { AgentsFactory } from "@/components/dashboard/AgentsFactory";
 
 export const dynamic = 'force-dynamic';
 
@@ -69,42 +70,11 @@ export default async function AgentsPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Agent 1: Auditor de Performance */}
-                <div className="relative overflow-hidden group rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="h-12 w-12 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
-                            <ShieldCheck className="h-6 w-6" />
-                        </div>
-                        <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-green-100 text-green-700">Ativo</span>
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-900">Auditor de Performance</h3>
-                    <p className="text-sm text-slate-500">Analisa métricas e anomalias na estrutura da sua conta.</p>
-                </div>
+            import {AgentsFactory} from "@/components/dashboard/AgentsFactory";
 
-                {/* Agent 2: Estrategista de Escala */}
-                <div className="relative overflow-hidden group rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="h-12 w-12 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
-                            <Zap className="h-6 w-6" />
-                        </div>
-                        <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-green-100 text-green-700">Ativo</span>
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-900">Estrategista de Escala</h3>
-                    <p className="text-sm text-slate-500">Gerencia orçamentos focando em ROAS e escalabilidade.</p>
-                </div>
-
-                {/* Agent 3: Estúdio Criativo */}
-                <div className="relative overflow-hidden group rounded-xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="h-12 w-12 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
-                            <Sparkles className="h-6 w-6" />
-                        </div>
-                        <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-green-100 text-green-700">Ativo</span>
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-900">Estúdio Criativo</h3>
-                    <p className="text-sm text-slate-500">Gera variações de copy e ganchos psicológicos para anúncios.</p>
-                </div>
+            // ...
+            <div className="w-full">
+                <AgentsFactory />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
