@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getAuthUrl } from "@/lib/meta/api";
 import { randomBytes } from "crypto";
 
 export const dynamic = 'force-dynamic';
