@@ -55,11 +55,64 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
         const insights = await getInsights(targetId, accessToken, datePreset, timeRange);
         const campaigns = await getCampaigns(integration.ad_account_id, accessToken);
 
-        // Date handling for revenue query
+        // Determine effective date range for manual revenue query
+        let startDate = filter?.since;
+        let endDate = filter?.until;
+
+        if (!startDate && !endDate && datePreset) {
+            const today = new Date();
+            const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
+            switch (datePreset) {
+                case 'today':
+                    startDate = formatDate(today);
+                    endDate = formatDate(today);
+                    break;
+                case 'yesterday':
+                    const yester = new Date(today);
+                    yester.setDate(yester.getDate() - 1);
+                    startDate = formatDate(yester);
+                    endDate = formatDate(yester);
+                    break;
+                case 'this_month':
+                    startDate = formatDate(new Date(today.getFullYear(), today.getMonth(), 1));
+                    endDate = formatDate(today);
+                    break;
+                case 'last_month':
+                    startDate = formatDate(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+                    endDate = formatDate(new Date(today.getFullYear(), today.getMonth(), 0));
+                    break;
+                case 'last_7d':
+                    const last7 = new Date(today);
+                    last7.setDate(last7.getDate() - 7);
+                    startDate = formatDate(last7);
+                    endDate = formatDate(today);
+                    break;
+                case 'last_14d':
+                    const last14 = new Date(today);
+                    last14.setDate(last14.getDate() - 14);
+                    startDate = formatDate(last14);
+                    endDate = formatDate(today);
+                    break;
+                case 'last_30d':
+                    const last30 = new Date(today);
+                    last30.setDate(last30.getDate() - 30);
+                    startDate = formatDate(last30);
+                    endDate = formatDate(today);
+                    break;
+                case 'last_90d':
+                    const last90 = new Date(today);
+                    last90.setDate(last90.getDate() - 90);
+                    startDate = formatDate(last90);
+                    endDate = formatDate(today);
+                    break;
+            }
+        }
+
         const manualSales = await getManualRevenue(
             integration.ad_account_id,
-            filter?.since,
-            filter?.until
+            startDate,
+            endDate
         );
         const totalManualRevenue = manualSales.reduce((acc: number, curr: any) => acc + Number(curr.revenue), 0);
 
