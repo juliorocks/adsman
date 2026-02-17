@@ -31,7 +31,7 @@ export async function generateCreativeIdeas(objective: string = 'CONVERSIONS'): 
 
             // Extract some keywords (simulated analysis)
             const words = sampleText.toLowerCase().split(/\s+/);
-            const commonKeywords = words.filter(w => w.length > 4).slice(0, 5);
+            const commonKeywords = words.filter((w: string) => w.length > 4).slice(0, 5);
             detectedContext = commonKeywords.join(" ");
         }
 
