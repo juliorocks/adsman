@@ -109,7 +109,7 @@ export async function getInsights(
     timeRange?: { since: string; until: string },
     timeIncrement?: number | 'all_days'
 ) {
-    const fields = "spend,impressions,clicks,cpc,cpm,actions,conversions,purchase_roas,date_start";
+    const fields = "spend,impressions,clicks,cpc,cpm,actions,conversions,purchase_roas,action_values,date_start";
     const idParam = Array.isArray(ids) ? ids.join(',') : ids;
 
     let url;
