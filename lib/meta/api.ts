@@ -56,19 +56,27 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/adaccounts?fields=${fields}&access_token=${accessToken}`);
     const data = await response.json();
 
-    if (data.error) {
-        // If mocking, return dummy data
-        if (process.env.NODE_ENV === 'development' && !process.env.META_APP_ID) {
-            console.warn("Meta API Error (Expected in Dev without Keys):", data.error.message);
-            return [
-                { id: "act_123456789", name: "Minha Loja (Mock)", account_id: "123456789", currency: "BRL" },
-                { id: "act_987654321", name: "Cliente VIP (Mock)", account_id: "987654321", currency: "USD" },
-            ];
+    const accounts: AdAccount[] = data.data || [];
+
+    if (accounts.length === 0) {
+        console.log("No personal ad accounts found. Trying Business Manager...");
+        try {
+            const bizResponse = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/businesses?fields=client_ad_accounts{id,name,account_id,currency}&access_token=${accessToken}`);
+            const bizData = await bizResponse.json();
+
+            if (bizData.data) {
+                bizData.data.forEach((business: any) => {
+                    if (business.client_ad_accounts && business.client_ad_accounts.data) {
+                        accounts.push(...business.client_ad_accounts.data);
+                    }
+                });
+            }
+        } catch (bizErr) {
+            console.error("Error fetching Business Manager accounts:", bizErr);
         }
-        throw new Error(data.error.message);
     }
 
-    return data.data || [];
+    return accounts;
 }
 
 export async function getCampaigns(adAccountId: string, accessToken: string) {
