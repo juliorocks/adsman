@@ -2,35 +2,35 @@
 const tokens = {
     colors: {
         primary: {
-            "50": "#eff6ff",
-            "100": "#dbeafe",
-            "200": "#bfdbfe",
-            "300": "#93c5fd",
-            "400": "#60a5fa",
-            "500": "#3b82f6",
-            "600": "#2563eb",
-            "700": "#1d4ed8",
-            "800": "#1e40af",
-            "900": "#1e3a8a",
-            "950": "#172554"
+            "50": "#eef2ff",
+            "100": "#e0e7ff",
+            "200": "#c7d2fe",
+            "300": "#a5b4fc",
+            "400": "#818cf8",
+            "500": "#6366f1", // Indigo 500
+            "600": "#4f46e5", // Indigo 600
+            "700": "#4338ca",
+            "800": "#3730a3",
+            "900": "#312e81",
+            "950": "#1e1b4b"
         },
         secondary: {
-            "50": "#f5f3ff",
-            "100": "#ede9fe",
-            "500": "#8b5cf6",
-            "600": "#7c3aed",
-            "900": "#4c1d95"
+            "50": "#faf5ff",
+            "100": "#f3e8ff",
+            "500": "#a855f7",
+            "600": "#9333ea",
+            "900": "#581c87"
         },
         surface: {
             "light": "#ffffff",
-            "dark": "#0f172a",
-            "glass": "rgba(255, 255, 255, 0.7)"
+            "dark": "#020617",
+            "glass": "rgba(255, 255, 255, 0.8)"
         },
         semantic: {
             "success": "#10b981",
             "warning": "#f59e0b",
             "error": "#ef4444",
-            "info": "#3b82f6"
+            "info": "#0ea5e9"
         }
     },
     typography: {
@@ -45,22 +45,25 @@ const tokens = {
             "lg": "1.125rem",
             "xl": "1.25rem",
             "2xl": "1.5rem",
-            "3xl": "1.875rem"
+            "3xl": "2rem",
+            "4xl": "2.5rem"
         },
         "borderRadius": {
-            "sm": "0.125rem",
-            "default": "0.25rem",
-            "md": "0.375rem",
-            "lg": "0.5rem",
-            "xl": "0.75rem",
-            "2xl": "1rem",
+            "sm": "0.25rem",
+            "default": "0.5rem",
+            "md": "0.75rem",
+            "lg": "1rem",
+            "xl": "1.25rem",
+            "2xl": "1.5rem",
+            "3xl": "2rem",
             "full": "9999px"
         },
         "shadows": {
             "sm": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-            "default": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
-            "md": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-            "lg": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)"
+            "default": "0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05)",
+            "md": "0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 6px -1px rgb(0 0 0 / 0.04)",
+            "lg": "0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05)",
+            "xl": "0 25px 50px -12px rgb(0 0 0 / 0.12)"
         }
     }
 };
