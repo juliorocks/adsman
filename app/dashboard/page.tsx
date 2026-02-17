@@ -1,16 +1,31 @@
-
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { DollarSign, MousePointerClick, Target, TrendingUp, Layers } from "lucide-react";
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 import { getDashboardMetrics, getRecentActivity } from "@/lib/data/metrics";
+import { getIntegration, getAvailableAdAccounts } from "@/lib/data/settings";
+import { AccountSelector } from "@/components/settings/AccountSelector";
 
 export default async function DashboardPage() {
     const metrics = await getDashboardMetrics();
     const recentCampaigns = await getRecentActivity();
+    const integration = await getIntegration();
+    const accounts = await getAvailableAdAccounts();
 
     return (
         <div className="space-y-8">
             <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-bold tracking-tight text-slate-900">Visão Geral</h2>
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight text-slate-900">Visão Geral</h2>
+                    <p className="text-sm text-slate-500">Acompanhe a performance da sua conta em tempo real.</p>
+                </div>
+                <div className="w-80">
+                    <AccountSelector
+                        accounts={accounts}
+                        currentAccountId={integration?.ad_account_id}
+                    />
+                </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

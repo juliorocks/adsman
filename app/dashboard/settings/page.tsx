@@ -16,14 +16,6 @@ export default async function SettingsPage() {
             <section className="space-y-4">
                 <h3 className="text-lg font-medium text-slate-900">Integrações</h3>
                 <ConnectMetaButton isConnected={isConnected} />
-
-                {isConnected && integration.ad_account_id && (
-                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 text-sm">
-                        <p className="text-slate-700">
-                            <span className="font-semibold">Conta Conectada:</span> {integration.ad_account_id}
-                        </p>
-                    </div>
-                )}
             </section>
         </div>
     );
