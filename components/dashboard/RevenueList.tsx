@@ -2,9 +2,10 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2, Calendar, Coins, ArrowLeft } from "lucide-react";
+import { Trash2, Calendar, Coins, ArrowLeft, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { deleteManualRevenue } from "@/actions/revenue";
+import { ManualRevenueModal } from "./ManualRevenueModal";
 import Link from "next/link";
 
 interface RevenueRecord {
@@ -15,6 +16,7 @@ interface RevenueRecord {
 
 export function RevenueList({ records }: { records: RevenueRecord[] }) {
     const [deleting, setDeleting] = useState<string | null>(null);
+    const [editingRecord, setEditingRecord] = useState<RevenueRecord | null>(null);
 
     const handleDelete = async (id: string) => {
         if (!confirm("Tem certeza que deseja excluir este registro?")) return;
@@ -72,14 +74,23 @@ export function RevenueList({ records }: { records: RevenueRecord[] }) {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <button
-                                            onClick={() => handleDelete(record.id)}
-                                            disabled={deleting === record.id}
-                                            className="text-slate-300 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-50"
-                                            title="Excluir Lançamento"
-                                        >
-                                            <Trash2 className={`h-5 w-5 ${deleting === record.id ? 'animate-pulse' : ''}`} />
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => setEditingRecord(record)}
+                                                className="text-slate-300 hover:text-primary-600 transition-colors p-2 rounded-lg hover:bg-primary-50"
+                                                title="Editar Lançamento"
+                                            >
+                                                <Pencil className="h-5 w-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(record.id)}
+                                                disabled={deleting === record.id}
+                                                className="text-slate-300 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-50"
+                                                title="Excluir Lançamento"
+                                            >
+                                                <Trash2 className={`h-5 w-5 ${deleting === record.id ? 'animate-pulse' : ''}`} />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))
@@ -87,6 +98,15 @@ export function RevenueList({ records }: { records: RevenueRecord[] }) {
                     </tbody>
                 </table>
             </div>
+
+            {editingRecord && (
+                <ManualRevenueModal
+                    initialDate={editingRecord.date}
+                    initialAmount={editingRecord.revenue.toString()}
+                    forceOpen={true}
+                    onClose={() => setEditingRecord(null)}
+                />
+            )}
         </div>
     );
 }
