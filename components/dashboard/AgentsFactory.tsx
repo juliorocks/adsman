@@ -2,10 +2,11 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, Loader2, Play, Box } from "lucide-react";
+import { Activity, Loader2, Play, Box, Zap } from "lucide-react";
 import { useState, useEffect } from "react";
 import { runAgentSquadAction } from "@/actions/agents";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 const AGENT_STATES = {
     auditor: [
@@ -90,38 +91,48 @@ export function AgentsFactory() {
 
     const handleRunSquad = async () => {
         setLoading(true);
+        const processingToast = toast.loading("Iniciando processamento neural...");
+
         try {
-            await runAgentSquadAction();
-            router.refresh();
+            const result = await runAgentSquadAction();
+
+            if (result.success) {
+                // Wait for a bit to show the scanning animation
+                await new Promise(r => setTimeout(r, 2000));
+                toast.success("Análise concluída com sucesso!", { id: processingToast });
+                router.refresh();
+            } else {
+                toast.error(`Falha no processamento: ${result.error}`, { id: processingToast });
+            }
         } catch (err) {
             console.error(err);
+            toast.error("Erro interno ao processar inteligência.", { id: processingToast });
         } finally {
             setLoading(false);
         }
     };
 
-    const AgentStation = ({ type, glowColor, robotImg, eyeColor }: any) => {
-        // Unique variations for each agent - much smoother and slower
+    const AgentStation = ({ type, glowColor, robotImg, eyeColor, isLoading }: any) => {
         const variants: any = {
             auditor: {
-                y: [0, -6, 0],
-                rotate: [-0.5, 0.5, -0.5],
-                transition: { duration: 6, repeat: Infinity, ease: "linear" }
+                y: isLoading ? [0, -15, 0] : [0, -6, 0],
+                rotate: isLoading ? [-2, 2, -2] : [-0.5, 0.5, -0.5],
+                transition: { duration: isLoading ? 1.5 : 6, repeat: Infinity, ease: "easeInOut" }
             },
             strategist: {
-                y: [0, -9, 0],
-                scale: [1, 1.02, 1],
-                transition: { duration: 5, repeat: Infinity, ease: "easeInOut" }
+                y: isLoading ? [0, -20, 0] : [0, -9, 0],
+                scale: isLoading ? [1, 1.1, 1] : [1, 1.02, 1],
+                transition: { duration: isLoading ? 1.2 : 5, repeat: Infinity, ease: "easeInOut" }
             },
             creative: {
-                y: [0, -4, 0],
-                rotate: [1, -1, 1],
-                transition: { duration: 7, repeat: Infinity, ease: "easeInOut" }
+                y: isLoading ? [0, -10, 0] : [0, -4, 0],
+                rotate: isLoading ? [5, -5, 5] : [1, -1, 1],
+                transition: { duration: isLoading ? 1.8 : 7, repeat: Infinity, ease: "easeInOut" }
             }
         };
 
         return (
-            <div className={`relative w-[30%] flex flex-col items-center justify-end group transition-all`}>
+            <div className="relative w-[30%] flex flex-col items-center justify-end group transition-all">
                 {/* Name Label ABOVE robot */}
                 <div className="mb-3 px-4 py-1 rounded-full bg-slate-900/60 border border-slate-800/50 backdrop-blur-sm z-30 group-hover:bg-slate-800/80 transition-colors">
                     <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${glowColor}`}>
@@ -143,10 +154,20 @@ export function AgentsFactory() {
                     />
 
                     {/* Blinking Eyes Overlay */}
-                    <RobotBlink color={eyeColor} />
+                    <RobotBlink color={isLoading ? "bg-white" : eyeColor} />
 
                     {/* Status Indicator Dot */}
-                    <div className={`absolute top-1 right-5 w-2.5 h-2.5 ${glowColor.replace('text-', 'bg-')} rounded-full border-2 border-slate-900 animate-pulse shadow-[0_0_10px_currentColor]`} />
+                    <div className={`absolute top-1 right-5 w-2.5 h-2.5 ${isLoading ? 'bg-white' : glowColor.replace('text-', 'bg-')} rounded-full border-2 border-slate-900 animate-pulse shadow-[0_0_10px_currentColor]`} />
+
+                    {/* Analysis Pulse when loading */}
+                    {isLoading && (
+                        <motion.div
+                            initial={{ scale: 1, opacity: 0.5 }}
+                            animate={{ scale: 2, opacity: 0 }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                            className={`absolute inset-0 rounded-full border border-white/50`}
+                        />
+                    )}
 
                     {/* Popup Tooltip */}
                     <div className="absolute bottom-full mb-6 left-1/2 -translate-x-1/2 w-56 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none transform translate-y-2 group-hover:translate-y-0 z-50">
@@ -156,7 +177,7 @@ export function AgentsFactory() {
                                 Monitoramento Ativo
                             </div>
                             <p className="font-semibold text-slate-100 leading-relaxed text-[13px]">
-                                {activeStatuses[type as keyof typeof activeStatuses]}
+                                {isLoading ? "Analisando dados em tempo real..." : activeStatuses[type as keyof typeof activeStatuses]}
                             </p>
                         </div>
                         <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-slate-900" />
@@ -169,7 +190,26 @@ export function AgentsFactory() {
     return (
         <div className="relative w-full h-[420px] bg-slate-950 rounded-[40px] overflow-hidden border border-slate-800 shadow-2xl shadow-black/80">
             {/* Background Grid */}
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(30,41,59,0.4)_1px,transparent_1px),linear-gradient(90deg,rgba(30,41,59,0.4)_1px,transparent_1px)] bg-[size:40px_40px] opacity:10" />
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(30,41,59,0.4)_1px,transparent_1px),linear-gradient(90deg,rgba(30,41,59,0.4)_1px,transparent_1px)] bg-[size:40px_40px] opacity-10" />
+
+            {/* Digital Scanner Overlay */}
+            <AnimatePresence>
+                {loading && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 z-40 pointer-events-none"
+                    >
+                        <motion.div
+                            animate={{ y: ["0%", "100%", "0%"] }}
+                            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                            className="w-full h-px bg-primary-500 shadow-[0_0_15px_rgba(59,130,246,0.8)]"
+                        />
+                        <div className="absolute inset-0 bg-primary-500/5 backdrop-blur-[1px]" />
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Header Info */}
             <div className="absolute top-6 left-8 z-30 pointer-events-none">
@@ -189,8 +229,8 @@ export function AgentsFactory() {
                     disabled={loading}
                     className="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-500 disabled:bg-slate-800 text-white text-xs font-bold rounded-2xl transition-all shadow-[0_10px_30px_rgba(37,99,235,0.3)] hover:shadow-[0_15px_40px_rgba(37,99,235,0.4)] active:scale-95 border border-primary-400/20"
                 >
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
-                    {loading ? 'Sincronizando...' : 'Processar Inteligência'}
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : <Zap className="h-4 w-4 fill-current text-white" />}
+                    {loading ? 'Processando...' : 'Processar Inteligência'}
                 </button>
             </div>
 
@@ -201,6 +241,7 @@ export function AgentsFactory() {
                     glowColor="text-orange-500"
                     robotImg="/robots/auditor.png"
                     eyeColor="bg-yellow-400"
+                    isLoading={loading}
                 />
 
                 <AgentStation
@@ -208,6 +249,7 @@ export function AgentsFactory() {
                     glowColor="text-blue-400"
                     robotImg="/robots/strategist.png"
                     eyeColor="bg-emerald-400"
+                    isLoading={loading}
                 />
 
                 <AgentStation
@@ -215,6 +257,7 @@ export function AgentsFactory() {
                     glowColor="text-purple-400"
                     robotImg="/robots/creative.png"
                     eyeColor="bg-fuchsia-400"
+                    isLoading={loading}
                 />
             </div>
 
@@ -223,7 +266,7 @@ export function AgentsFactory() {
                 <motion.div
                     className="flex w-[200%] h-full opacity-40"
                     animate={{ x: ["0%", "-50%"] }}
-                    transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+                    transition={{ duration: loading ? 3 : 12, repeat: Infinity, ease: "linear" }}
                 >
                     {Array.from({ length: 40 }).map((_, i) => (
                         <div key={i} className="w-[5%] border-r border-slate-700 h-full skew-x-12 bg-gradient-to-b from-slate-800/20 to-transparent" />
@@ -245,7 +288,7 @@ export function AgentsFactory() {
                             initial={{ left: "-15%" }}
                             animate={{ left: "115%" }}
                             transition={{
-                                duration: 10,
+                                duration: loading ? 4 : 10,
                                 repeat: Infinity,
                                 ease: "linear",
                                 delay: i * 2.5
