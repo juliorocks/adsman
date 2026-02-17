@@ -1,6 +1,7 @@
-import { getAuthUrl } from "@/lib/meta/api";
 import { redirect } from "next/navigation";
 import { randomBytes } from "crypto";
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
     // Generate state for CSRF protection
