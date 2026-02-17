@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState } from "react";
-import { Bot, Sparkles, Target, DollarSign, Image as ImageIcon, CheckCircle2, ChevronRight, Loader2, AlertCircle } from "lucide-react";
+import { useRef, useState } from "react";
+import { Bot, Sparkles, Target, DollarSign, Image as ImageIcon, CheckCircle2, ChevronRight, Loader2, AlertCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createSmartCampaignAction } from "@/actions/campaign";
 
@@ -14,6 +14,7 @@ const OBJECTIVES = [
 ];
 
 export function SmartCampaignWizard() {
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -22,6 +23,7 @@ export function SmartCampaignWizard() {
         goal: '',
         budget: '50',
     });
+    const [images, setImages] = useState<File[]>([]);
 
     const nextStep = () => setStep(s => s + 1);
     const prevStep = () => setStep(s => s - 1);
@@ -178,7 +180,23 @@ export function SmartCampaignWizard() {
                             <p className="text-slate-500">Suba as imagens ou deixe nossa IA analisar sua oferta.</p>
                         </div>
 
-                        <div className="border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center space-y-4 hover:border-primary-400 transition-colors cursor-pointer group">
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            multiple
+                            accept="image/*"
+                            onChange={(e) => {
+                                if (e.target.files) {
+                                    setImages([...images, ...Array.from(e.target.files)]);
+                                }
+                            }}
+                        />
+
+                        <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className="border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center space-y-4 hover:border-primary-400 hover:bg-primary-50/10 transition-colors cursor-pointer group"
+                        >
                             <div className="h-16 w-16 bg-slate-50 text-slate-400 rounded-full mx-auto flex items-center justify-center group-hover:bg-primary-50 group-hover:text-primary-600 transition-all">
                                 <ImageIcon className="h-8 w-8" />
                             </div>
@@ -187,6 +205,25 @@ export function SmartCampaignWizard() {
                                 <p className="text-sm text-slate-400">Arraste e solte seus arquivos aqui (JPG, PNG)</p>
                             </div>
                         </div>
+
+                        {images.length > 0 && (
+                            <div className="grid grid-cols-1 gap-2">
+                                {images.map((file, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <ImageIcon className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                                            <span className="text-sm text-slate-600 truncate">{file.name}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => setImages(images.filter((_, i) => i !== idx))}
+                                            className="text-slate-400 hover:text-red-500 transition-colors"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
 
                         <div className="flex justify-between pt-6 border-t">
                             <Button variant="ghost" onClick={prevStep} disabled={loading}>Voltar</Button>
