@@ -143,7 +143,7 @@ export async function getDailyPerformance(filter?: MetricsFilter) {
 
         const dailyData = insights.reduce((acc: any[], curr: any) => {
             const date = curr.date_start;
-            const existingIndex = acc.findIndex(d => d.date === date);
+            const existingIndex = acc.findIndex((d: any) => d.date === date);
 
             const spend = parseFloat(curr.spend || 0);
             const clicks = parseInt(curr.clicks || 0);
@@ -167,7 +167,7 @@ export async function getDailyPerformance(filter?: MetricsFilter) {
             return acc;
         }, []);
 
-        return dailyData.map(d => ({
+        return dailyData.map((d: any) => ({
             ...d,
             roas: d.spend > 0 ? d.revenue_est / d.spend : 0
         })).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
