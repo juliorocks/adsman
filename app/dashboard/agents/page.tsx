@@ -70,9 +70,6 @@ export default async function AgentsPage() {
                 </div>
             </div>
 
-            import {AgentsFactory} from "@/components/dashboard/AgentsFactory";
-
-            // ...
             <div className="w-full">
                 <AgentsFactory />
             </div>
