@@ -50,13 +50,13 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
         // Date handling for revenue query
         // This is a simplification, in real usage we'd parse the date_preset to get static ranges
         const manualSales = await getManualRevenue(integration.ad_account_id);
-        const totalManualRevenue = manualSales.reduce((acc, curr) => acc + Number(curr.revenue), 0);
+        const totalManualRevenue = manualSales.reduce((acc: number, curr: any) => acc + Number(curr.revenue), 0);
 
-        const totalInsights = insights.reduce((acc: any, curr: any) => ({
+        const totalInsights = insights.reduce((acc: { spend: number, impressions: number, clicks: number, conversions: number }, curr: any) => ({
             spend: acc.spend + parseFloat(curr.spend || 0),
             impressions: acc.impressions + parseInt(curr.impressions || 0),
             clicks: acc.clicks + parseInt(curr.clicks || 0),
-            conversions: acc.conversions + (curr.conversions || 0), // Adjust if structure is different
+            conversions: acc.conversions + (curr.conversions || 0),
         }), { spend: 0, impressions: 0, clicks: 0, conversions: 0 });
 
         const activeCampaigns = campaigns.filter((c: any) => c.status === "ACTIVE").length;

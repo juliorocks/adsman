@@ -11,7 +11,9 @@ import { AccountSelector } from "@/components/settings/AccountSelector";
 import { DateRangeSelector } from "@/components/dashboard/DateRangeSelector";
 import { DraggableGrid } from "@/components/dashboard/DraggableGrid";
 import { ManualRevenueModal } from "@/components/dashboard/ManualRevenueModal";
+import { History } from "lucide-react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export default async function DashboardPage({
     searchParams
@@ -52,7 +54,15 @@ export default async function DashboardPage({
                         </Link>
                     )}
                     <DateRangeSelector />
-                    <ManualRevenueModal />
+                    <div className="flex items-center gap-2">
+                        <Link href="/dashboard/revenue">
+                            <Button variant="outline" className="gap-2 text-slate-600 border-slate-200">
+                                <History className="h-4 w-4" />
+                                Histórico
+                            </Button>
+                        </Link>
+                        <ManualRevenueModal />
+                    </div>
                     <div className="w-64">
                         <AccountSelector
                             accounts={accounts}

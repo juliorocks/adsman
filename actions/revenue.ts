@@ -30,6 +30,23 @@ export async function saveManualRevenue(date: string, amount: number) {
     }
 
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/revenue");
+    return { success: true };
+}
+
+export async function deleteManualRevenue(id: string) {
+    const supabase = await createClient();
+    const { error } = await supabase
+        .from("manual_revenue")
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+        throw new Error("Failed to delete revenue record");
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/revenue");
     return { success: true };
 }
 
@@ -38,8 +55,9 @@ export async function getManualRevenue(adAccountId: string, startDate?: string, 
 
     let query = supabase
         .from("manual_revenue")
-        .select("revenue, date")
-        .eq("ad_account_id", adAccountId);
+        .select("id, revenue, date")
+        .eq("ad_account_id", adAccountId)
+        .order('date', { ascending: false });
 
     if (startDate) query = query.gte("date", startDate);
     if (endDate) query = query.lte("date", endDate);
