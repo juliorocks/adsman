@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export default async function AgentsPage() {
     const metrics = await getDashboardMetrics({ datePreset: 'last_30d' });
     const audit = await runPerformanceAudit(metrics);
-    const scaling = await runScaleStrategy();
+    const scaling = await runScaleStrategy(metrics);
     const creatives = await generateCreativeIdeas();
     const integration = await getIntegration();
 

@@ -15,7 +15,7 @@ export interface ScalingRecommendation {
     impact: string;
 }
 
-export async function runScaleStrategy(): Promise<ScalingRecommendation[]> {
+export async function runScaleStrategy(metrics?: DashboardMetrics): Promise<ScalingRecommendation[]> {
     const integration = await getIntegration();
     if (!integration || !integration.access_token_ref || !integration.ad_account_id) return [];
 
@@ -23,6 +23,9 @@ export async function runScaleStrategy(): Promise<ScalingRecommendation[]> {
         const accessToken = decrypt(integration.access_token_ref);
         const adSets = await getAdSets(integration.ad_account_id, accessToken);
         const recommendations: ScalingRecommendation[] = [];
+
+        // Define context awareness
+        const isAccountHealthy = metrics ? metrics.roas >= 2.0 : false;
 
         for (const adSet of adSets) {
             if (adSet.status !== 'ACTIVE') continue;
@@ -49,8 +52,15 @@ export async function runScaleStrategy(): Promise<ScalingRecommendation[]> {
                 });
             }
 
-            // Scale DOWN / PAUSE Logic: High Spend, No results
+            // Scale DOWN / PAUSE Logic
             if (spend > 100 && roas < 1.0) {
+                // If account is healthy (likely manual revenue), don't blindly ask to pause 0 ROAS sets which might be driving it.
+                if (isAccountHealthy && roas === 0) {
+                    // Do nothing or suggest review, but strictly NOT a 'pause' recommendation for now to avoid false positives.
+                    // The user specifically complained about "Pausar" on healthy accounts.
+                    continue;
+                }
+
                 recommendations.push({
                     id: `pause_${adSet.id}`,
                     type: 'pause',

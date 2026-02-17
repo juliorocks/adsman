@@ -116,17 +116,18 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
         );
         const totalManualRevenue = manualSales.reduce((acc: number, curr: any) => acc + Number(curr.revenue), 0);
 
-        const totalInsights = insights.reduce((acc: { spend: number, impressions: number, clicks: number, conversions: number }, curr: any) => ({
+        const totalInsights = insights.reduce((acc: { spend: number, impressions: number, clicks: number, conversions: number, meta_revenue: number }, curr: any) => ({
             spend: acc.spend + parseFloat(curr.spend || 0),
             impressions: acc.impressions + parseInt(curr.impressions || 0),
             clicks: acc.clicks + parseInt(curr.clicks || 0),
             conversions: acc.conversions + (curr.conversions || 0),
-        }), { spend: 0, impressions: 0, clicks: 0, conversions: 0 });
+            meta_revenue: acc.meta_revenue + (curr.action_values ? curr.action_values.reduce((sum: number, item: any) => sum + parseFloat(item.value), 0) : 0)
+        }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, meta_revenue: 0 });
 
         const activeCampaigns = campaigns.filter((c: any) => c.status === "ACTIVE").length;
 
-        // Use manual revenue for ROAS if present, otherwise fallback to insights data
-        const totalRevenue = totalManualRevenue > 0 ? totalManualRevenue : 0;
+        // Use manual revenue for ROAS if present, otherwise fallback to insights data (Pixel)
+        const totalRevenue = totalManualRevenue > 0 ? totalManualRevenue : totalInsights.meta_revenue;
         const roas = totalInsights.spend > 0 ? totalRevenue / totalInsights.spend : 0;
 
         const cpc = totalInsights.clicks > 0 ? totalInsights.spend / totalInsights.clicks : 0;
