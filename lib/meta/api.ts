@@ -18,7 +18,10 @@ export function getAuthUrl(state: string) {
         response_type: "code",
     });
 
-    return `https://www.facebook.com/${META_API_VERSION}/dialog/oauth?${params.toString()}`;
+    const authUrl = `https://www.facebook.com/${META_API_VERSION}/dialog/oauth?${params.toString()}`;
+    console.log("META_APP_ID being used:", process.env.META_APP_ID);
+    console.log("Generated Auth URL:", authUrl);
+    return authUrl;
 }
 
 export async function exchangeCodeForToken(code: string) {
