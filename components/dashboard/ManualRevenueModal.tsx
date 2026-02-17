@@ -68,39 +68,39 @@ export function ManualRevenueModal({
 
             {isOpen && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-                        <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                                <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                                     <Coins className="h-5 w-5" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-slate-900">{initialDate ? 'Editar' : 'Lançar'} Faturamento</h3>
-                                    <p className="text-xs text-slate-500">Para cálculo de ROAS de alta precisão</p>
+                                    <h3 className="font-bold text-slate-900 dark:text-white">{initialDate ? 'Editar' : 'Lançar'} Faturamento</h3>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Para cálculo de ROAS de alta precisão</p>
                                 </div>
                             </div>
-                            <button onClick={handleClose} className="text-slate-400 hover:text-slate-600">
+                            <button onClick={handleClose} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                                     <Calendar className="h-4 w-4" /> Data da Venda
                                 </label>
                                 <input
                                     type="date"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
-                                    className="w-full p-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900"
+                                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900 dark:text-white"
                                     required
-                                    disabled={!!initialDate} // Usually better to fix date and only edit amount, or re-add
+                                    disabled={!!initialDate}
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                                     Valor Faturado (R$)
                                 </label>
                                 <input
@@ -109,7 +109,7 @@ export function ManualRevenueModal({
                                     placeholder="0,00"
                                     value={amount}
                                     onChange={(e) => setAmount(e.target.value)}
-                                    className="w-full p-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-lg font-bold text-slate-900"
+                                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 focus:ring-2 focus:ring-emerald-500 outline-none text-lg font-bold text-slate-900 dark:text-white"
                                     required
                                     autoFocus
                                 />
