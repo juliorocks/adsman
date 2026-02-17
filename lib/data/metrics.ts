@@ -16,7 +16,7 @@ export interface DashboardMetrics {
 }
 
 export interface MetricsFilter {
-    campaignId?: string;
+    campaignId?: string | string[];
     datePreset?: string;
     since?: string;
     until?: string;

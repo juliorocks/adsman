@@ -11,6 +11,7 @@ import { AccountSelector } from "@/components/settings/AccountSelector";
 import { DateRangeSelector } from "@/components/dashboard/DateRangeSelector";
 import { DraggableGrid } from "@/components/dashboard/DraggableGrid";
 import { ManualRevenueModal } from "@/components/dashboard/ManualRevenueModal";
+import { CampaignList } from "@/components/dashboard/CampaignList";
 import { History } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -21,38 +22,49 @@ export default async function DashboardPage({
     searchParams: { [key: string]: string | string[] | undefined }
 }) {
     const datePreset = typeof searchParams.date_preset === 'string' ? searchParams.date_preset : 'last_30d';
-    const campaignId = typeof searchParams.campaign_id === 'string' ? searchParams.campaign_id : undefined;
+    const campaignIdRaw = typeof searchParams.campaign_id === 'string' ? searchParams.campaign_id : undefined;
+    const campaignIds = campaignIdRaw ? campaignIdRaw.split(",") : [];
+
     const since = typeof searchParams.since === 'string' ? searchParams.since : undefined;
     const until = typeof searchParams.until === 'string' ? searchParams.until : undefined;
 
-    const metrics = await getDashboardMetrics({ datePreset, campaignId, since, until });
+    const metrics = await getDashboardMetrics({
+        datePreset,
+        campaignId: campaignIds.length > 0 ? campaignIds : undefined,
+        since,
+        until
+    });
     const recentCampaigns = await getRecentActivity();
     const integration = await getIntegration();
     const accounts = await getAvailableAdAccounts();
 
-    const selectedCampaign = recentCampaigns.find((c: any) => c.id === campaignId);
+    const title = campaignIds.length === 1
+        ? `Campanha: ${recentCampaigns.find((c: any) => c.id === campaignIds[0])?.name || 'Selecionada'}`
+        : campaignIds.length > 1
+            ? `${campaignIds.length} Campanhas Selecionadas`
+            : "Visão Geral";
 
     return (
         <div className="space-y-8">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-slate-900">
-                        {selectedCampaign ? `Campanha: ${selectedCampaign.name}` : "Visão Geral"}
+                        {title}
                     </h2>
                     <p className="text-sm text-slate-500">
-                        {selectedCampaign
-                            ? "Relatórios específicos desta campanha."
+                        {campaignIds.length > 0
+                            ? "Análise agregada das campanhas selecionadas."
                             : "Acompanhe a performance da sua conta em tempo real."}
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                    {campaignId && (
+                    {campaignIds.length > 0 && (
                         <Link
                             href="/dashboard"
                             className="flex items-center gap-1 text-sm text-slate-500 hover:text-red-600 transition-colors"
                         >
                             <XCircle className="h-4 w-4" />
-                            Limpar Filtro
+                            Limpar Tudo
                         </Link>
                     )}
                     <DateRangeSelector />
@@ -83,29 +95,10 @@ export default async function DashboardPage({
                         Gráfico de Performance (Realtime)
                     </div>
                 </div>
-                <div className="col-span-3 rounded-xl border border-slate-200 bg-white shadow-sm p-6">
-                    <h3 className="font-semibold text-slate-900 mb-4">Campanhas Recentes</h3>
-                    <div className="space-y-4">
-                        {recentCampaigns.length === 0 ? (
-                            <p className="text-sm text-slate-500">Nenhuma campanha encontrada.</p>
-                        ) : (
-                            recentCampaigns.map((campaign: any) => (
-                                <Link
-                                    key={campaign.id}
-                                    href={`/dashboard?campaign_id=${campaign.id}&date_preset=${datePreset}${since ? `&since=${since}` : ''}${until ? `&until=${until}` : ''}`}
-                                    className={`flex items-center p-2 rounded-lg transition-colors group ${campaignId === campaign.id ? 'bg-primary-50 border border-primary-100' : 'hover:bg-slate-50'}`}
-                                >
-                                    <Layers className={`h-9 w-9 p-2 rounded mr-4 ${campaignId === campaign.id ? 'bg-primary-100 text-primary-600' : 'bg-slate-100 text-slate-500 group-hover:bg-primary-50 group-hover:text-primary-600'}`} />
-                                    <div className="space-y-1">
-                                        <p className="text-sm font-medium leading-none text-slate-900">{campaign.name}</p>
-                                        <p className="text-xs text-slate-500 capitalize">{campaign.status.toLowerCase()}</p>
-                                    </div>
-                                    <div className="ml-auto font-medium text-slate-900 text-xs">
-                                        {new Date(campaign.created_at).toLocaleDateString('pt-BR')}
-                                    </div>
-                                </Link>
-                            ))
-                        )}
+                <div className="col-span-3 rounded-xl border border-slate-200 bg-white shadow-sm p-6 overflow-hidden">
+                    <h3 className="font-semibold text-slate-900 mb-4 px-1">Campanhas Recentes</h3>
+                    <div className="max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                        <CampaignList campaigns={recentCampaigns} />
                     </div>
                 </div>
             </div>
