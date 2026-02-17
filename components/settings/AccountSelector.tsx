@@ -34,7 +34,7 @@ export function AccountSelector({
 
     return (
         <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
                 Trocar Conta de Anúncios
                 {isPending && <Loader2 className="h-3 w-3 animate-spin text-primary-600" />}
             </label>
@@ -43,7 +43,7 @@ export function AccountSelector({
                     value={currentAccountId || ""}
                     onChange={(e) => handleSelect(e.target.value)}
                     disabled={isPending}
-                    className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-10 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm dark:text-slate-200 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     <option value="" disabled>Selecione uma conta...</option>
                     {accounts.map((acc) => (

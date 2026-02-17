@@ -82,11 +82,11 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
                         key={m.id}
                         onClick={() => setActiveMetricId(m.id)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 ${activeMetricId === m.id
-                            ? 'bg-slate-900 text-white shadow-lg scale-105'
-                            : 'bg-white border border-slate-100 text-slate-500 hover:bg-slate-50'
+                            ? 'bg-slate-900 dark:bg-primary-600 text-white shadow-lg scale-105'
+                            : 'bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                             }`}
                     >
-                        <m.icon className={`h-3.5 w-3.5 ${activeMetricId === m.id ? 'text-white' : 'text-slate-400'}`} />
+                        <m.icon className={`h-3.5 w-3.5 ${activeMetricId === m.id ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
                         {m.label}
                     </button>
                 ))}
@@ -114,9 +114,9 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
                             y1={line}
                             x2="100"
                             y2={line}
-                            stroke="#f1f5f9"
                             strokeWidth="1"
                             vectorEffect="non-scaling-stroke"
+                            className="stroke-slate-100 dark:stroke-slate-800"
                         />
                     ))}
 

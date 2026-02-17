@@ -60,10 +60,10 @@ export default async function DashboardPage({
                         <Activity className="h-3 w-3" />
                         Dashboard em Tempo Real
                     </div>
-                    <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 mb-2">
+                    <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-2">
                         {title}
                     </h2>
-                    <p className="text-slate-500 font-medium max-w-xl">
+                    <p className="text-slate-500 dark:text-slate-400 font-medium max-w-xl">
                         {campaignIds.length > 0
                             ? "Análise avançada e agregada das estratégias selecionadas no Meta Ads."
                             : "Acompanhe a performance completa da sua conta com insights gerados por IA."}
@@ -82,21 +82,21 @@ export default async function DashboardPage({
                         <ModeToggle />
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4 bg-white dark:bg-slate-950 p-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                    <div className="flex flex-wrap items-center gap-4 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
                         {campaignIds.length > 0 && (
                             <Link
                                 href="/dashboard"
-                                className="px-3 py-2 flex items-center gap-2 text-sm font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                                className="px-3 py-2 flex items-center gap-2 text-sm font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-colors"
                             >
                                 <XCircle className="h-4 w-4" />
                                 Limpar Filtros
                             </Link>
                         )}
                         <DateRangeSelector />
-                        <div className="h-8 w-px bg-slate-100 hidden sm:block" />
+                        <div className="h-8 w-px bg-slate-100 dark:bg-slate-800 hidden sm:block" />
                         <div className="flex items-center gap-2">
                             <Link href="/dashboard/revenue">
-                                <Button variant="ghost" className="gap-2 text-slate-600 hover:bg-slate-50 rounded-xl h-10 px-4">
+                                <Button variant="ghost" className="gap-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl h-10 px-4">
                                     <History className="h-4 w-4" />
                                     Histórico
                                 </Button>
@@ -113,20 +113,20 @@ export default async function DashboardPage({
             {/* Main Content Area */}
             <div className="grid gap-6 lg:grid-cols-12 items-start">
                 <div className="lg:col-span-8 space-y-6">
-                    <div className="rounded-3xl border border-slate-100 bg-white shadow-xl shadow-slate-200/50 p-8">
+                    <div className="rounded-3xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl dark:shadow-none shadow-slate-200/50 p-8">
                         <div className="flex items-center justify-between mb-8">
                             <div>
-                                <h3 className="text-xl font-bold text-slate-900">Performance do Período</h3>
-                                <p className="text-sm text-slate-500">Dados baseados no Meta Graph Analytics</p>
+                                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Performance do Período</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">Dados baseados no Meta Graph Analytics</p>
                             </div>
                         </div>
                         <div className="min-h-[350px]">
                             {dailyPerformance.length > 0 ? (
                                 <PerformanceChart data={dailyPerformance} />
                             ) : (
-                                <div className="h-[350px] w-full bg-slate-50/50 rounded-3xl border border-dashed border-slate-200 flex items-center justify-center text-slate-400">
+                                <div className="h-[350px] w-full bg-slate-50/50 dark:bg-slate-800/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400">
                                     <div className="text-center">
-                                        <BarChart3 className="h-10 w-10 mx-auto mb-3 text-slate-300" />
+                                        <BarChart3 className="h-10 w-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
                                         <p className="font-medium">Nenhum dado diário disponível para este período.</p>
                                     </div>
                                 </div>
@@ -136,10 +136,10 @@ export default async function DashboardPage({
                 </div>
 
                 <div className="lg:col-span-4 space-y-6">
-                    <div className="rounded-3xl border border-slate-100 bg-white shadow-lg shadow-slate-200/50 p-6">
+                    <div className="rounded-3xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-lg dark:shadow-none shadow-slate-200/50 p-6">
                         <div className="flex items-center justify-between mb-6 px-1">
-                            <h3 className="font-bold text-slate-900">Suas Campanhas</h3>
-                            <div className="px-2 py-1 rounded-full bg-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            <h3 className="font-bold text-slate-900 dark:text-white">Suas Campanhas</h3>
+                            <div className="px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                 {recentCampaigns.length} Total
                             </div>
                         </div>

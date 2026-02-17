@@ -46,7 +46,7 @@ export function DateRangeSelector() {
                 <select
                     value={currentPreset}
                     onChange={(e) => handleSelect(e.target.value)}
-                    className="pl-10 pr-8 h-10 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none min-w-[160px]"
+                    className="pl-10 pr-8 h-10 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none min-w-[160px] dark:text-slate-200"
                 >
                     {DATE_PRESETS.map((preset) => (
                         <option key={preset.value} value={preset.value}>
@@ -62,14 +62,14 @@ export function DateRangeSelector() {
                         type="date"
                         value={since}
                         onChange={(e) => handleCustomDateChange("since", e.target.value)}
-                        className="h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        className="h-10 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-slate-200"
                     />
-                    <span className="text-slate-400">até</span>
+                    <span className="text-slate-400 dark:text-slate-500">até</span>
                     <input
                         type="date"
                         value={until}
                         onChange={(e) => handleCustomDateChange("until", e.target.value)}
-                        className="h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        className="h-10 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:text-slate-200"
                     />
                 </div>
             )}
