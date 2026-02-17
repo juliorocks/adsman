@@ -5,13 +5,14 @@ import { DollarSign, MousePointerClick, Target, TrendingUp, Layers, XCircle, Act
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { getDashboardMetrics, getRecentActivity } from "@/lib/data/metrics";
+import { getDashboardMetrics, getRecentActivity, getDailyPerformance } from "@/lib/data/metrics";
 import { getIntegration, getAvailableAdAccounts } from "@/lib/data/settings";
 import { AccountSelector } from "@/components/settings/AccountSelector";
 import { DateRangeSelector } from "@/components/dashboard/DateRangeSelector";
 import { DraggableGrid } from "@/components/dashboard/DraggableGrid";
 import { ManualRevenueModal } from "@/components/dashboard/ManualRevenueModal";
 import { CampaignList } from "@/components/dashboard/CampaignList";
+import { PerformanceChart } from "@/components/dashboard/PerformanceChart";
 import { History } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -28,15 +29,20 @@ export default async function DashboardPage({
     const since = typeof searchParams.since === 'string' ? searchParams.since : undefined;
     const until = typeof searchParams.until === 'string' ? searchParams.until : undefined;
 
-    const metrics = await getDashboardMetrics({
+    const filter = {
         datePreset,
         campaignId: campaignIds.length > 0 ? campaignIds : undefined,
         since,
         until
-    });
-    const recentCampaigns = await getRecentActivity();
-    const integration = await getIntegration();
-    const accounts = await getAvailableAdAccounts();
+    };
+
+    const [metrics, recentCampaigns, dailyPerformance, integration, accounts] = await Promise.all([
+        getDashboardMetrics(filter),
+        getRecentActivity(),
+        getDailyPerformance(filter),
+        getIntegration(),
+        getAvailableAdAccounts()
+    ]);
 
     const title = campaignIds.length === 1
         ? `Campanha: ${recentCampaigns.find((c: any) => c.id === campaignIds[0])?.name || 'Selecionada'}`
@@ -99,28 +105,18 @@ export default async function DashboardPage({
                                 <h3 className="text-xl font-bold text-slate-900">Performance do Período</h3>
                                 <p className="text-sm text-slate-500">Dados baseados no Meta Graph Analytics</p>
                             </div>
-                            <div className="flex gap-2">
-                                <Button variant="outline" size="sm" className="rounded-full h-8 px-4 text-xs font-bold border-slate-200">Hoje</Button>
-                                <Button variant="ghost" size="sm" className="rounded-full h-8 px-4 text-xs font-bold text-slate-400">7 Dias</Button>
-                            </div>
                         </div>
-                        <div className="h-[350px] w-full bg-slate-50/50 rounded-3xl border border-dashed border-slate-200 overflow-hidden relative group hover:border-primary-300 transition-all duration-500">
-                            <div className="absolute inset-x-8 bottom-12 top-20 flex items-end justify-between gap-3">
-                                {[40, 70, 45, 90, 65, 80, 50, 85, 60, 95, 75, 100].map((h, i) => (
-                                    <div
-                                        key={i}
-                                        className="w-full bg-gradient-to-t from-primary-500/80 to-primary-400/40 rounded-t-lg transition-all duration-1000 ease-out animate-in slide-in-from-bottom"
-                                        style={{ height: `${h}%`, transitionDelay: `${i * 50}ms` }}
-                                    />
-                                ))}
-                            </div>
-                            <div className="absolute inset-0 flex items-center justify-center bg-white/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                <div className="text-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-                                    <BarChart3 className="h-10 w-10 mx-auto mb-3 text-primary-600 animate-bounce" />
-                                    <p className="font-bold text-slate-900 tracking-tight">Otimizando sua Visão Geral...</p>
-                                    <p className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-widest">Sincronizando com Meta Ads API</p>
+                        <div className="min-h-[350px]">
+                            {dailyPerformance.length > 0 ? (
+                                <PerformanceChart data={dailyPerformance} />
+                            ) : (
+                                <div className="h-[350px] w-full bg-slate-50/50 rounded-3xl border border-dashed border-slate-200 flex items-center justify-center text-slate-400">
+                                    <div className="text-center">
+                                        <BarChart3 className="h-10 w-10 mx-auto mb-3 text-slate-300" />
+                                        <p className="font-medium">Nenhum dado diário disponível para este período.</p>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                 </div>

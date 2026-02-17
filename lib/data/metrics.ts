@@ -125,3 +125,54 @@ export async function getRecentActivity(): Promise<Campaign[]> {
         return [];
     }
 }
+
+export async function getDailyPerformance(filter?: MetricsFilter) {
+    const integration = await getIntegration();
+    if (!integration || !integration.access_token_ref || !integration.ad_account_id) return [];
+
+    try {
+        const accessToken = decrypt(integration.access_token_ref);
+        const targetId = filter?.campaignId || integration.ad_account_id;
+        const datePreset = filter?.datePreset || 'last_30d';
+        let timeRange;
+        if (filter?.since && filter?.until) {
+            timeRange = { since: filter.since, until: filter.until };
+        }
+
+        const insights = await getInsights(targetId, accessToken, datePreset, timeRange, 1);
+
+        const dailyData = insights.reduce((acc: any[], curr: any) => {
+            const date = curr.date_start;
+            const existingIndex = acc.findIndex(d => d.date === date);
+
+            const spend = parseFloat(curr.spend || 0);
+            const clicks = parseInt(curr.clicks || 0);
+            const impressions = parseInt(curr.impressions || 0);
+            const roasMultiplier = curr.purchase_roas ? curr.purchase_roas.reduce((sum: number, r: any) => sum + parseFloat(r.value), 0) : 0;
+
+            if (existingIndex > -1) {
+                acc[existingIndex].spend += spend;
+                acc[existingIndex].clicks += clicks;
+                acc[existingIndex].impressions += impressions;
+                acc[existingIndex].revenue_est += (roasMultiplier * spend);
+            } else {
+                acc.push({
+                    date,
+                    spend,
+                    clicks,
+                    impressions,
+                    revenue_est: (roasMultiplier * spend)
+                });
+            }
+            return acc;
+        }, []);
+
+        return dailyData.map(d => ({
+            ...d,
+            roas: d.spend > 0 ? d.revenue_est / d.spend : 0
+        })).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    } catch (error) {
+        console.error("Error fetching daily performance:", error);
+        return [];
+    }
+}

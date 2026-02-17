@@ -102,15 +102,21 @@ export async function getAdCreatives(adAccountId: string, accessToken: string) {
     return data.data || [];
 }
 
-export async function getInsights(ids: string | string[], accessToken: string, datePreset: string = 'maximum', timeRange?: { since: string; until: string }) {
-    const fields = "spend,impressions,clicks,cpc,cpm,actions,conversions,purchase_roas";
+export async function getInsights(
+    ids: string | string[],
+    accessToken: string,
+    datePreset: string = 'maximum',
+    timeRange?: { since: string; until: string },
+    timeIncrement?: number | 'all_days'
+) {
+    const fields = "spend,impressions,clicks,cpc,cpm,actions,conversions,purchase_roas,date_start";
     const idParam = Array.isArray(ids) ? ids.join(',') : ids;
 
     let url;
     if (Array.isArray(ids) && ids.length > 1) {
-        url = `${META_GRAPH_URL}/${META_API_VERSION}/?ids=${idParam}&fields=insights{${fields}}&access_token=${accessToken}`;
+        url = `${META_GRAPH_URL}/${META_API_VERSION}/?ids=${idParam}&fields=insights{${fields}${timeIncrement ? `,time_increment=${timeIncrement}` : ''}}&access_token=${accessToken}`;
     } else {
-        url = `${META_GRAPH_URL}/${META_API_VERSION}/${idParam}/insights?fields=${fields}&access_token=${accessToken}`;
+        url = `${META_GRAPH_URL}/${META_API_VERSION}/${idParam}/insights?fields=${fields}&access_token=${accessToken}${timeIncrement ? `&time_increment=${timeIncrement}` : ''}`;
     }
 
     if (timeRange) {
