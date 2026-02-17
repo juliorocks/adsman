@@ -103,20 +103,22 @@ export async function getAdCreatives(adAccountId: string, accessToken: string) {
 }
 
 export async function getInsights(
-    ids: string | string[],
+    targets: string | string[],
     accessToken: string,
     datePreset: string = 'maximum',
     timeRange?: { since: string; until: string },
     timeIncrement?: number | 'all_days'
 ) {
     const fields = "spend,impressions,clicks,cpc,cpm,actions,conversions,purchase_roas,action_values,date_start";
-    const idParam = Array.isArray(ids) ? ids.join(',') : ids;
+    const idParam = Array.isArray(targets) ? targets.join(',') : targets;
 
     let url;
-    if (Array.isArray(ids) && ids.length > 1) {
-        url = `${META_GRAPH_URL}/${META_API_VERSION}/?ids=${idParam}&fields=insights{${fields}${timeIncrement ? `,time_increment=${timeIncrement}` : ''}}&access_token=${accessToken}`;
+    const limit = 500; // Increased limit to avoid truncation of long periods
+
+    if (Array.isArray(targets) && targets.length > 1) {
+        url = `${META_GRAPH_URL}/${META_API_VERSION}/?ids=${idParam}&fields=insights.limit(${limit}){${fields}${timeIncrement ? `,time_increment=${timeIncrement}` : ''}}&access_token=${accessToken}`;
     } else {
-        url = `${META_GRAPH_URL}/${META_API_VERSION}/${idParam}/insights?fields=${fields}&access_token=${accessToken}${timeIncrement ? `&time_increment=${timeIncrement}` : ''}`;
+        url = `${META_GRAPH_URL}/${META_API_VERSION}/${idParam}/insights?fields=${fields}&access_token=${accessToken}&limit=${limit}${timeIncrement ? `&time_increment=${timeIncrement}` : ''}`;
     }
 
     if (timeRange) {
@@ -130,8 +132,9 @@ export async function getInsights(
 
     if (data.error) throw new Error(data.error.message);
 
-    if (Array.isArray(ids) && ids.length > 1) {
-        return Object.values(data).map((item: any) => item.insights?.data?.[0]).filter(Boolean);
+    if (Array.isArray(targets) && targets.length > 1) {
+        // Flatten insights from all requested IDs
+        return Object.values(data).flatMap((item: any) => item.insights?.data || []);
     }
 
     return data.data || [];

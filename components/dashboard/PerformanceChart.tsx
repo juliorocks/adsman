@@ -17,10 +17,10 @@ interface PerformanceChartProps {
 }
 
 const METRICS = [
-    { id: "spend", label: "Gasto", icon: DollarSign, color: "#6366f1", format: (v: number) => `R$ ${v.toFixed(2)}` },
-    { id: "clicks", label: "Cliques", icon: MousePointerClick, color: "#8b5cf6", format: (v: number) => v.toLocaleString() },
-    { id: "impressions", label: "Impressões", icon: Target, color: "#0ea5e9", format: (v: number) => v.toLocaleString() },
-    { id: "roas", label: "ROAS", icon: TrendingUp, color: "#10b981", format: (v: number) => `${v.toFixed(2)}x` },
+    { id: "spend", label: "Gasto", icon: DollarSign, color: "#6366f1", format: (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+    { id: "clicks", label: "Cliques", icon: MousePointerClick, color: "#8b5cf6", format: (v: number) => v.toLocaleString('pt-BR') },
+    { id: "impressions", label: "Impressões", icon: Target, color: "#0ea5e9", format: (v: number) => v.toLocaleString('pt-BR') },
+    { id: "roas", label: "ROAS", icon: TrendingUp, color: "#10b981", format: (v: number) => `${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}x` },
 ];
 
 export function PerformanceChart({ data }: PerformanceChartProps) {
