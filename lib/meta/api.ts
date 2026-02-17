@@ -93,6 +93,15 @@ export async function getAdSets(adAccountId: string, accessToken: string) {
     return data.data || [];
 }
 
+export async function getAdCreatives(adAccountId: string, accessToken: string) {
+    const fields = "id,name,title,body,object_story_spec";
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives?fields=${fields}&access_token=${accessToken}&limit=10`);
+    const data = await response.json();
+
+    if (data.error) throw new Error(data.error.message);
+    return data.data || [];
+}
+
 export async function getInsights(id: string, accessToken: string, datePreset: string = 'maximum') {
     const fields = "spend,impressions,clicks,cpc,cpm,actions,conversions,purchase_roas";
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${id}/insights?fields=${fields}&date_preset=${datePreset}&access_token=${accessToken}`);
