@@ -2,7 +2,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/security/vault";
 import { getAdAccounts, AdAccount } from "@/lib/meta/api";
-
 import { cookies } from "next/headers";
 
 export async function getIntegration() {
@@ -11,7 +10,7 @@ export async function getIntegration() {
 
     let user = supabaseUser;
 
-    // Check for dev_session cookie even in production for test mode
+    // Check for dev_session cookie explicitly (works in Production too for this test)
     const devSession = cookies().get("dev_session");
 
     if (!user && (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_MOCK_MODE === "true" || devSession)) {
@@ -25,6 +24,7 @@ export async function getIntegration() {
         const devToken = cookies().get("dev_meta_token")?.value;
 
         if (devToken) {
+            console.log("Mock Mode: Using real token from cookie.");
             return {
                 id: "mock_int_real",
                 user_id: "mock_user_id_dev",
