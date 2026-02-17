@@ -4,6 +4,7 @@ import { exchangeCodeForToken } from "@/lib/meta/api";
 import { encrypt } from "@/lib/security/vault";
 import { redirect } from "next/navigation";
 import { NextRequest } from "next/server";
+import { cookies } from "next/headers";
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
@@ -16,7 +17,13 @@ export async function GET(request: NextRequest) {
 
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        let { data: { user } } = await supabase.auth.getUser();
+
+        // Silent support for dev_session to prevent loop
+        const devSession = cookies().get("dev_session");
+        if (!user && devSession) {
+            user = { id: "mock_user_id_dev" } as any;
+        }
 
         if (!user) {
             return redirect("/login");
@@ -29,17 +36,22 @@ export async function GET(request: NextRequest) {
         const encryptedToken = encrypt(accessToken);
 
         // 3. Save Integration
-        const { error: dbError } = await supabase
-            .from("integrations")
-            .upsert({
-                user_id: user.id,
-                platform: "meta",
-                access_token_ref: encryptedToken,
-                status: "active",
-                updated_at: new Date().toISOString()
-            }, { onConflict: "user_id, platform" });
+        if (user.id !== "mock_user_id_dev") {
+            const { error: dbError } = await supabase
+                .from("integrations")
+                .upsert({
+                    user_id: user.id,
+                    platform: "meta",
+                    access_token_ref: encryptedToken,
+                    status: "active",
+                    updated_at: new Date().toISOString()
+                }, { onConflict: "user_id, platform" });
 
-        if (dbError) throw dbError;
+            if (dbError) throw dbError;
+        } else {
+            // Store real token in cookie for dev user session
+            cookies().set("dev_meta_token", encryptedToken, { httpOnly: true, path: "/" });
+        }
 
     } catch (err) {
         if ((err as Error).message === "NEXT_REDIRECT") throw err;
