@@ -16,6 +16,7 @@ import { PerformanceChart } from "@/components/dashboard/PerformanceChart";
 import { History } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ModeToggle } from "@/components/mode-toggle";
 
 export default async function DashboardPage({
     searchParams
@@ -70,15 +71,18 @@ export default async function DashboardPage({
                 </div>
 
                 <div className="flex flex-col items-end gap-4">
-                    {/* Account Selector */}
-                    <div className="w-[280px]">
-                        <AccountSelector
-                            accounts={accounts || []}
-                            currentAccountId={integration?.ad_account_id}
-                        />
+                    {/* Account Selector & Theme Toggle */}
+                    <div className="flex items-center gap-2">
+                        <div className="w-[280px]">
+                            <AccountSelector
+                                accounts={accounts || []}
+                                currentAccountId={integration?.ad_account_id}
+                            />
+                        </div>
+                        <ModeToggle />
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
+                    <div className="flex flex-wrap items-center gap-4 bg-white dark:bg-slate-950 p-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
                         {campaignIds.length > 0 && (
                             <Link
                                 href="/dashboard"
