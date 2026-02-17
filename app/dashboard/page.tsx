@@ -133,7 +133,7 @@ export default async function DashboardPage({
                                 {recentCampaigns.length} Total
                             </div>
                         </div>
-                        <div className="max-h-[580px] overflow-y-auto pr-2 custom-scrollbar">
+                        <div className="mt-2">
                             <CampaignList campaigns={recentCampaigns} />
                         </div>
                     </div>
