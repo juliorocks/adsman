@@ -9,6 +9,7 @@ import { getDashboardMetrics, getRecentActivity } from "@/lib/data/metrics";
 import { getIntegration, getAvailableAdAccounts } from "@/lib/data/settings";
 import { AccountSelector } from "@/components/settings/AccountSelector";
 import { DateRangeSelector } from "@/components/dashboard/DateRangeSelector";
+import { DraggableGrid } from "@/components/dashboard/DraggableGrid";
 import Link from "next/link";
 
 export default async function DashboardPage({
@@ -59,36 +60,7 @@ export default async function DashboardPage({
                 </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <MetricCard
-                    title="Gasto Total"
-                    value={`R$ ${metrics.spend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                    description="Período selecionado"
-                    trend="up"
-                    icon={DollarSign}
-                />
-                <MetricCard
-                    title="Impressões"
-                    value={metrics.impressions.toLocaleString('pt-BR')}
-                    description="Visualizações totais"
-                    trend="up"
-                    icon={Target}
-                />
-                <MetricCard
-                    title="Cliques (Link)"
-                    value={metrics.clicks.toLocaleString('pt-BR')}
-                    description="Interações únicas"
-                    trend="up"
-                    icon={MousePointerClick}
-                />
-                <MetricCard
-                    title="ROAS Estimado"
-                    value={`${metrics.roas}x`}
-                    description="Retorno sobre investimento"
-                    trend="up"
-                    icon={TrendingUp}
-                />
-            </div>
+            <DraggableGrid metrics={metrics} />
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 <div className="col-span-4 rounded-xl border border-slate-200 bg-white shadow-sm p-6">
