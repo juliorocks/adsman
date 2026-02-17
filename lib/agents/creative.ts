@@ -23,53 +23,59 @@ export async function generateCreativeIdeas(objective: string = 'CONVERSIONS'): 
 
         // Analysis of real content to extract business context
         let detectedContext = "";
-        const commonGarbageWords = ['saiba', 'mais', 'precisa', 'vontade', 'força', 'clique', 'aqui', 'agora', 'link', 'bio', 'oferta', 'promoção'];
+        const stopWords = [
+            'saiba', 'mais', 'precisa', 'vontade', 'força', 'clique', 'aqui', 'agora', 'link', 'bio', 'oferta', 'promoção',
+            'você', 'para', 'com', 'pelo', 'pela', 'isso', 'esse', 'essa', 'está', 'fazer', 'têm', 'como', 'onde', 'quem',
+            'seus', 'suas', 'meu', 'minha', 'nosso', 'nossa', 'tudo', 'muito', 'quer', 'pode', 'anos', 'pelo', 'pela',
+            'pelas', 'pelos', 'sobre', 'então', 'também', 'quando', 'mais', 'menos', 'mesmo', 'sendo', 'estão', 'ficar',
+            'tenha', 'terá', 'será', 'qual', 'pela', 'pelo', 'livros', 'sente'
+        ];
 
         if (realCreatives.length > 0) {
-            const sampleText = realCreatives.slice(0, 5).map((v: any) =>
+            const rawText = realCreatives.slice(0, 10).map((v: any) =>
                 `${v.title || ''} ${v.body || ''} ${v.object_story_spec?.link_data?.message || ''}`
             ).join(" ").toLowerCase();
 
-            const words = sampleText.split(/[^\w\u00C0-\u00FF]+/)
-                .filter((w: string) => w.length > 3 && !commonGarbageWords.includes(w));
+            // Extract words: letters only, minimum 5 chars, not a stopword
+            const words = rawText.match(/[a-záàâãéèêíïóôõöúç]{5,}/g) || [];
+            const filtered = words.filter((w: string) => !stopWords.includes(w));
 
-            // Get most frequent meaningful words
             const freq: Record<string, number> = {};
-            words.forEach((w: string) => freq[w] = (freq[w] || 0) + 1);
+            filtered.forEach((w: string) => freq[w] = (freq[w] || 0) + 1);
 
             const sorted = Object.entries(freq)
                 .sort((a, b) => b[1] - a[1])
-                .slice(0, 4)
+                .slice(0, 3)
                 .map(e => e[0]);
 
             detectedContext = sorted.join(" ");
-            console.log("Creative Agent: Detected Context ->", detectedContext);
+            console.log("Creative Agent Analysis:", { detectedContext });
         }
-
-        const fallbackContext = detectedContext || "seu negócio";
 
         const variations: CreativeVariation[] = [
             {
                 id: 'v1',
                 angle: 'Urgência e Escassez',
-                headline: realCreatives[0]?.title ? `Última Chance: ${realCreatives[0].title}` : `Aproveite esta oportunidade única`,
+                headline: `Oportunidade por tempo limitado`,
                 bodyText: detectedContext
-                    ? `O tempo está acabando para você garantir o melhor em ${detectedContext}. Não fique de fora!`
-                    : `Últimas unidades/vagas disponíveis. Garanta sua vantagem exclusiva agora mesmo antes que a oferta expire.`,
+                    ? `O tempo está acabando. Não perca a chance de transformar seus resultados com nossa solução focada em ${detectedContext}.`
+                    : `Últimos slots disponíveis para este ciclo. Garanta sua vantagem exclusiva agora mesmo e não fique para trás.`,
                 cta: 'Comprar Agora'
             },
             {
                 id: 'v2',
                 angle: 'Foco no Benefício',
-                headline: detectedContext ? `Transforme sua rotina com ${detectedContext.split(' ')[0]}` : `A solução definitiva que você buscava`,
-                bodyText: `Descubra como nossa metodologia em ${fallbackContext} pode acelerar seus resultados de forma consistente e escalável.`,
+                headline: `A evolução que seu negócio precisa`,
+                bodyText: detectedContext
+                    ? `Descubra por que especialistas estão priorizando ${detectedContext} para escalar operações este mês.`
+                    : `Nossa metodologia exclusiva foi desenhada para quem busca performance real e previsibilidade de vendas.`,
                 cta: 'Saiba Mais'
             },
             {
                 id: 'v3',
                 angle: 'Prova Social',
-                headline: `Junte-se a milhares de clientes satisfeitos`,
-                bodyText: `Veja por que somos referência em ${fallbackContext}. Centenas de pessoas já alcançaram seus objetivos conosco.`,
+                headline: `Junte-se à Elite do Mercado`,
+                bodyText: `Milhares de empreendedores já validaram nossa estrutura. O próximo nível de ${detectedContext || 'sua jornada'} começa com um clique.`,
                 cta: 'Quero Conhecer'
             }
         ];
