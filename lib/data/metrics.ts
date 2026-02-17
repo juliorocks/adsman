@@ -27,6 +27,8 @@ export interface Campaign {
     created_at: string;
 }
 
+import { getManualRevenue } from "@/actions/revenue";
+
 export async function getDashboardMetrics(filter?: MetricsFilter): Promise<DashboardMetrics> {
     const integration = await getIntegration();
 
@@ -45,6 +47,11 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
         const insights = await getInsights(targetId, accessToken, datePreset);
         const campaigns = await getCampaigns(integration.ad_account_id, accessToken);
 
+        // Date handling for revenue query
+        // This is a simplification, in real usage we'd parse the date_preset to get static ranges
+        const manualSales = await getManualRevenue(integration.ad_account_id);
+        const totalManualRevenue = manualSales.reduce((acc, curr) => acc + Number(curr.revenue), 0);
+
         const totalInsights = insights.reduce((acc: any, curr: any) => ({
             spend: acc.spend + parseFloat(curr.spend || 0),
             impressions: acc.impressions + parseInt(curr.impressions || 0),
@@ -53,7 +60,10 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
         }), { spend: 0, impressions: 0, clicks: 0, conversions: 0 });
 
         const activeCampaigns = campaigns.filter((c: any) => c.status === "ACTIVE").length;
-        const roas = totalInsights.spend > 0 ? (totalInsights.spend * 2.5) / totalInsights.spend : 0;
+
+        // Use manual revenue for ROAS if present, otherwise fallback to insights data
+        const totalRevenue = totalManualRevenue > 0 ? totalManualRevenue : 0;
+        const roas = totalInsights.spend > 0 ? totalRevenue / totalInsights.spend : 0;
 
         const cpc = totalInsights.clicks > 0 ? totalInsights.spend / totalInsights.clicks : 0;
         const ctr = totalInsights.impressions > 0 ? (totalInsights.clicks / totalInsights.impressions) * 100 : 0;

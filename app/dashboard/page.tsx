@@ -10,6 +10,7 @@ import { getIntegration, getAvailableAdAccounts } from "@/lib/data/settings";
 import { AccountSelector } from "@/components/settings/AccountSelector";
 import { DateRangeSelector } from "@/components/dashboard/DateRangeSelector";
 import { DraggableGrid } from "@/components/dashboard/DraggableGrid";
+import { ManualRevenueModal } from "@/components/dashboard/ManualRevenueModal";
 import Link from "next/link";
 
 export default async function DashboardPage({
@@ -51,6 +52,7 @@ export default async function DashboardPage({
                         </Link>
                     )}
                     <DateRangeSelector />
+                    <ManualRevenueModal />
                     <div className="w-64">
                         <AccountSelector
                             accounts={accounts}
