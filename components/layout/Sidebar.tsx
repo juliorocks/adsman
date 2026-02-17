@@ -33,7 +33,7 @@ export function Sidebar() {
                         <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center shadow-lg shadow-primary-200 dark:shadow-none">
                             <BarChart3 className="h-5 w-5 text-white" />
                         </div>
-                        <span className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">Track<span className="text-primary-600">Ads</span></span>
+                        <span className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">Ads<span className="text-primary-600">.AI</span></span>
                     </div>
                 )}
                 {isCollapsed && (
