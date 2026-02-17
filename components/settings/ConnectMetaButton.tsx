@@ -1,13 +1,31 @@
-
 "use client";
 
-import { Facebook } from "lucide-react";
+import { Facebook, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { disconnectMeta } from "@/actions/settings";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export function ConnectMetaButton({ isConnected }: { isConnected: boolean }) {
+    const router = useRouter();
+    const [isDisconnecting, setIsDisconnecting] = useState(false);
+
     const handleConnect = () => {
-        // Redirect to our internal API route which redirects to Facebook
         window.location.href = "/api/auth/meta";
+    };
+
+    const handleDisconnect = async () => {
+        if (!confirm("Tem certeza que deseja desconectar sua conta da Meta?")) return;
+
+        setIsDisconnecting(true);
+        try {
+            await disconnectMeta();
+            router.refresh();
+        } catch (error) {
+            alert("Erro ao desconectar conta.");
+        } finally {
+            setIsDisconnecting(false);
+        }
     };
 
     return (
@@ -26,11 +44,23 @@ export function ConnectMetaButton({ isConnected }: { isConnected: boolean }) {
                         </p>
                     </div>
                 </div>
-                <div>
+                <div className="flex space-x-2">
                     {isConnected ? (
-                        <Button variant="outline" className="border-green-200 bg-green-50 text-green-700 hover:bg-green-100">
-                            Conectado
-                        </Button>
+                        <>
+                            <Button variant="outline" className="border-green-200 bg-green-50 text-green-700 hover:bg-green-50 cursor-default">
+                                Conectado
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={handleDisconnect}
+                                disabled={isDisconnecting}
+                                className="text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                title="Desconectar"
+                            >
+                                <LogOut className="h-5 w-5" />
+                            </Button>
+                        </>
                     ) : (
                         <Button onClick={handleConnect} className="bg-[#1877F2] hover:bg-[#166fe5]">
                             Conectar Conta

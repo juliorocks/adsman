@@ -1,3 +1,4 @@
+
 const META_API_VERSION = "v19.0";
 const META_GRAPH_URL = "https://graph.facebook.com";
 
@@ -20,11 +21,7 @@ export function getAuthUrl(state: string) {
         response_type: "code",
     });
 
-    const authUrl = `https://www.facebook.com/${META_API_VERSION}/dialog/oauth?${params.toString()}`;
-    console.log("META_APP_ID (Raw):", process.env.META_APP_ID);
-    console.log("META_APP_ID (Cleaned):", appId);
-    console.log("Generated Auth URL:", authUrl);
-    return authUrl;
+    return `https://www.facebook.com/${META_API_VERSION}/dialog/oauth?${params.toString()}`;
 }
 
 export async function exchangeCodeForToken(code: string) {
@@ -50,46 +47,34 @@ export async function exchangeCodeForToken(code: string) {
 }
 
 export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
-    // Use 'me/adaccounts' endpoint
     const fields = "id,name,account_id,currency";
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/adaccounts?fields=${fields}&access_token=${accessToken}`);
     const data = await response.json();
 
     let accounts: AdAccount[] = data.data || [];
-    console.log(`[Meta API] Personal accounts found: ${accounts.length}`);
 
-    // Failover: Try deep scan via Business Manager
-    console.log("[Meta API] Starting Business Manager deep scan...");
+    // Deep scan via Business Manager if needed
     try {
-        // Fetch businesses with BOTH owned and client ad accounts
         const bizUrl = `${META_GRAPH_URL}/${META_API_VERSION}/me/businesses?fields=id,name,owned_ad_accounts{id,name,account_id,currency},client_ad_accounts{id,name,account_id,currency}&access_token=${accessToken}`;
         const bizResponse = await fetch(bizUrl);
         const bizData = await bizResponse.json();
 
-        if (bizData.error) {
-            console.error("[Meta API] Business scan error:", bizData.error.message);
-        } else if (bizData.data) {
-            console.log(`[Meta API] Businesses found: ${bizData.data.length}`);
+        if (bizData.data) {
             bizData.data.forEach((business: any) => {
-                // Collect from owned accounts
                 if (business.owned_ad_accounts?.data) {
                     accounts.push(...business.owned_ad_accounts.data);
                 }
-                // Collect from client accounts (where you are a partner)
                 if (business.client_ad_accounts?.data) {
                     accounts.push(...business.client_ad_accounts.data);
                 }
             });
         }
     } catch (bizErr) {
-        console.error("[Meta API] Fatal business scan error:", bizErr);
+        console.error("Business scan error:", bizErr);
     }
 
     // De-duplicate accounts by ID
-    const uniqueAccounts = Array.from(new Map(accounts.map(acc => [acc.id, acc])).values());
-    console.log(`[Meta API] Total unique accounts discovered: ${uniqueAccounts.length}`);
-
-    return uniqueAccounts;
+    return Array.from(new Map(accounts.map(acc => [acc.id, acc])).values());
 }
 
 export async function getCampaigns(adAccountId: string, accessToken: string) {
@@ -98,12 +83,6 @@ export async function getCampaigns(adAccountId: string, accessToken: string) {
     const data = await response.json();
 
     if (data.error) {
-        if (process.env.NODE_ENV === 'development' && !process.env.META_APP_ID) {
-            return [
-                { id: "mock_camp_1", name: "Campanha de Verão (Mock)", status: "ACTIVE", objective: "OUTCOME_SALES" },
-                { id: "mock_camp_2", name: "Retargeting (Mock)", status: "PAUSED", objective: "OUTCOME_TRAFFIC" }
-            ];
-        }
         throw new Error(data.error.message);
     }
     return data.data || [];
@@ -115,11 +94,6 @@ export async function getInsights(adAccountId: string, accessToken: string) {
     const data = await response.json();
 
     if (data.error) {
-        if (process.env.NODE_ENV === 'development' && !process.env.META_APP_ID) {
-            return [
-                { spend: 450.20, impressions: 12000, clicks: 340, cpc: 1.32 }
-            ];
-        }
         throw new Error(data.error.message);
     }
     return data.data || [];
