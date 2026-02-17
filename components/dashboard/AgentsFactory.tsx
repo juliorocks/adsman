@@ -1,8 +1,8 @@
 
 "use client";
 
-import { motion } from "framer-motion";
-import { Activity, Loader2, Play } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Activity, Loader2, Play, Box } from "lucide-react";
 import { useState, useEffect } from "react";
 import { runAgentSquadAction } from "@/actions/agents";
 import { useRouter } from "next/navigation";
@@ -101,56 +101,58 @@ export function AgentsFactory() {
     };
 
     const AgentStation = ({ type, color, glowColor, robotImg, eyeColor }: any) => (
-        <div className={`relative w-[30%] flex flex-col items-center justify-end pb-12 group`}>
-            {/* Holographic Platform */}
-            <div className={`absolute bottom-4 w-full h-8 ${color.replace('bg-', 'bg-')}/10 rounded-[100%] blur-xl group-hover:bg-opacity-20 transition-all duration-700`} />
-            <div className="absolute bottom-4 w-24 h-4 bg-slate-800/40 rounded-[100%] border border-slate-700/50 blur-[2px]" />
+        <div className={`relative w-[30%] flex flex-col items-center justify-end pb-20 group z-20`}>
+            {/* Station Base Platform */}
+            <div className="absolute bottom-10 w-32 h-6 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl">
+                <div className={`absolute inset-0 bg-opacity-20 blur-md rounded-xl ${color}`} />
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-slate-700/50 rounded-full mt-1" />
+            </div>
 
             {/* Robot Container */}
             <motion.div
-                className="relative z-20 cursor-pointer w-32 h-32"
+                className="relative z-20 cursor-pointer w-28 h-28"
                 animate={{
-                    y: [0, -15, 0],
-                    rotate: [-1, 1, -1]
+                    y: [0, -10, 0],
+                    rotate: [-0.5, 0.5, -0.5]
                 }}
                 transition={{
-                    duration: 4 + Math.random(),
+                    duration: 4,
                     repeat: Infinity,
                     ease: "easeInOut"
                 }}
-                whileHover={{ scale: 1.1 }}
+                whileHover={{ scale: 1.15, y: -15 }}
             >
                 {/* Robot Image */}
                 <img
                     src={robotImg}
                     alt={type}
-                    className="w-full h-full object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]"
+                    className="w-full h-full object-contain drop-shadow-[0_15px_15px_rgba(0,0,0,0.6)]"
                 />
 
                 {/* Blinking Eyes Overlay */}
-                <RobotBlink color={eyeColor.replace('bg-', 'bg-')} />
+                <RobotBlink color={eyeColor} />
 
                 {/* Status Indicator Dot */}
-                <div className={`absolute top-2 right-6 w-3 h-3 ${glowColor.replace('text-', 'bg-')} rounded-full border-2 border-slate-900 animate-pulse shadow-[0_0_10px_currentColor]`} />
+                <div className={`absolute top-1 right-5 w-2.5 h-2.5 ${glowColor.replace('text-', 'bg-')} rounded-full border-2 border-slate-900 animate-pulse shadow-[0_0_10px_currentColor]`} />
 
                 {/* Popup Tooltip */}
-                <div className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 w-48 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none transform translate-y-2 group-hover:translate-y-0 z-50">
-                    <div className="bg-slate-900/95 backdrop-blur-md text-white p-3 rounded-2xl border border-slate-700 shadow-2xl text-xs">
-                        <div className="font-bold flex items-center gap-2 mb-1 text-[10px] uppercase tracking-wider text-slate-400">
-                            <Activity className="w-3 h-3 text-green-400" />
-                            Status Ativo
+                <div className="absolute bottom-full mb-6 left-1/2 -translate-x-1/2 w-52 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none transform translate-y-2 group-hover:translate-y-0 z-50">
+                    <div className="bg-slate-900/98 backdrop-blur-xl text-white p-3.5 rounded-2xl border border-slate-700 shadow-[0_20px_50px_rgba(0,0,0,0.5)] text-xs">
+                        <div className="font-bold flex items-center gap-2 mb-1.5 text-[10px] uppercase tracking-wider text-slate-400">
+                            <Activity className="w-3.5 h-3.5 text-green-400" />
+                            Status em Tempo Real
                         </div>
-                        <p className="font-medium text-slate-200">
+                        <p className="font-semibold text-slate-200 leading-relaxed">
                             {activeStatuses[type as keyof typeof activeStatuses]}
                         </p>
                     </div>
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900/95" />
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-slate-900" />
                 </div>
             </motion.div>
 
             {/* Base Label */}
-            <div className="mt-8 px-4 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 backdrop-blur-sm shadow-xl">
-                <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${glowColor}`}>
+            <div className="mt-10 px-4 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 backdrop-blur-sm shadow-xl z-30">
+                <span className={`text-[10px] font-black uppercase tracking-[0.25em] ${glowColor}`}>
                     {type}
                 </span>
             </div>
@@ -158,20 +160,72 @@ export function AgentsFactory() {
     );
 
     return (
-        <div className="relative w-full h-[360px] bg-slate-950 rounded-[40px] overflow-hidden border border-slate-800 shadow-2xl shadow-black/50">
+        <div className="relative w-full h-[380px] bg-slate-950 rounded-[40px] overflow-hidden border border-slate-800 shadow-2xl shadow-black/80">
             {/* Background Grid */}
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(30,41,59,0.3)_1px,transparent_1px),linear-gradient(90deg,rgba(30,41,59,0.3)_1px,transparent_1px)] bg-[size:40px_40px] opacity-20" />
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(30,41,59,0.4)_1px,transparent_1px),linear-gradient(90deg,rgba(30,41,59,0.4)_1px,transparent_1px)] bg-[size:40px_40px] opacity-10" />
+
+            {/* Header Info */}
+            <div className="absolute top-6 left-8 z-30 pointer-events-none">
+                <div className="flex items-center gap-2 mb-1.5">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_15px_#22c55e]" />
+                    <span className="text-[10px] uppercase font-black text-slate-500 tracking-[0.3em]">Factory Mode</span>
+                </div>
+                <h3 className="text-2xl font-black text-white bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-slate-500">
+                    Neural Factory 1.0
+                </h3>
+            </div>
 
             {/* Manual Override Button */}
-            <div className="absolute top-8 right-8 z-30">
+            <div className="absolute top-8 right-8 z-40">
                 <button
                     onClick={handleRunSquad}
                     disabled={loading}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-500 disabled:bg-slate-800 text-white text-xs font-bold rounded-2xl transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] active:scale-95 border border-primary-400/20"
+                    className="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-500 disabled:bg-slate-800 text-white text-xs font-bold rounded-2xl transition-all shadow-[0_10px_30px_rgba(37,99,235,0.3)] hover:shadow-[0_15px_40px_rgba(37,99,235,0.4)] active:scale-95 border border-primary-400/20"
                 >
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
-                    {loading ? 'Sincronizando...' : 'Executar Análise IA Agora'}
+                    {loading ? 'Fábrica em Loop...' : 'Processar Inteligência'}
                 </button>
+            </div>
+
+            {/* Conveyor Belt System */}
+            <div className="absolute bottom-0 w-full h-14 bg-slate-900 border-t border-slate-800 overflow-hidden flex items-center shadow-[0_-20px_50px_rgba(0,0,0,0.5)] z-10">
+                <motion.div
+                    className="flex w-[200%] h-full opacity-40"
+                    animate={{ x: ["0%", "-50%"] }}
+                    transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+                >
+                    {Array.from({ length: 40 }).map((_, i) => (
+                        <div key={i} className="w-[5%] border-r border-slate-700 h-full skew-x-12 bg-gradient-to-b from-slate-800/20 to-transparent" />
+                    ))}
+                </motion.div>
+
+                {/* Belt Highlights */}
+                <div className="absolute top-0 inset-x-0 h-0.5 bg-slate-700/30" />
+                <div className="absolute top-1 inset-x-0 h-[1px] bg-white/5" />
+            </div>
+
+            {/* Moving Items on Belt */}
+            <div className="absolute bottom-10 left-0 right-0 h-12 pointer-events-none z-0">
+                <AnimatePresence>
+                    {[1, 2, 3, 4].map((i) => (
+                        <motion.div
+                            key={i}
+                            className="absolute bottom-0"
+                            initial={{ left: "-15%" }}
+                            animate={{ left: "115%" }}
+                            transition={{
+                                duration: 10,
+                                repeat: Infinity,
+                                ease: "linear",
+                                delay: i * 2.5
+                            }}
+                        >
+                            <div className="w-10 h-10 bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-lg flex items-center justify-center shadow-2xl rotate-[15deg]">
+                                <Box className="w-5 h-5 text-slate-500" />
+                            </div>
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
             </div>
 
             {/* Stations */}
@@ -199,16 +253,6 @@ export function AgentsFactory() {
                     robotImg="/robots/creative.png"
                     eyeColor="bg-fuchsia-400"
                 />
-            </div>
-
-            <div className="absolute top-4 left-6 pointer-events-none">
-                <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]" />
-                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-[0.2em]">Live Operations</span>
-                </div>
-                <h3 className="text-xl font-bold text-white mt-1 bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
-                    Centro de Comando Neural
-                </h3>
             </div>
         </div>
     );
