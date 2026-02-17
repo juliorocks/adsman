@@ -135,8 +135,8 @@ export function DraggableGrid({ metrics }: { metrics: any }) {
                                 key={id}
                                 onClick={() => toggleMetric(id)}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${visibleMetrics.has(id)
-                                        ? 'bg-primary-600 border-primary-600 text-white shadow-md shadow-primary-200'
-                                        : 'bg-white border-slate-200 text-slate-500 hover:border-primary-300'
+                                    ? 'bg-primary-600 border-primary-600 text-white shadow-md shadow-primary-200'
+                                    : 'bg-white border-slate-200 text-slate-500 hover:border-primary-300'
                                     }`}
                             >
                                 {METRIC_CONFIG[id].title}
@@ -163,6 +163,7 @@ export function DraggableGrid({ metrics }: { metrics: any }) {
                                     <MetricCard
                                         title={config.title}
                                         value={config.format(metrics[id] || 0)}
+                                        subValue={id === 'roas' ? `(R$ ${(metrics.total_revenue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})` : undefined}
                                         description="Período selecionado"
                                         trend="up"
                                         icon={config.icon}

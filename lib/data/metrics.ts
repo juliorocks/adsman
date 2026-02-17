@@ -8,6 +8,7 @@ export interface DashboardMetrics {
     impressions: number;
     clicks: number;
     roas: number;
+    total_revenue: number;
     active_campaigns: number;
     cpc: number;
     cpm: number;
@@ -36,7 +37,7 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
 
     if (!integration || !integration.access_token_ref || !integration.ad_account_id) {
         return {
-            spend: 0, impressions: 0, clicks: 0, roas: 0, active_campaigns: 0,
+            spend: 0, impressions: 0, clicks: 0, roas: 0, total_revenue: 0, active_campaigns: 0,
             cpc: 0, cpm: 0, ctr: 0, conversions: 0
         };
     }
@@ -84,6 +85,7 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
             impressions: totalInsights.impressions,
             clicks: totalInsights.clicks,
             roas: Number(roas.toFixed(2)),
+            total_revenue: totalRevenue,
             active_campaigns: activeCampaigns,
             cpc: Number(cpc.toFixed(2)),
             cpm: Number(cpm.toFixed(2)),
@@ -93,7 +95,7 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
     } catch (error) {
         console.error("Error fetching real metrics:", error);
         return {
-            spend: 0, impressions: 0, clicks: 0, roas: 0, active_campaigns: 0,
+            spend: 0, impressions: 0, clicks: 0, roas: 0, total_revenue: 0, active_campaigns: 0,
             cpc: 0, cpm: 0, ctr: 0, conversions: 0
         };
     }
