@@ -44,8 +44,7 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
             x: (i / (data.length - 1)) * 100,
             y: 100 - ((((d as any)[activeMetricId] || 0) - min) / range) * 80 - 10, // 10% padding
             value: (d as any)[activeMetricId],
-            date: new Date(d.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
-            fullDate: new Date(d.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
+            date: new Date(d.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
         }));
     }, [data, activeMetricId]);
 
@@ -78,14 +77,15 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
             </div>
 
             <div className="relative h-[300px] w-full group select-none">
+                {/* SVG Layer for Lines and Area */}
                 <svg
                     viewBox="0 0 100 100"
                     preserveAspectRatio="none"
-                    className="h-full w-full overflow-visible"
+                    className="h-full w-full overflow-visible absolute inset-0 z-0"
                 >
                     <defs>
                         <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor={activeMetric.color} stopOpacity="0.2" />
+                            <stop offset="0%" stopColor={activeMetric.color} stopOpacity="0.1" />
                             <stop offset="100%" stopColor={activeMetric.color} stopOpacity="0" />
                         </linearGradient>
                     </defs>
@@ -99,7 +99,8 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
                             x2="100"
                             y2={line}
                             stroke="#f1f5f9"
-                            strokeWidth="0.1"
+                            strokeWidth="1"
+                            vectorEffect="non-scaling-stroke"
                         />
                     ))}
 
@@ -115,67 +116,50 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
                         d={pathData}
                         fill="none"
                         stroke={activeMetric.color}
-                        strokeWidth="0.8"
+                        strokeWidth="2.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="transition-all duration-1000 ease-in-out drop-shadow-md"
+                        vectorEffect="non-scaling-stroke"
+                        className="transition-all duration-1000 ease-in-out"
                     />
-
-                    {/* Interaction Points and Tooltips */}
-                    {chartData.map((p, i) => (
-                        <g key={i}>
-                            {/* Invisible Hit Area */}
-                            <circle
-                                cx={p.x}
-                                cy={p.y}
-                                r="4" // Larger hit area
-                                fill="transparent"
-                                className="cursor-pointer"
-                                onMouseEnter={() => setHoveredPoint(i)}
-                                onMouseLeave={() => setHoveredPoint(null)}
-                            />
-
-                            {/* Visible Point (Only on hover) */}
-                            <circle
-                                cx={p.x}
-                                cy={p.y}
-                                r={hoveredPoint === i ? 1.5 : 0}
-                                fill="white"
-                                stroke={activeMetric.color}
-                                strokeWidth="0.5"
-                                className={`transition-all duration-300 ${hoveredPoint === i ? 'opacity-100' : 'opacity-0'}`}
-                                pointerEvents="none"
-                            />
-
-                            {/* Tooltip SVG */}
-                            {hoveredPoint === i && (
-                                <g pointerEvents="none" className="transition-opacity duration-200">
-                                    <rect
-                                        x={p.x - 15}
-                                        y={p.y - 12}
-                                        width="30"
-                                        height="8"
-                                        rx="2"
-                                        fill="#1e293b"
-                                        filter="drop-shadow(0 2px 4px rgb(0 0 0 / 0.1))"
-                                    />
-                                    <text
-                                        x={p.x}
-                                        y={p.y - 7}
-                                        textAnchor="middle"
-                                        fill="white"
-                                        fontSize="3"
-                                        fontWeight="bold"
-                                        dominantBaseline="middle"
-                                    >
-                                        {activeMetric.format(p.value)}
-                                    </text>
-                                    {/* Optional Date in tooltip could be added here if needed */}
-                                </g>
-                            )}
-                        </g>
-                    ))}
                 </svg>
+
+                {/* HTML Overlay Layer for Interactive Points */}
+                <div className="absolute inset-0 z-10 pointer-events-none">
+                    {chartData.map((p, i) => (
+                        <div
+                            key={i}
+                            className="absolute flex items-center justify-center pointer-events-auto"
+                            style={{
+                                left: `${p.x}%`,
+                                top: `${p.y}%`,
+                                transform: 'translate(-50%, -50%)' // Center the div on the coordinate
+                            }}
+                            onMouseEnter={() => setHoveredPoint(i)}
+                            onMouseLeave={() => setHoveredPoint(null)}
+                        >
+                            {/* Hit Area (Invisible but clickable) */}
+                            <div className="w-6 h-6 rounded-full bg-transparent flex items-center justify-center cursor-pointer">
+                                {/* Visible Point (Only on hover or active) */}
+                                <div
+                                    className={`w-3 h-3 bg-white border-[2px] rounded-full transition-transform duration-300 ${hoveredPoint === i ? 'scale-125 opacity-100 ring-2 ring-white/50' : 'scale-0 opacity-0'
+                                        }`}
+                                    style={{ borderColor: activeMetric.color }}
+                                />
+                            </div>
+
+                            {/* Tooltip */}
+                            <div
+                                className={`absolute bottom-full mb-2 bg-slate-900 text-white text-xs font-medium px-2 py-1 rounded transition-all duration-200 whitespace-nowrap ${hoveredPoint === i ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
+                                    }`}
+                            >
+                                {activeMetric.format(p.value)}
+                                {/* Arrow/Triangle */}
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
 
                 {/* X Axis Labels */}
                 <div className="absolute inset-x-0 -bottom-6 flex justify-between px-1">
