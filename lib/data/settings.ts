@@ -10,7 +10,11 @@ export async function getIntegration() {
     const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
     let user = supabaseUser;
-    if (!user && (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_MOCK_MODE === "true")) {
+
+    // Check for dev_session cookie even in production for test mode
+    const devSession = cookies().get("dev_session");
+
+    if (!user && (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_MOCK_MODE === "true" || devSession)) {
         user = { id: "mock_user_id_dev", email: "dev@example.com" } as any;
     }
 
