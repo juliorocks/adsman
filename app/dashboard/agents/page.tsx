@@ -7,6 +7,7 @@ import { generateCreativeIdeas } from "@/lib/agents/creative";
 import { getIntegration } from "@/lib/data/settings";
 import { Button } from "@/components/ui/button";
 import { RecommendationCard } from "@/components/dashboard/RecommendationCard";
+import { CreativeCard } from "@/components/dashboard/CreativeCard";
 
 export const dynamic = 'force-dynamic';
 
@@ -129,21 +130,7 @@ export default async function AgentsPage() {
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {creatives.map((c) => (
-                                <div key={c.id} className="p-5 rounded-xl border border-slate-200 bg-white space-y-3 relative overflow-hidden group">
-                                    <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">{c.angle}</span>
-                                        <Sparkles className="h-3 w-3 text-purple-400" />
-                                    </div>
-                                    <h4 className="font-bold text-slate-900 leading-snug">{c.headline}</h4>
-                                    <p className="text-sm text-slate-500 line-clamp-3">{c.bodyText}</p>
-                                    <div className="pt-2 flex items-center justify-between">
-                                        <span className="text-xs font-medium text-slate-400">CTA: {c.cta}</span>
-                                        <Button variant="ghost" size="sm" className="h-7 text-[10px] text-purple-600 hover:bg-purple-50">
-                                            Copiar Copy
-                                        </Button>
-                                    </div>
-                                </div>
+                                <CreativeCard key={c.id} creative={c} />
                             ))}
                         </div>
                     </div>
