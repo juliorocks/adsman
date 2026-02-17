@@ -1,11 +1,12 @@
 
-import { Bot, ShieldCheck, Zap, Sparkles, TrendingUp, AlertTriangle, CheckCircle2, ArrowUpRight, Octagon, PenTool } from "lucide-react";
+import { Bot, ShieldCheck, Zap, Sparkles, TrendingUp, CheckCircle2, PenTool } from "lucide-react";
 import { getDashboardMetrics } from "@/lib/data/metrics";
 import { runPerformanceAudit } from "@/lib/agents/auditor";
 import { runScaleStrategy } from "@/lib/agents/strategist";
 import { generateCreativeIdeas } from "@/lib/agents/creative";
 import { getIntegration } from "@/lib/data/settings";
 import { Button } from "@/components/ui/button";
+import { RecommendationCard } from "@/components/dashboard/RecommendationCard";
 
 export const dynamic = 'force-dynamic';
 
@@ -105,35 +106,7 @@ export default async function AgentsPage() {
                         </h3>
                         <div className="space-y-4">
                             {allRecommendations.map((rec) => (
-                                <div key={rec.id} className="flex gap-4 p-5 rounded-xl border border-slate-100 bg-white shadow-sm hover:border-primary-100 transition-colors">
-                                    <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${rec.type === 'critical' ? 'bg-red-50 text-red-600' :
-                                            rec.type === 'optimization' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'
-                                        }`}>
-                                        {rec.source === 'strategist' ? (
-                                            rec.type === 'critical' ? <Octagon className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />
-                                        ) : (
-                                            rec.type === 'critical' ? <AlertTriangle className="h-5 w-5" /> : <TrendingUp className="h-5 w-5" />
-                                        )}
-                                    </div>
-                                    <div className="flex-1 space-y-1">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <h4 className="font-semibold text-slate-900">{rec.title}</h4>
-                                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase ${rec.source === 'auditor' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
-                                                    }`}>
-                                                    {rec.source}
-                                                </span>
-                                            </div>
-                                            <span className="text-[10px] text-slate-400 font-mono">{rec.impact}</span>
-                                        </div>
-                                        <p className="text-sm text-slate-500 leading-relaxed">{rec.description}</p>
-                                        <div className="pt-3">
-                                            <Button variant={rec.type === 'critical' ? 'destructive' : 'outline'} size="sm" className="h-8 text-xs">
-                                                {rec.actionLabel}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
+                                <RecommendationCard key={rec.id} rec={rec} />
                             ))}
                         </div>
                     </div>

@@ -54,7 +54,7 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
     let accounts: AdAccount[] = data.data || [];
 
     try {
-        const bizUrl = `${META_GRAPH_URL}/${META_VERSION}/me/businesses?fields=id,name,owned_ad_accounts{id,name,account_id,currency},client_ad_accounts{id,name,account_id,currency}&access_token=${accessToken}`;
+        const bizUrl = `${META_GRAPH_URL}/${META_API_VERSION}/me/businesses?fields=id,name,owned_ad_accounts{id,name,account_id,currency},client_ad_accounts{id,name,account_id,currency}&access_token=${accessToken}`;
         const bizResponse = await fetch(bizUrl);
         const bizData = await bizResponse.json();
 
