@@ -69,26 +69,36 @@ export default async function DashboardPage({
                     </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
-                    {campaignIds.length > 0 && (
-                        <Link
-                            href="/dashboard"
-                            className="px-3 py-2 flex items-center gap-2 text-sm font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
-                        >
-                            <XCircle className="h-4 w-4" />
-                            Limpar Filtros
-                        </Link>
-                    )}
-                    <DateRangeSelector />
-                    <div className="h-8 w-px bg-slate-100 hidden sm:block" />
-                    <div className="flex items-center gap-2">
-                        <Link href="/dashboard/revenue">
-                            <Button variant="ghost" className="gap-2 text-slate-600 hover:bg-slate-50 rounded-xl h-10 px-4">
-                                <History className="h-4 w-4" />
-                                Histórico
-                            </Button>
-                        </Link>
-                        <ManualRevenueModal />
+                <div className="flex flex-col items-end gap-4">
+                    {/* Account Selector */}
+                    <div className="w-[280px]">
+                        <AccountSelector
+                            accounts={accounts || []}
+                            currentAccountId={integration?.ad_account_id}
+                        />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
+                        {campaignIds.length > 0 && (
+                            <Link
+                                href="/dashboard"
+                                className="px-3 py-2 flex items-center gap-2 text-sm font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                            >
+                                <XCircle className="h-4 w-4" />
+                                Limpar Filtros
+                            </Link>
+                        )}
+                        <DateRangeSelector />
+                        <div className="h-8 w-px bg-slate-100 hidden sm:block" />
+                        <div className="flex items-center gap-2">
+                            <Link href="/dashboard/revenue">
+                                <Button variant="ghost" className="gap-2 text-slate-600 hover:bg-slate-50 rounded-xl h-10 px-4">
+                                    <History className="h-4 w-4" />
+                                    Histórico
+                                </Button>
+                            </Link>
+                            <ManualRevenueModal />
+                        </div>
                     </div>
                 </div>
             </div>
