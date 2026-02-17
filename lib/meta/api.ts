@@ -86,9 +86,17 @@ export async function getCampaigns(adAccountId: string, accessToken: string) {
     return data.data || [];
 }
 
+export async function getAdSets(adAccountId: string, accessToken: string) {
+    const fields = "id,name,status,billing_event,bid_amount,daily_budget,lifetime_budget";
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adsets?fields=${fields}&access_token=${accessToken}`);
+    const data = await response.json();
+
+    if (data.error) throw new Error(data.error.message);
+    return data.data || [];
+}
+
 export async function getInsights(id: string, accessToken: string, datePreset: string = 'maximum') {
-    const fields = "spend,impressions,clicks,cpc,cpm,actions";
-    // Works for both ad accounts and specific campaigns
+    const fields = "spend,impressions,clicks,cpc,cpm,actions,conversions,purchase_roas";
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${id}/insights?fields=${fields}&date_preset=${datePreset}&access_token=${accessToken}`);
     const data = await response.json();
 
@@ -96,4 +104,22 @@ export async function getInsights(id: string, accessToken: string, datePreset: s
         throw new Error(data.error.message);
     }
     return data.data || [];
+}
+
+export async function updateObjectStatus(id: string, status: 'ACTIVE' | 'PAUSED', accessToken: string) {
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${id}?status=${status}&access_token=${accessToken}`, {
+        method: 'POST'
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    return data;
+}
+
+export async function updateBudget(id: string, amount: number, type: 'daily_budget' | 'lifetime_budget', accessToken: string) {
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${id}?${type}=${Math.round(amount)}&access_token=${accessToken}`, {
+        method: 'POST'
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    return data;
 }
