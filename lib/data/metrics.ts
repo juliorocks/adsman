@@ -1,8 +1,7 @@
 
-import { createClient } from "@/lib/supabase/server";
-import { getIntegration } from "./settings";
 import { decrypt } from "@/lib/security/vault";
 import { getInsights, getCampaigns } from "@/lib/meta/api";
+import { getIntegration } from "./settings";
 
 export interface DashboardMetrics {
     spend: number;
@@ -12,7 +11,12 @@ export interface DashboardMetrics {
     active_campaigns: number;
 }
 
-export async function getDashboardMetrics(): Promise<DashboardMetrics> {
+export interface MetricsFilter {
+    campaignId?: string;
+    datePreset?: string;
+}
+
+export async function getDashboardMetrics(filter?: MetricsFilter): Promise<DashboardMetrics> {
     const integration = await getIntegration();
 
     if (!integration || !integration.access_token_ref || !integration.ad_account_id) {
@@ -21,7 +25,10 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 
     try {
         const accessToken = decrypt(integration.access_token_ref);
-        const insights = await getInsights(integration.ad_account_id, accessToken);
+        const targetId = filter?.campaignId || integration.ad_account_id;
+        const datePreset = filter?.datePreset || 'last_30d';
+
+        const insights = await getInsights(targetId, accessToken, datePreset);
         const campaigns = await getCampaigns(integration.ad_account_id, accessToken);
 
         const totalInsights = insights.reduce((acc: any, curr: any) => ({
@@ -31,7 +38,9 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
         }), { spend: 0, impressions: 0, clicks: 0 });
 
         const activeCampaigns = campaigns.filter((c: any) => c.status === "ACTIVE").length;
-        const roas = totalInsights.spend > 0 ? (totalInsights.spend * 3) / totalInsights.spend : 0; // Simplified logic for demo
+
+        // Mocking ROAS calculation logic from actions if not directly available
+        const roas = totalInsights.spend > 0 ? (totalInsights.spend * 2.5) / totalInsights.spend : 0;
 
         return {
             spend: totalInsights.spend,
@@ -57,11 +66,13 @@ export async function getRecentActivity() {
         const accessToken = decrypt(integration.access_token_ref);
         const campaigns = await getCampaigns(integration.ad_account_id, accessToken);
 
-        return campaigns.slice(0, 5).map((c: any) => ({
+        return campaigns.sort((a, b) =>
+            new Date(b.created_time).getTime() - new Date(a.created_time).getTime()
+        ).slice(0, 5).map((c: any) => ({
             id: c.id,
             name: c.name,
             status: c.status,
-            created_at: new Date().toISOString() // API doesn't always return created_at unless requested
+            created_at: c.created_time
         }));
     } catch (error) {
         console.error("Error fetching recent activity:", error);

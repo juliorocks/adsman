@@ -53,7 +53,6 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
 
     let accounts: AdAccount[] = data.data || [];
 
-    // Deep scan via Business Manager if needed
     try {
         const bizUrl = `${META_GRAPH_URL}/${META_API_VERSION}/me/businesses?fields=id,name,owned_ad_accounts{id,name,account_id,currency},client_ad_accounts{id,name,account_id,currency}&access_token=${accessToken}`;
         const bizResponse = await fetch(bizUrl);
@@ -73,12 +72,11 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
         console.error("Business scan error:", bizErr);
     }
 
-    // De-duplicate accounts by ID
     return Array.from(new Map(accounts.map(acc => [acc.id, acc])).values());
 }
 
 export async function getCampaigns(adAccountId: string, accessToken: string) {
-    const fields = "id,name,status,objective,daily_budget,lifetime_budget";
+    const fields = "id,name,status,objective,daily_budget,lifetime_budget,created_time";
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns?fields=${fields}&access_token=${accessToken}`);
     const data = await response.json();
 
@@ -88,9 +86,10 @@ export async function getCampaigns(adAccountId: string, accessToken: string) {
     return data.data || [];
 }
 
-export async function getInsights(adAccountId: string, accessToken: string) {
+export async function getInsights(id: string, accessToken: string, datePreset: string = 'maximum') {
     const fields = "spend,impressions,clicks,cpc,cpm,actions";
-    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/insights?fields=${fields}&date_preset=maximum&access_token=${accessToken}`);
+    // Works for both ad accounts and specific campaigns
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${id}/insights?fields=${fields}&date_preset=${datePreset}&access_token=${accessToken}`);
     const data = await response.json();
 
     if (data.error) {
