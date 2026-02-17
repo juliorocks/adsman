@@ -1,10 +1,13 @@
 
+
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, PlusCircle, Settings, BarChart3, Layers, Bot } from "lucide-react";
+import { LayoutDashboard, PlusCircle, Settings, BarChart3, Layers, Bot, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 const navigation = [
     { name: "Visão Geral", href: "/dashboard", icon: LayoutDashboard },
@@ -17,54 +20,80 @@ const navigation = [
 
 export function Sidebar() {
     const pathname = usePathname();
+    const [isCollapsed, setIsCollapsed] = useState(false);
 
     return (
-        <div className="flex h-full w-72 flex-col border-r border-slate-100 bg-white">
-            <div className="flex h-20 items-center px-8">
-                <div className="flex items-center gap-2">
+        <div className={cn(
+            "flex h-full flex-col border-r border-slate-100 bg-white transition-all duration-300",
+            isCollapsed ? "w-20" : "w-72"
+        )}>
+            <div className={cn("flex h-20 items-center px-4", isCollapsed ? "justify-center" : "justify-between")}>
+                {!isCollapsed && (
+                    <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center shadow-lg shadow-primary-200">
+                            <BarChart3 className="h-5 w-5 text-white" />
+                        </div>
+                        <span className="text-xl font-extrabold tracking-tight text-slate-900">Track<span className="text-primary-600">Ads</span></span>
+                    </div>
+                )}
+                {isCollapsed && (
                     <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center shadow-lg shadow-primary-200">
                         <BarChart3 className="h-5 w-5 text-white" />
                     </div>
-                    <span className="text-xl font-extrabold tracking-tight text-slate-900">Track<span className="text-primary-600">Ads</span></span>
-                </div>
+                )}
+
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                    className="text-slate-400 hover:text-primary-600"
+                >
+                    {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+                </Button>
             </div>
 
-            <nav className="flex-1 space-y-1.5 px-4 py-6">
-                <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">Menu Principal</p>
+            <nav className="flex-1 space-y-1.5 px-3 py-6">
+                {!isCollapsed && <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">Menu Principal</p>}
+
                 {navigation.map((item) => {
                     const isActive = pathname === item.href;
                     return (
                         <Link
-                            key={item.name}
+                            key={item.href}
                             href={item.href}
+                            title={isCollapsed ? item.name : undefined}
                             className={cn(
-                                "group flex items-center rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200",
+                                "group flex items-center rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-200",
                                 isActive
                                     ? "bg-primary-600 text-white shadow-lg shadow-primary-100"
-                                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
+                                isCollapsed && "justify-center"
                             )}
                         >
                             <item.icon
                                 className={cn(
-                                    "mr-3 h-5 w-5 flex-shrink-0 transition-colors",
-                                    isActive ? "text-white" : "text-slate-400 group-hover:text-primary-500"
+                                    "h-5 w-5 flex-shrink-0 transition-colors",
+                                    isActive ? "text-white" : "text-slate-400 group-hover:text-primary-500",
+                                    !isCollapsed && "mr-3"
                                 )}
                             />
-                            {item.name}
+                            {!isCollapsed && <span>{item.name}</span>}
                         </Link>
                     );
                 })}
             </nav>
 
-            <div className="p-6 bg-slate-50/50 m-4 rounded-3xl border border-slate-100">
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary-600 font-bold border border-slate-100">
+            <div className={cn("m-4 rounded-3xl border border-slate-100 bg-slate-50/50", isCollapsed ? "p-2" : "p-6")}>
+                <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
+                    <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary-600 font-bold border border-slate-100 flex-shrink-0">
                         JD
                     </div>
-                    <div className="text-xs overflow-hidden">
-                        <p className="font-bold text-slate-900 truncate">Júlio Oliveira</p>
-                        <p className="text-slate-500 truncate">Plan: Enterprise</p>
-                    </div>
+                    {!isCollapsed && (
+                        <div className="text-xs overflow-hidden">
+                            <p className="font-bold text-slate-900 truncate">Júlio Oliveira</p>
+                            <p className="text-slate-500 truncate">Plan: Enterprise</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
