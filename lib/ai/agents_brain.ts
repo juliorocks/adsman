@@ -2,10 +2,6 @@
 import OpenAI from "openai";
 import { DashboardMetrics } from "../data/metrics";
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
-
 export interface AgentVerdict {
     agent: 'auditor' | 'strategist' | 'creative';
     status: 'OPTIMAL' | 'WARNING' | 'CRITICAL';
@@ -28,6 +24,10 @@ export async function getAgentVerdict(context: {
             recommendation: 'Configure a API Key para análise real.'
         }];
     }
+
+    const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+    });
 
     try {
         const response = await openai.chat.completions.create({

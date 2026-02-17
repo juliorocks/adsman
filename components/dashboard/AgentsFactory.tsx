@@ -1,8 +1,8 @@
 
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import { Bot, ShieldCheck, Zap, Sparkles, Box, Activity, Loader2, Play } from "lucide-react";
+import { motion } from "framer-motion";
+import { Activity, Loader2, Play } from "lucide-react";
 import { useState, useEffect } from "react";
 import { runAgentSquadAction } from "@/actions/agents";
 import { useRouter } from "next/navigation";
@@ -28,56 +28,38 @@ const AGENT_STATES = {
     ]
 } as const;
 
-interface AgentStatusProps {
-    type: 'auditor' | 'strategist' | 'creative';
-    positionX: string;
-    icon: React.ElementType;
-    color: string;
-    glowColor: string;
-}
-
-const RobotArm = ({ type, isActive }: { type: string, isActive: boolean }) => {
-    const armVariants: any = {
-        idle: { rotate: 0 },
-        active: {
-            rotate: [0, -15, 10, -5, 0],
-            transition: {
-                repeat: Infinity,
-                duration: type === 'creative' ? 2 : 4,
-                ease: "easeInOut"
-            }
-        }
-    };
-
+const RobotBlink = ({ color }: { color: string }) => {
     return (
-        <motion.div
-            className="absolute bottom-16 left-1/2 -translate-x-1/2 origin-bottom z-10 pointer-events-none"
-            variants={armVariants}
-            animate="active"
-        >
-            <div className={`w-2 h-16 bg-gradient-to-t from-slate-700 to-slate-500 rounded-full relative shadow-lg`}>
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-slate-800 border-2 border-slate-600" />
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    {type === 'auditor' && (
-                        <motion.div
-                            animate={{ opacity: [0.5, 1, 0.5] }}
-                            transition={{ duration: 1.5, repeat: Infinity }}
-                            className="w-8 h-1 bg-red-500 blur-sm rounded-full"
-                        />
-                    )}
-                    {type === 'strategist' && (
-                        <div className="w-6 h-6 border-2 border-blue-400 rounded-full border-dashed animate-spin-slow" />
-                    )}
-                    {type === 'creative' && (
-                        <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-                            className="w-4 h-4 bg-purple-500 rounded-sm"
-                        />
-                    )}
-                </div>
-            </div>
-        </motion.div>
+        <div className="absolute inset-0 pointer-events-none z-30">
+            {/* Left Eye */}
+            <motion.div
+                className={`absolute top-[38%] left-[32%] w-[12%] h-[6%] rounded-full ${color} mix-blend-screen blur-[1px]`}
+                animate={{
+                    scaleY: [1, 1, 0, 1],
+                    opacity: [0.8, 0.8, 0, 0.8]
+                }}
+                transition={{
+                    duration: 5,
+                    repeat: Infinity,
+                    times: [0, 0.9, 0.92, 1],
+                    ease: "easeInOut"
+                }}
+            />
+            {/* Right Eye */}
+            <motion.div
+                className={`absolute top-[38%] right-[32%] w-[12%] h-[6%] rounded-full ${color} mix-blend-screen blur-[1px]`}
+                animate={{
+                    scaleY: [1, 1, 0, 1],
+                    opacity: [0.8, 0.8, 0, 0.8]
+                }}
+                transition={{
+                    duration: 5,
+                    repeat: Infinity,
+                    times: [0, 0.9, 0.92, 1],
+                    ease: "easeInOut"
+                }}
+            />
+        </div>
     );
 };
 
@@ -118,124 +100,104 @@ export function AgentsFactory() {
         }
     };
 
-    const AgentStation = ({ type, positionX, icon: Icon, color, glowColor }: AgentStatusProps) => (
-        <div className={`absolute top-0 bottom-0 w-[20%] ${positionX} flex flex-col items-center justify-end pb-8 group`}>
-            <div className="absolute bottom-0 w-full h-4 bg-slate-800/50 rounded-[100%] blur-sm group-hover:bg-slate-700/50 transition-colors" />
+    const AgentStation = ({ type, color, glowColor, robotImg, eyeColor }: any) => (
+        <div className={`relative w-[30%] flex flex-col items-center justify-end pb-12 group`}>
+            {/* Holographic Platform */}
+            <div className={`absolute bottom-4 w-full h-8 ${color.replace('bg-', 'bg-')}/10 rounded-[100%] blur-xl group-hover:bg-opacity-20 transition-all duration-700`} />
+            <div className="absolute bottom-4 w-24 h-4 bg-slate-800/40 rounded-[100%] border border-slate-700/50 blur-[2px]" />
+
+            {/* Robot Container */}
             <motion.div
-                className="relative z-20 cursor-pointer"
-                whileHover={{ scale: 1.05, y: -5 }}
+                className="relative z-20 cursor-pointer w-32 h-32"
+                animate={{
+                    y: [0, -15, 0],
+                    rotate: [-1, 1, -1]
+                }}
+                transition={{
+                    duration: 4 + Math.random(),
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                }}
+                whileHover={{ scale: 1.1 }}
             >
-                <div className={`
-                    w-16 h-16 rounded-2xl ${color} bg-opacity-20 border-2 border-[${glowColor}] 
-                    flex items-center justify-center backdrop-blur-sm shadow-[0_0_15px_${glowColor}40]
-                    relative overflow-hidden
-                `}>
-                    <Icon className={`w-8 h-8 ${glowColor}`} />
-                    <motion.div
-                        className={`absolute inset-0 bg-gradient-to-b from-transparent via-[${glowColor}] to-transparent opacity-20 h-[30%] w-full`}
-                        animate={{ top: ['-100%', '100%'] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    />
-                </div>
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse" />
+                {/* Robot Image */}
+                <img
+                    src={robotImg}
+                    alt={type}
+                    className="w-full h-full object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]"
+                />
+
+                {/* Blinking Eyes Overlay */}
+                <RobotBlink color={eyeColor.replace('bg-', 'bg-')} />
+
+                {/* Status Indicator Dot */}
+                <div className={`absolute top-2 right-6 w-3 h-3 ${glowColor.replace('text-', 'bg-')} rounded-full border-2 border-slate-900 animate-pulse shadow-[0_0_10px_currentColor]`} />
+
+                {/* Popup Tooltip */}
                 <div className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 w-48 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none transform translate-y-2 group-hover:translate-y-0 z-50">
-                    <div className="bg-slate-900/90 backdrop-blur-md text-white p-3 rounded-xl border border-slate-700 shadow-xl text-xs">
+                    <div className="bg-slate-900/95 backdrop-blur-md text-white p-3 rounded-2xl border border-slate-700 shadow-2xl text-xs">
                         <div className="font-bold flex items-center gap-2 mb-1 text-[10px] uppercase tracking-wider text-slate-400">
                             <Activity className="w-3 h-3 text-green-400" />
-                            Em Execução
+                            Status Ativo
                         </div>
                         <p className="font-medium text-slate-200">
-                            {activeStatuses[type]}
+                            {activeStatuses[type as keyof typeof activeStatuses]}
                         </p>
-                        <div className="mt-2 pt-2 border-t border-slate-700 text-[10px] text-slate-500 flex justify-between">
-                            <span>Uptime: 99.9%</span>
-                            <span>Latency: 12ms</span>
-                        </div>
                     </div>
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900/90" />
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900/95" />
                 </div>
             </motion.div>
-            <RobotArm type={type} isActive={true} />
-            <div className="mt-4 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-800 backdrop-blur-sm text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                {type}
+
+            {/* Base Label */}
+            <div className="mt-8 px-4 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 backdrop-blur-sm shadow-xl">
+                <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${glowColor}`}>
+                    {type}
+                </span>
             </div>
         </div>
     );
 
     return (
-        <div className="relative w-full h-[320px] bg-slate-950 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl shadow-black/50">
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(30,41,59,0.5)_1px,transparent_1px),linear-gradient(90deg,rgba(30,41,59,0.5)_1px,transparent_1px)] bg-[size:40px_40px] opacity-20" />
-            <div className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-blue-900/10 to-transparent pointer-events-none" />
+        <div className="relative w-full h-[360px] bg-slate-950 rounded-[40px] overflow-hidden border border-slate-800 shadow-2xl shadow-black/50">
+            {/* Background Grid */}
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(30,41,59,0.3)_1px,transparent_1px),linear-gradient(90deg,rgba(30,41,59,0.3)_1px,transparent_1px)] bg-[size:40px_40px] opacity-20" />
 
-            <div className="absolute top-6 right-6 z-30">
+            {/* Manual Override Button */}
+            <div className="absolute top-8 right-8 z-30">
                 <button
                     onClick={handleRunSquad}
                     disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 disabled:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] active:scale-95"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-500 disabled:bg-slate-800 text-white text-xs font-bold rounded-2xl transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)] active:scale-95 border border-primary-400/20"
                 >
-                    {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3 fill-current" />}
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
                     {loading ? 'Sincronizando...' : 'Executar Análise IA Agora'}
                 </button>
             </div>
 
-            <div className="absolute bottom-0 w-full h-12 bg-slate-900 border-t border-slate-700 overflow-hidden flex items-center">
-                <motion.div
-                    className="flex w-[200%] h-full opacity-30"
-                    animate={{ x: ["0%", "-50%"] }}
-                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                >
-                    {Array.from({ length: 40 }).map((_, i) => (
-                        <div key={i} className="w-[5%] border-r border-slate-600 h-full skew-x-12" />
-                    ))}
-                </motion.div>
-            </div>
-
-            <div className="absolute bottom-6 left-0 right-0 h-10 pointer-events-none z-10">
-                <AnimatePresence>
-                    {[1, 2, 3].map((i) => (
-                        <motion.div
-                            key={i}
-                            className="absolute bottom-0"
-                            initial={{ left: "-10%" }}
-                            animate={{ left: "110%" }}
-                            transition={{
-                                duration: 8,
-                                repeat: Infinity,
-                                ease: "linear",
-                                delay: i * 2.5
-                            }}
-                        >
-                            <div className="w-12 h-12 bg-indigo-500/20 backdrop-blur-sm border border-indigo-400/50 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20 rotate-[-12deg]">
-                                <Box className="w-6 h-6 text-indigo-200" />
-                            </div>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
-            </div>
-
-            <div className="relative w-full h-full">
+            {/* Stations */}
+            <div className="relative w-full h-full flex justify-center items-center px-10">
                 <AgentStation
                     type="auditor"
-                    positionX="left-[15%]"
-                    icon={ShieldCheck}
                     color="bg-orange-500"
                     glowColor="text-orange-500"
+                    robotImg="/robots/auditor.png"
+                    eyeColor="bg-yellow-400"
                 />
 
                 <AgentStation
                     type="strategist"
-                    positionX="left-[40%]"
-                    icon={Zap}
                     color="bg-blue-500"
-                    glowColor="text-blue-500"
+                    glowColor="text-blue-400"
+                    robotImg="/robots/strategist.png"
+                    eyeColor="bg-emerald-400"
                 />
 
                 <AgentStation
                     type="creative"
-                    positionX="left-[65%]"
-                    icon={Sparkles}
                     color="bg-purple-500"
-                    glowColor="text-purple-500"
+                    glowColor="text-purple-400"
+                    robotImg="/robots/creative.png"
+                    eyeColor="bg-fuchsia-400"
                 />
             </div>
 

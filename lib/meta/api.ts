@@ -107,18 +107,19 @@ export async function getInsights(
     accessToken: string,
     datePreset: string = 'maximum',
     timeRange?: { since: string; until: string },
-    timeIncrement?: number | 'all_days'
+    timeIncrement?: number | 'all_days',
+    breakdowns?: string
 ) {
-    const fields = "spend,impressions,clicks,cpc,cpm,actions,conversions,purchase_roas,action_values,date_start";
+    const fields = "spend,impressions,clicks,cpc,cpm,actions,conversions,purchase_roas,action_values,date_start,outbound_clicks,cost_per_action_type";
     const idParam = Array.isArray(targets) ? targets.join(',') : targets;
 
     let url;
     const limit = 500; // Increased limit to avoid truncation of long periods
 
     if (Array.isArray(targets) && targets.length > 1) {
-        url = `${META_GRAPH_URL}/${META_API_VERSION}/?ids=${idParam}&fields=insights.limit(${limit}){${fields}${timeIncrement ? `,time_increment=${timeIncrement}` : ''}}&access_token=${accessToken}`;
+        url = `${META_GRAPH_URL}/${META_API_VERSION}/?ids=${idParam}&fields=insights.limit(${limit}){${fields}${timeIncrement ? `,time_increment=${timeIncrement}` : ''}${breakdowns ? `,breakdowns=${breakdowns}` : ''}}&access_token=${accessToken}`;
     } else {
-        url = `${META_GRAPH_URL}/${META_API_VERSION}/${idParam}/insights?fields=${fields}&access_token=${accessToken}&limit=${limit}${timeIncrement ? `&time_increment=${timeIncrement}` : ''}`;
+        url = `${META_GRAPH_URL}/${META_API_VERSION}/${idParam}/insights?fields=${fields}&access_token=${accessToken}&limit=${limit}${timeIncrement ? `&time_increment=${timeIncrement}` : ''}${breakdowns ? `&breakdowns=${breakdowns}` : ''}`;
     }
 
     if (timeRange) {

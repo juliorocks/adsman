@@ -1,0 +1,57 @@
+
+"use client";
+
+import React, { useState, useEffect } from "react";
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from "@dnd-kit/core";
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { SortableItem } from "./SortableItem";
+import {
+    DollarSign,
+    MousePointerClick,
+    Target,
+    TrendingUp,
+    BarChart3,
+    Activity,
+    Percent,
+    ShoppingCart,
+    Settings2,
+    Users,
+    MessageCircle,
+    CheckSquare,
+    Coins,
+    Contact2,
+    History
+} from "lucide-react";
+import { MetricCard } from "./MetricCard";
+import { Button } from "@/components/ui/button";
+
+const METRIC_CONFIG: Record<string, any> = {
+    spend: { title: "Gasto Total", icon: DollarSign, format: (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` },
+    impressions: { title: "Impressões", icon: Target, format: (v: number) => v.toLocaleString('pt-BR') },
+    clicks: { title: "Cliques", icon: MousePointerClick, format: (v: number) => v.toLocaleString('pt-BR') },
+    roas: { title: "ROAS Estimado", icon: TrendingUp, format: (v: number) => `${v}x` },
+    cpc: { title: "CPC Médio", icon: Activity, format: (v: number) => `R$ ${v.toFixed(2)}` },
+    ctr: { title: "CTR", icon: Percent, format: (v: number) => `${v}%` },
+    cpm: { title: "CPM", icon: BarChart3, format: (v: number) => `R$ ${v.toFixed(2)}` },
+    conversions: { title: "Conversões", icon: ShoppingCart, format: (v: number) => typeof v === 'number' ? v.toLocaleString('pt-BR') : v },
+    leads: { title: "Leads", icon: Users, format: (v: number) => v.toLocaleString('pt-BR') },
+    conversations: { title: "Conversas", icon: MessageCircle, format: (v: number) => v.toLocaleString('pt-BR') },
+    results: { title: "Resultados", icon: CheckSquare, format: (v: number) => v.toLocaleString('pt-BR') },
+    cpa: { title: "CPA Médio", icon: Coins, format: (v: number) => `R$ ${v.toFixed(2)}` },
+    top_gender: { title: "Gênero Principal", icon: Contact2, format: (v: string) => v },
+    top_age: { title: "Idade Principal", icon: History, format: (v: string) => v },
+};
