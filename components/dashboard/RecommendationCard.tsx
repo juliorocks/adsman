@@ -62,6 +62,13 @@ export function RecommendationCard({ rec }: RecProps) {
                     <span className="text-[10px] text-slate-400 font-mono">{rec.impact}</span>
                 </div>
                 <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{rec.description}</p>
+
+                {rec.thought && (
+                    <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800 italic text-xs text-slate-500 dark:text-slate-400 flex gap-2">
+                        <span className="font-bold text-primary-500">Razão da IA:</span>
+                        <span>{rec.thought}</span>
+                    </div>
+                )}
                 <div className="pt-3">
                     {applied ? (
                         <div className="flex items-center gap-2 text-xs font-semibold text-green-600">

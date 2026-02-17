@@ -1,5 +1,6 @@
 
 import { DashboardMetrics } from "../data/metrics";
+import { getAgentVerdict } from "../ai/agents_brain";
 
 export interface AIRecommendation {
     id: string;
@@ -8,6 +9,7 @@ export interface AIRecommendation {
     description: string;
     actionLabel: string;
     impact: string;
+    thought?: string;
 }
 
 export interface AuditResult {
@@ -17,84 +19,55 @@ export interface AuditResult {
     recommendations: AIRecommendation[];
 }
 
-export async function runPerformanceAudit(metrics: DashboardMetrics): Promise<AuditResult> {
-    const recommendations: AIRecommendation[] = [];
-    let score = 85;
-
-    // Logic for CPA (Total Spend / Clicks as proxy for now)
+export async function runPerformanceAudit(metrics: DashboardMetrics, campaignName: string = "Geral"): Promise<AuditResult> {
+    // 1. Initial heuristic check
     const cpc = metrics.clicks > 0 ? metrics.spend / metrics.clicks : 0;
+    const ctr = metrics.impressions > 0 ? (metrics.clicks / metrics.impressions) * 100 : 0;
 
-    if (cpc > 5) {
-        score -= 20;
+    // 2. Call AI Brain for deeper analysis if API key is present
+    const insights = await getAgentVerdict({
+        campaignName,
+        metrics,
+        currentBudget: 0, // Not available here easily
+        objective: "CONVERSIONS"
+    });
+
+    const aiVerdict = insights.find(v => v.agent === 'auditor');
+
+    const recommendations: AIRecommendation[] = [];
+
+    if (aiVerdict) {
         recommendations.push({
-            id: 'high_cpc',
+            id: 'ai_audit_' + Date.now(),
+            type: aiVerdict.status === 'CRITICAL' ? 'critical' : 'optimization',
+            title: 'Análise de Auditoria IA',
+            description: aiVerdict.recommendation,
+            actionLabel: 'Ver Insights Técnicos',
+            impact: 'Otimização de Performance',
+            thought: aiVerdict.thought
+        });
+    }
+
+    // Fallback/Safety heuristic
+    if (ctr < 0.5 && metrics.impressions > 5000) {
+        recommendations.push({
+            id: 'low_ctr_fallback',
             type: 'critical',
-            title: 'CPC Elevado Detectado',
-            description: `Seu custo por clique atual (R$ ${cpc.toFixed(2)}) está 40% acima da média do seu setor. Recomenda-se revisar o criativo ou a segmentação.`,
-            actionLabel: 'Revisar Criativos',
-            impact: 'Redução de ~15% no custo total'
+            title: 'CTR Crítico (Heurística)',
+            description: 'Seu CTR está muito baixo, indicando falta de relevância no criativo.',
+            actionLabel: 'Trocar Criativo',
+            impact: 'Aumento de cliques'
         });
     }
 
-    if (metrics.roas < 3) {
-        score -= 15;
-        recommendations.push({
-            id: 'low_roas',
-            type: 'optimization',
-            title: 'ROAS Abaixo da Meta',
-            description: 'O retorno sobre investimento estábaixo. Considere pausar os conjuntos de anúncios com menor conversão.',
-            actionLabel: 'Ver Detalhes do ROAS',
-            impact: 'Aumento de 0.5x no ROAS'
-        });
-    }
-
-    if (metrics.impressions > 10000 && metrics.clicks < 50) {
-        score -= 25;
-        recommendations.push({
-            id: 'low_ctr',
-            type: 'critical',
-            title: 'CTR Muito Baixo',
-            description: 'Muitas pessoas estão vendo seus anúncios, mas poucas estão clicando. Isso indica que a oferta ou a imagem não está atraente.',
-            actionLabel: 'Trocar Imagem',
-            impact: 'Aumento real em cliques'
-        });
-    }
-
-    // Opportunity
-    if (metrics.roas > 5) {
-        recommendations.push({
-            id: 'scale_opportunity',
-            type: 'opportunity',
-            title: 'Oportunidade de Escala',
-            description: 'Esta conta está performando excepcionalmente bem. Sugerimos aumentar o orçamento diário em 20% para maximizar o alcance.',
-            actionLabel: 'Aumentar Orçamento',
-            impact: 'Escala de faturamento'
-        });
-    }
-
-    let status: 'good' | 'average' | 'poor' = 'good';
-    if (score < 50) status = 'poor';
-    else if (score < 80) status = 'average';
-
-    const summaries = {
-        good: 'Sua conta está operando com ótima eficiência. Pequenos ajustes podem trazer ganhos marginais.',
-        average: 'Existem pontos de atenção que estão drenando seu orçamento. Recomendamos agir nas sugestões abaixo.',
-        poor: 'Alerta crítico: sua performance está muito abaixo do esperado. É necessário uma revisão estrutural imediata.'
-    };
+    let score = 100;
+    if (recommendations.some(r => r.type === 'critical')) score = 40;
+    else if (recommendations.some(r => r.type === 'optimization')) score = 75;
 
     return {
-        score: Math.max(0, score),
-        status,
-        summary: summaries[status],
-        recommendations: recommendations.length > 0 ? recommendations : [
-            {
-                id: 'all_good',
-                type: 'opportunity',
-                title: 'Tudo em ordem!',
-                description: 'Não detectamos anomalias críticas no momento. Continue monitorando.',
-                actionLabel: 'Ver Relatório Completo',
-                impact: 'Estabilidade'
-            }
-        ]
+        score,
+        status: score > 80 ? 'good' : score > 50 ? 'average' : 'poor',
+        summary: aiVerdict?.thought || "Auditoria concluída com base nos sinais da conta.",
+        recommendations
     };
 }

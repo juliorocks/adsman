@@ -1,8 +1,9 @@
 
 import { decrypt } from "@/lib/security/vault";
-import { getInsights, getAdSets, getCampaigns } from "@/lib/meta/api";
+import { getInsights, getAdSets } from "@/lib/meta/api";
 import { getIntegration } from "../data/settings";
 import { DashboardMetrics } from "../data/metrics";
+import { getAgentVerdict } from "../ai/agents_brain";
 
 export interface ScalingRecommendation {
     id: string;
@@ -13,6 +14,7 @@ export interface ScalingRecommendation {
     suggestedBudget?: number;
     reason: string;
     impact: string;
+    thought?: string;
 }
 
 export async function runScaleStrategy(metrics?: DashboardMetrics): Promise<ScalingRecommendation[]> {
@@ -24,9 +26,6 @@ export async function runScaleStrategy(metrics?: DashboardMetrics): Promise<Scal
         const adSets = await getAdSets(integration.ad_account_id, accessToken);
         const recommendations: ScalingRecommendation[] = [];
 
-        // Define context awareness
-        const isAccountHealthy = metrics ? metrics.roas >= 2.0 : false;
-
         for (const adSet of adSets) {
             if (adSet.status !== 'ACTIVE') continue;
 
@@ -34,48 +33,41 @@ export async function runScaleStrategy(metrics?: DashboardMetrics): Promise<Scal
             if (insights.length === 0) continue;
 
             const data = insights[0];
-            const spend = parseFloat(data.spend || 0);
-            const roas = data.purchase_roas ? parseFloat(data.purchase_roas[0]?.value || 0) : 0;
             const currentBudget = parseFloat(adSet.daily_budget || adSet.lifetime_budget || 0) / 100;
 
-            // Scale UP Logic: High ROAS
-            if (roas > 4.0 && spend > 50) {
+            // Call AI Brain for scaling verdict
+            const brainVerdicts = await getAgentVerdict({
+                campaignName: adSet.name,
+                metrics: {
+                    spend: parseFloat(data.spend || 0),
+                    clicks: parseInt(data.clicks || 0),
+                    roas: data.purchase_roas ? parseFloat(data.purchase_roas[0]?.value || 0) : 0,
+                    ctr: data.impressions > 0 ? (parseInt(data.clicks) / parseInt(data.impressions) * 100) : 0
+                },
+                currentBudget,
+                objective: "SALES"
+            });
+
+            const verdict = brainVerdicts.find(v => v.agent === 'strategist');
+
+            if (verdict && verdict.status !== 'OPTIMAL') {
                 recommendations.push({
-                    id: `scale_up_${adSet.id}`,
-                    type: 'scale_up',
+                    id: `ai_scale_${adSet.id}`,
+                    type: verdict.status === 'CRITICAL' ? 'pause' : 'scale_up',
                     targetName: adSet.name,
                     targetId: adSet.id,
                     currentBudget,
-                    suggestedBudget: currentBudget * 1.2,
-                    reason: `ROAS excelente de ${roas.toFixed(2)}x nos últimos 7 dias.`,
-                    impact: 'Aumento estimado de 15-20% em conversões'
-                });
-            }
-
-            // Scale DOWN / PAUSE Logic
-            if (spend > 100 && roas < 1.0) {
-                // If account is healthy (likely manual revenue), don't blindly ask to pause 0 ROAS sets which might be driving it.
-                if (isAccountHealthy && roas === 0) {
-                    // Do nothing or suggest review, but strictly NOT a 'pause' recommendation for now to avoid false positives.
-                    // The user specifically complained about "Pausar" on healthy accounts.
-                    continue;
-                }
-
-                recommendations.push({
-                    id: `pause_${adSet.id}`,
-                    type: 'pause',
-                    targetName: adSet.name,
-                    targetId: adSet.id,
-                    currentBudget,
-                    reason: `Gasto elevado (R$ ${spend}) sem retorno satisfatório (ROAS ${roas.toFixed(2)}).`,
-                    impact: 'Economia imediata de orçamento'
+                    suggestedBudget: verdict.status === 'WARNING' ? currentBudget * 1.2 : undefined,
+                    reason: verdict.recommendation,
+                    impact: verdict.status === 'WARNING' ? 'Expansão de ROAS' : 'Corte de Gastos Ineficientes',
+                    thought: verdict.thought
                 });
             }
         }
 
         return recommendations;
     } catch (error) {
-        console.error("Scale strategy error:", error);
+        console.error("Scale strategy AI error:", error);
         return [];
     }
 }

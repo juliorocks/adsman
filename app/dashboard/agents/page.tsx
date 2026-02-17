@@ -36,7 +36,8 @@ export default async function AgentsPage() {
             ...r,
             source: 'auditor',
             actionType: null,
-            actionPayload: null
+            actionPayload: null,
+            thought: (r as any).thought
         })),
         ...scaling.map(s => ({
             id: s.id,
@@ -50,7 +51,8 @@ export default async function AgentsPage() {
             actionPayload: {
                 id: s.targetId,
                 amount: s.suggestedBudget
-            }
+            },
+            thought: s.thought
         }))
     ];
 
