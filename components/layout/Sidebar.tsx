@@ -24,20 +24,20 @@ export function Sidebar() {
 
     return (
         <div className={cn(
-            "flex h-full flex-col border-r border-slate-100 bg-white transition-all duration-300",
+            "flex h-full flex-col border-r border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 transition-all duration-300",
             isCollapsed ? "w-20" : "w-72"
         )}>
             <div className={cn("flex h-20 items-center px-4", isCollapsed ? "justify-center" : "justify-between")}>
                 {!isCollapsed && (
                     <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center shadow-lg shadow-primary-200">
+                        <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center shadow-lg shadow-primary-200 dark:shadow-none">
                             <BarChart3 className="h-5 w-5 text-white" />
                         </div>
-                        <span className="text-xl font-extrabold tracking-tight text-slate-900">Track<span className="text-primary-600">Ads</span></span>
+                        <span className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">Track<span className="text-primary-600">Ads</span></span>
                     </div>
                 )}
                 {isCollapsed && (
-                    <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center shadow-lg shadow-primary-200">
+                    <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center shadow-lg shadow-primary-200 dark:shadow-none">
                         <BarChart3 className="h-5 w-5 text-white" />
                     </div>
                 )}
@@ -46,7 +46,7 @@ export function Sidebar() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setIsCollapsed(!isCollapsed)}
-                    className="text-slate-400 hover:text-primary-600"
+                    className="text-slate-400 hover:text-primary-600 dark:hover:text-primary-400"
                 >
                     {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
                 </Button>
@@ -65,15 +65,15 @@ export function Sidebar() {
                             className={cn(
                                 "group flex items-center rounded-xl px-3 py-3 text-sm font-semibold transition-all duration-200",
                                 isActive
-                                    ? "bg-primary-600 text-white shadow-lg shadow-primary-100"
-                                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
+                                    ? "bg-primary-600 text-white shadow-lg shadow-primary-100 dark:shadow-none"
+                                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-100",
                                 isCollapsed && "justify-center"
                             )}
                         >
                             <item.icon
                                 className={cn(
                                     "h-5 w-5 flex-shrink-0 transition-colors",
-                                    isActive ? "text-white" : "text-slate-400 group-hover:text-primary-500",
+                                    isActive ? "text-white" : "text-slate-400 group-hover:text-primary-500 dark:group-hover:text-primary-400",
                                     !isCollapsed && "mr-3"
                                 )}
                             />
@@ -83,15 +83,15 @@ export function Sidebar() {
                 })}
             </nav>
 
-            <div className={cn("m-4 rounded-3xl border border-slate-100 bg-slate-50/50", isCollapsed ? "p-2" : "p-6")}>
+            <div className={cn("m-4 rounded-3xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50", isCollapsed ? "p-2" : "p-6")}>
                 <div className={cn("flex items-center gap-3", isCollapsed && "justify-center")}>
-                    <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary-600 font-bold border border-slate-100 flex-shrink-0">
+                    <div className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-primary-600 font-bold border border-slate-100 dark:border-slate-700 flex-shrink-0">
                         JD
                     </div>
                     {!isCollapsed && (
                         <div className="text-xs overflow-hidden">
-                            <p className="font-bold text-slate-900 truncate">Júlio Oliveira</p>
-                            <p className="text-slate-500 truncate">Plan: Enterprise</p>
+                            <p className="font-bold text-slate-900 dark:text-white truncate">Júlio Oliveira</p>
+                            <p className="text-slate-500 dark:text-slate-400 truncate">Plan: Enterprise</p>
                         </div>
                     )}
                 </div>
