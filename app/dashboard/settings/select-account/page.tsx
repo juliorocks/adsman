@@ -1,9 +1,11 @@
-
 import { getAvailableAdAccounts } from "@/lib/data/settings";
 import { selectAdAccount } from "@/actions/settings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function SelectAccountPage() {
     const accounts = await getAvailableAdAccounts();

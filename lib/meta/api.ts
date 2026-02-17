@@ -1,4 +1,3 @@
-
 const META_API_VERSION = "v19.0";
 const META_GRAPH_URL = "https://graph.facebook.com";
 
@@ -17,7 +16,7 @@ export function getAuthUrl(state: string) {
         client_id: appId,
         redirect_uri: redirectUri,
         state: state,
-        scope: "email,ads_management,ads_read",
+        scope: "email,ads_management,ads_read,business_management",
         response_type: "code",
     });
 
@@ -56,27 +55,41 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/adaccounts?fields=${fields}&access_token=${accessToken}`);
     const data = await response.json();
 
-    const accounts: AdAccount[] = data.data || [];
+    let accounts: AdAccount[] = data.data || [];
+    console.log(`[Meta API] Personal accounts found: ${accounts.length}`);
 
-    if (accounts.length === 0) {
-        console.log("No personal ad accounts found. Trying Business Manager...");
-        try {
-            const bizResponse = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/businesses?fields=client_ad_accounts{id,name,account_id,currency}&access_token=${accessToken}`);
-            const bizData = await bizResponse.json();
+    // Failover: Try deep scan via Business Manager
+    console.log("[Meta API] Starting Business Manager deep scan...");
+    try {
+        // Fetch businesses with BOTH owned and client ad accounts
+        const bizUrl = `${META_GRAPH_URL}/${META_API_VERSION}/me/businesses?fields=id,name,owned_ad_accounts{id,name,account_id,currency},client_ad_accounts{id,name,account_id,currency}&access_token=${accessToken}`;
+        const bizResponse = await fetch(bizUrl);
+        const bizData = await bizResponse.json();
 
-            if (bizData.data) {
-                bizData.data.forEach((business: any) => {
-                    if (business.client_ad_accounts && business.client_ad_accounts.data) {
-                        accounts.push(...business.client_ad_accounts.data);
-                    }
-                });
-            }
-        } catch (bizErr) {
-            console.error("Error fetching Business Manager accounts:", bizErr);
+        if (bizData.error) {
+            console.error("[Meta API] Business scan error:", bizData.error.message);
+        } else if (bizData.data) {
+            console.log(`[Meta API] Businesses found: ${bizData.data.length}`);
+            bizData.data.forEach((business: any) => {
+                // Collect from owned accounts
+                if (business.owned_ad_accounts?.data) {
+                    accounts.push(...business.owned_ad_accounts.data);
+                }
+                // Collect from client accounts (where you are a partner)
+                if (business.client_ad_accounts?.data) {
+                    accounts.push(...business.client_ad_accounts.data);
+                }
+            });
         }
+    } catch (bizErr) {
+        console.error("[Meta API] Fatal business scan error:", bizErr);
     }
 
-    return accounts;
+    // De-duplicate accounts by ID
+    const uniqueAccounts = Array.from(new Map(accounts.map(acc => [acc.id, acc])).values());
+    console.log(`[Meta API] Total unique accounts discovered: ${uniqueAccounts.length}`);
+
+    return uniqueAccounts;
 }
 
 export async function getCampaigns(adAccountId: string, accessToken: string) {
