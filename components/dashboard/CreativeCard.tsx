@@ -29,21 +29,21 @@ export function CreativeCard({ creative }: CreativeProps) {
     };
 
     return (
-        <div className="p-5 rounded-xl border border-slate-200 bg-white space-y-3 relative overflow-hidden group hover:border-purple-200 transition-colors">
+        <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3 relative overflow-hidden group hover:border-purple-200 dark:hover:border-purple-900/50 transition-colors">
             <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
             <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">{creative.angle}</span>
-                <Sparkles className="h-3 w-3 text-purple-400 group-hover:text-purple-600 transition-colors" />
+                <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">{creative.angle}</span>
+                <Sparkles className="h-3 w-3 text-purple-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
             </div>
-            <h4 className="font-bold text-slate-900 leading-snug">{creative.headline}</h4>
-            <p className="text-sm text-slate-500 line-clamp-3">{creative.bodyText}</p>
-            <div className="pt-2 flex items-center justify-between border-t border-slate-50 mt-2">
-                <span className="text-xs font-medium text-slate-400">CTA: {creative.cta}</span>
+            <h4 className="font-bold text-slate-900 dark:text-white leading-snug">{creative.headline}</h4>
+            <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-3">{creative.bodyText}</p>
+            <div className="pt-2 flex items-center justify-between border-t border-slate-50 dark:border-slate-800 mt-2">
+                <span className="text-xs font-medium text-slate-400 dark:text-slate-500">CTA: {creative.cta}</span>
                 <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleCopy}
-                    className="h-7 text-[10px] text-purple-600 hover:bg-purple-50 gap-2"
+                    className="h-7 text-[10px] text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 gap-2"
                 >
                     {copied ? (
                         <>

@@ -58,13 +58,13 @@ export default async function AgentsPage() {
         <div className="max-w-6xl mx-auto space-y-8">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                        <Bot className="h-8 w-8 text-primary-600" />
+                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                        <Bot className="h-8 w-8 text-primary-600 dark:text-primary-400" />
                         Seus Agentes de IA
                     </h2>
-                    <p className="text-slate-500">Automação e inteligência 24/7 trabalhando nas suas campanhas.</p>
+                    <p className="text-slate-500 dark:text-slate-400">Automação e inteligência 24/7 trabalhando nas suas campanhas.</p>
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-primary-50 text-primary-700 rounded-full text-sm font-semibold border border-primary-100">
+                <div className="flex items-center gap-2 px-4 py-2 bg-primary-50 dark:bg-primary-900/10 text-primary-700 dark:text-primary-400 rounded-full text-sm font-semibold border border-primary-100 dark:border-primary-900/20">
                     <CheckCircle2 className="h-4 w-4" />
                     Sincronizado com Meta Ads
                 </div>
@@ -78,7 +78,7 @@ export default async function AgentsPage() {
                 <div className="lg:col-span-2 space-y-8">
                     {/* Recommendations Section */}
                     <div className="space-y-6">
-                        <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                             <TrendingUp className="h-5 w-5" />
                             Feed de Inteligência
                         </h3>
@@ -91,7 +91,7 @@ export default async function AgentsPage() {
 
                     {/* Generative Copy Section */}
                     <div className="space-y-6">
-                        <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                             <PenTool className="h-5 w-5" />
                             Sugestões do Estúdio Criativo
                         </h3>
@@ -105,7 +105,7 @@ export default async function AgentsPage() {
 
                 {/* Combined Sidebar Summary */}
                 <div className="space-y-6">
-                    <h3 className="text-xl font-bold text-slate-900">Relatório da Colmeia</h3>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Relatório da Colmeia</h3>
                     <div className="p-6 rounded-xl bg-slate-900 text-white space-y-6">
                         <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center">
