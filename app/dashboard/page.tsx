@@ -24,7 +24,7 @@ export default async function DashboardPage({
     const integration = await getIntegration();
     const accounts = await getAvailableAdAccounts();
 
-    const selectedCampaign = recentCampaigns.find(c => c.id === campaignId);
+    const selectedCampaign = recentCampaigns.find((c: any) => c.id === campaignId);
 
     return (
         <div className="space-y-8">

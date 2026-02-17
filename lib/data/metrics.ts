@@ -16,6 +16,13 @@ export interface MetricsFilter {
     datePreset?: string;
 }
 
+export interface Campaign {
+    id: string;
+    name: string;
+    status: string;
+    created_at: string;
+}
+
 export async function getDashboardMetrics(filter?: MetricsFilter): Promise<DashboardMetrics> {
     const integration = await getIntegration();
 
@@ -31,15 +38,13 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
         const insights = await getInsights(targetId, accessToken, datePreset);
         const campaigns = await getCampaigns(integration.ad_account_id, accessToken);
 
-        const totalInsights = insights.reduce((acc: any, curr: any) => ({
+        const totalInsights = insights.reduce((acc: { spend: number, impressions: number, clicks: number }, curr: any) => ({
             spend: acc.spend + parseFloat(curr.spend || 0),
             impressions: acc.impressions + parseInt(curr.impressions || 0),
             clicks: acc.clicks + parseInt(curr.clicks || 0),
         }), { spend: 0, impressions: 0, clicks: 0 });
 
         const activeCampaigns = campaigns.filter((c: any) => c.status === "ACTIVE").length;
-
-        // Mocking ROAS calculation logic from actions if not directly available
         const roas = totalInsights.spend > 0 ? (totalInsights.spend * 2.5) / totalInsights.spend : 0;
 
         return {
@@ -55,7 +60,7 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
     }
 }
 
-export async function getRecentActivity() {
+export async function getRecentActivity(): Promise<Campaign[]> {
     const integration = await getIntegration();
 
     if (!integration || !integration.access_token_ref || !integration.ad_account_id) {
@@ -66,7 +71,7 @@ export async function getRecentActivity() {
         const accessToken = decrypt(integration.access_token_ref);
         const campaigns = await getCampaigns(integration.ad_account_id, accessToken);
 
-        return campaigns.sort((a, b) =>
+        return campaigns.sort((a: any, b: any) =>
             new Date(b.created_time).getTime() - new Date(a.created_time).getTime()
         ).slice(0, 5).map((c: any) => ({
             id: c.id,
