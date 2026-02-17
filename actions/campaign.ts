@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getIntegration } from "@/lib/data/settings";
 import { decrypt } from "@/lib/security/vault";
 import { createCampaign, createAdSet } from "@/lib/meta/api";
+import { parseTargetingFromGoal } from "@/lib/ai/openai";
 
 export async function createSmartCampaignAction(formData: { objective: string, goal: string, budget: string }) {
     const integration = await getIntegration();
@@ -19,25 +20,31 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         // 1. Create Campaign
         const campaign = await createCampaign(
             integration.ad_account_id,
-            `Smart: ${formData.goal.substring(0, 30)}...`,
+            `Smart AI: ${formData.goal.substring(0, 30)}...`,
             formData.objective,
             accessToken
         );
 
-        // 2. Simple AdSet creation logic (mocked audience based on keywords in goal)
-        // In a real scenario, we'd use LLM to parse formData.goal into interests/geo
+        // 2. AI-Powered AdSet parameters parsing
+        const aiTargeting = await parseTargetingFromGoal(formData.goal);
+
         const adSetParams = {
-            name: `Smart AdSet for ${campaign.id}`,
-            billing_event: 'IMPRESSIONS',
-            bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+            name: `AI Optimized: ${formData.goal.substring(0, 20)}...`,
+            billing_event: 'IMPRESSIONS' as const,
+            bid_strategy: 'LOWEST_COST_WITHOUT_CAP' as const,
             daily_budget: parseInt(formData.budget) * 100, // In cents
             targeting: {
                 geo_locations: { countries: ['BR'] },
-                age_min: 18,
-                age_max: 65,
-                // Placeholder for real AI interests parsing
+                age_min: aiTargeting.age_min,
+                age_max: aiTargeting.age_max,
+                publisher_platforms: ['facebook', 'instagram'],
+                flexible_spec: [
+                    {
+                        interests: aiTargeting.interests.map((interestName: string) => ({ id: null, name: interestName }))
+                    }
+                ]
             },
-            optimization_goal: 'REACH',
+            optimization_goal: aiTargeting.optimization_goal || 'REACH',
         };
 
         await createAdSet(integration.ad_account_id, campaign.id, adSetParams, accessToken);
