@@ -22,8 +22,10 @@ export default async function DashboardPage({
 }) {
     const datePreset = typeof searchParams.date_preset === 'string' ? searchParams.date_preset : 'last_30d';
     const campaignId = typeof searchParams.campaign_id === 'string' ? searchParams.campaign_id : undefined;
+    const since = typeof searchParams.since === 'string' ? searchParams.since : undefined;
+    const until = typeof searchParams.until === 'string' ? searchParams.until : undefined;
 
-    const metrics = await getDashboardMetrics({ datePreset, campaignId });
+    const metrics = await getDashboardMetrics({ datePreset, campaignId, since, until });
     const recentCampaigns = await getRecentActivity();
     const integration = await getIntegration();
     const accounts = await getAvailableAdAccounts();
@@ -90,7 +92,7 @@ export default async function DashboardPage({
                             recentCampaigns.map((campaign: any) => (
                                 <Link
                                     key={campaign.id}
-                                    href={`/dashboard?campaign_id=${campaign.id}&date_preset=${datePreset}`}
+                                    href={`/dashboard?campaign_id=${campaign.id}&date_preset=${datePreset}${since ? `&since=${since}` : ''}${until ? `&until=${until}` : ''}`}
                                     className={`flex items-center p-2 rounded-lg transition-colors group ${campaignId === campaign.id ? 'bg-primary-50 border border-primary-100' : 'hover:bg-slate-50'}`}
                                 >
                                     <Layers className={`h-9 w-9 p-2 rounded mr-4 ${campaignId === campaign.id ? 'bg-primary-100 text-primary-600' : 'bg-slate-100 text-slate-500 group-hover:bg-primary-50 group-hover:text-primary-600'}`} />

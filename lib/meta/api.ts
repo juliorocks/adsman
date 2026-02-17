@@ -102,9 +102,17 @@ export async function getAdCreatives(adAccountId: string, accessToken: string) {
     return data.data || [];
 }
 
-export async function getInsights(id: string, accessToken: string, datePreset: string = 'maximum') {
+export async function getInsights(id: string, accessToken: string, datePreset: string = 'maximum', timeRange?: { since: string; until: string }) {
     const fields = "spend,impressions,clicks,cpc,cpm,actions,conversions,purchase_roas";
-    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${id}/insights?fields=${fields}&date_preset=${datePreset}&access_token=${accessToken}`);
+    let url = `${META_GRAPH_URL}/${META_API_VERSION}/${id}/insights?fields=${fields}&access_token=${accessToken}`;
+
+    if (timeRange) {
+        url += `&time_range=${JSON.stringify(timeRange)}`;
+    } else {
+        url += `&date_preset=${datePreset}`;
+    }
+
+    const response = await fetch(url);
     const data = await response.json();
 
     if (data.error) throw new Error(data.error.message);

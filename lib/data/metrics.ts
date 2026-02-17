@@ -18,6 +18,8 @@ export interface DashboardMetrics {
 export interface MetricsFilter {
     campaignId?: string;
     datePreset?: string;
+    since?: string;
+    until?: string;
 }
 
 export interface Campaign {
@@ -44,12 +46,20 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
         const targetId = filter?.campaignId || integration.ad_account_id;
         const datePreset = filter?.datePreset || 'last_30d';
 
-        const insights = await getInsights(targetId, accessToken, datePreset);
+        let timeRange;
+        if (filter?.since && filter?.until) {
+            timeRange = { since: filter.since, until: filter.until };
+        }
+
+        const insights = await getInsights(targetId, accessToken, datePreset, timeRange);
         const campaigns = await getCampaigns(integration.ad_account_id, accessToken);
 
         // Date handling for revenue query
-        // This is a simplification, in real usage we'd parse the date_preset to get static ranges
-        const manualSales = await getManualRevenue(integration.ad_account_id);
+        const manualSales = await getManualRevenue(
+            integration.ad_account_id,
+            filter?.since,
+            filter?.until
+        );
         const totalManualRevenue = manualSales.reduce((acc: number, curr: any) => acc + Number(curr.revenue), 0);
 
         const totalInsights = insights.reduce((acc: { spend: number, impressions: number, clicks: number, conversions: number }, curr: any) => ({
