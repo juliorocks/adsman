@@ -19,13 +19,10 @@ export function RecommendationCard({ rec }: RecProps) {
         try {
             let result;
             if (rec.source === 'strategist') {
-                if (rec.title.toLowerCase().includes('escalar')) {
-                    // Extract budget from label "Aumentar para R$ X.XX"
-                    const budgetMatch = rec.actionLabel.match(/R\$ ([\d,.]+)/);
-                    const budget = budgetMatch ? parseFloat(budgetMatch[1].replace(',', '.')) : 0;
-                    result = await applyScalingAction(rec.id.replace('scale_up_', ''), budget);
-                } else if (rec.title.toLowerCase().includes('pausar')) {
-                    result = await applyStatusAction(rec.id.replace('pause_', ''), 'PAUSED');
+                if (rec.actionType === 'scale_up') {
+                    result = await applyScalingAction(rec.actionPayload.id, rec.actionPayload.amount);
+                } else if (rec.actionType === 'pause') {
+                    result = await applyStatusAction(rec.actionPayload.id, 'PAUSED');
                 }
             }
 
@@ -45,7 +42,7 @@ export function RecommendationCard({ rec }: RecProps) {
         <div className={`flex gap-4 p-5 rounded-xl border bg-white shadow-sm transition-all ${applied ? 'opacity-50 border-green-200 bg-green-50/10' : 'hover:border-primary-100 border-slate-100'
             }`}>
             <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${rec.type === 'critical' ? 'bg-red-50 text-red-600' :
-                    rec.type === 'optimization' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'
+                rec.type === 'optimization' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'
                 }`}>
                 {rec.source === 'strategist' ? (
                     rec.type === 'critical' ? <Octagon className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />

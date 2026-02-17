@@ -1,0 +1,31 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[663],{6358:function(e,a,t){Promise.resolve().then(t.bind(t,6578))},6578:function(e,a,t){"use strict";t.r(a),t.d(a,{Sidebar:function(){return f}});var r=t(3827),s=t(8792),n=t(7907),l=t(7461);/**
+ * @license lucide-react v0.330.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let i=(0,l.Z)("LayoutDashboard",[["rect",{width:"7",height:"9",x:"3",y:"3",rx:"1",key:"10lvy0"}],["rect",{width:"7",height:"5",x:"14",y:"3",rx:"1",key:"16une8"}],["rect",{width:"7",height:"9",x:"14",y:"12",rx:"1",key:"1hutg5"}],["rect",{width:"7",height:"5",x:"3",y:"16",rx:"1",key:"ldoo1y"}]]);var c=t(6509);/**
+ * @license lucide-react v0.330.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let h=(0,l.Z)("PlusCircle",[["circle",{cx:"12",cy:"12",r:"10",key:"1mglay"}],["path",{d:"M8 12h8",key:"1wcyev"}],["path",{d:"M12 8v8",key:"napkw2"}]]);var d=t(7898),o=t(2071);/**
+ * @license lucide-react v0.330.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let u=(0,l.Z)("Settings",[["path",{d:"M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z",key:"1qme2f"}],["circle",{cx:"12",cy:"12",r:"3",key:"1v7zrd"}]]);var x=t(1657);let m=[{name:"Vis\xe3o Geral",href:"/dashboard",icon:i},{name:"Agentes de IA",href:"/dashboard/agents",icon:c.Z},{name:"Criar Campanha",href:"/dashboard/create",icon:h},{name:"Campanhas",href:"/dashboard/campaigns",icon:d.Z},{name:"Relat\xf3rios",href:"/dashboard/reports",icon:o.Z},{name:"Configura\xe7\xf5es",href:"/dashboard/settings",icon:u}];function f(){let e=(0,n.usePathname)();return(0,r.jsxs)("div",{className:"flex h-full w-72 flex-col border-r border-slate-100 bg-white",children:[(0,r.jsx)("div",{className:"flex h-20 items-center px-8",children:(0,r.jsxs)("div",{className:"flex items-center gap-2",children:[(0,r.jsx)("div",{className:"h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center shadow-lg shadow-primary-200",children:(0,r.jsx)(o.Z,{className:"h-5 w-5 text-white"})}),(0,r.jsxs)("span",{className:"text-xl font-extrabold tracking-tight text-slate-900",children:["Track",(0,r.jsx)("span",{className:"text-primary-600",children:"Ads"})]})]})}),(0,r.jsxs)("nav",{className:"flex-1 space-y-1.5 px-4 py-6",children:[(0,r.jsx)("p",{className:"px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4",children:"Menu Principal"}),m.map(a=>{let t=e===a.href;return(0,r.jsxs)(s.default,{href:a.href,className:(0,x.cn)("group flex items-center rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200",t?"bg-primary-600 text-white shadow-lg shadow-primary-100":"text-slate-500 hover:bg-slate-50 hover:text-slate-900"),children:[(0,r.jsx)(a.icon,{className:(0,x.cn)("mr-3 h-5 w-5 flex-shrink-0 transition-colors",t?"text-white":"text-slate-400 group-hover:text-primary-500")}),a.name]},a.name)})]}),(0,r.jsx)("div",{className:"p-6 bg-slate-50/50 m-4 rounded-3xl border border-slate-100",children:(0,r.jsxs)("div",{className:"flex items-center gap-3",children:[(0,r.jsx)("div",{className:"h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary-600 font-bold border border-slate-100",children:"JD"}),(0,r.jsxs)("div",{className:"text-xs overflow-hidden",children:[(0,r.jsx)("p",{className:"font-bold text-slate-900 truncate",children:"J\xfalio Oliveira"}),(0,r.jsx)("p",{className:"text-slate-500 truncate",children:"Plan: Enterprise"})]})]})})]})}},1657:function(e,a,t){"use strict";t.d(a,{cn:function(){return n}});var r=t(3167),s=t(1367);function n(){for(var e=arguments.length,a=Array(e),t=0;t<e;t++)a[t]=arguments[t];return(0,s.m6)((0,r.W)(a))}},2071:function(e,a,t){"use strict";t.d(a,{Z:function(){return r}});/**
+ * @license lucide-react v0.330.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let r=(0,t(7461).Z)("BarChart3",[["path",{d:"M3 3v18h18",key:"1s2lah"}],["path",{d:"M18 17V9",key:"2bz60n"}],["path",{d:"M13 17V5",key:"1frdt8"}],["path",{d:"M8 17v-3",key:"17ska0"}]])},6509:function(e,a,t){"use strict";t.d(a,{Z:function(){return r}});/**
+ * @license lucide-react v0.330.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let r=(0,t(7461).Z)("Bot",[["path",{d:"M12 8V4H8",key:"hb8ula"}],["rect",{width:"16",height:"12",x:"4",y:"8",rx:"2",key:"enze0r"}],["path",{d:"M2 14h2",key:"vft8re"}],["path",{d:"M20 14h2",key:"4cs60a"}],["path",{d:"M15 13v2",key:"1xurst"}],["path",{d:"M9 13v2",key:"rq6x2g"}]])},7898:function(e,a,t){"use strict";t.d(a,{Z:function(){return r}});/**
+ * @license lucide-react v0.330.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */let r=(0,t(7461).Z)("Layers",[["path",{d:"m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z",key:"8b97xw"}],["path",{d:"m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65",key:"dd6zsq"}],["path",{d:"m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65",key:"ep9fru"}]])},8792:function(e,a,t){"use strict";t.d(a,{default:function(){return s.a}});var r=t(5250),s=t.n(r)},7907:function(e,a,t){"use strict";var r=t(5313);t.o(r,"usePathname")&&t.d(a,{usePathname:function(){return r.usePathname}}),t.o(r,"useRouter")&&t.d(a,{useRouter:function(){return r.useRouter}}),t.o(r,"useSearchParams")&&t.d(a,{useSearchParams:function(){return r.useSearchParams}})}},function(e){e.O(0,[150,419,971,69,744],function(){return e(e.s=6358)}),_N_E=e.O()}]);

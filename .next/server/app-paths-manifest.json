@@ -1,1 +1,13 @@
-{}
+{
+  "/_not-found": "app/_not-found.js",
+  "/api/auth/meta/callback/route": "app/api/auth/meta/callback/route.js",
+  "/page": "app/page.js",
+  "/login/page": "app/login/page.js",
+  "/api/auth/meta/route": "app/api/auth/meta/route.js",
+  "/dashboard/revenue/page": "app/dashboard/revenue/page.js",
+  "/dashboard/settings/page": "app/dashboard/settings/page.js",
+  "/dashboard/agents/page": "app/dashboard/agents/page.js",
+  "/dashboard/settings/select-account/page": "app/dashboard/settings/select-account/page.js",
+  "/dashboard/create/page": "app/dashboard/create/page.js",
+  "/dashboard/page": "app/dashboard/page.js"
+}

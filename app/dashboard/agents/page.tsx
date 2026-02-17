@@ -30,7 +30,12 @@ export default async function AgentsPage() {
     }
 
     const allRecommendations = [
-        ...audit.recommendations.map(r => ({ ...r, source: 'auditor' })),
+        ...audit.recommendations.map(r => ({
+            ...r,
+            source: 'auditor',
+            actionType: null,
+            actionPayload: null
+        })),
         ...scaling.map(s => ({
             id: s.id,
             type: s.type === 'scale_up' ? 'optimization' : 'critical' as any,
@@ -38,7 +43,12 @@ export default async function AgentsPage() {
             description: s.reason,
             actionLabel: s.type === 'scale_up' ? `Aumentar para R$ ${s.suggestedBudget?.toFixed(2)}` : 'Pausar Agora',
             impact: s.impact,
-            source: 'strategist'
+            source: 'strategist',
+            actionType: s.type,
+            actionPayload: {
+                id: s.targetId,
+                amount: s.suggestedBudget
+            }
         }))
     ];
 
