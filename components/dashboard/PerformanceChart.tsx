@@ -25,6 +25,8 @@ const METRICS = [
 
 export function PerformanceChart({ data }: PerformanceChartProps) {
     const [activeMetricId, setActiveMetricId] = useState("spend");
+    const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
+
     const activeMetric = useMemo(() =>
         METRICS.find(m => m.id === activeMetricId) || METRICS[0]
         , [activeMetricId]);
@@ -42,7 +44,8 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
             x: (i / (data.length - 1)) * 100,
             y: 100 - ((((d as any)[activeMetricId] || 0) - min) / range) * 80 - 10, // 10% padding
             value: (d as any)[activeMetricId],
-            date: new Date(d.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+            date: new Date(d.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
+            fullDate: new Date(d.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
         }));
     }, [data, activeMetricId]);
 
@@ -64,8 +67,8 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
                         key={m.id}
                         onClick={() => setActiveMetricId(m.id)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 ${activeMetricId === m.id
-                                ? 'bg-slate-900 text-white shadow-lg scale-105'
-                                : 'bg-white border border-slate-100 text-slate-500 hover:bg-slate-50'
+                            ? 'bg-slate-900 text-white shadow-lg scale-105'
+                            : 'bg-white border border-slate-100 text-slate-500 hover:bg-slate-50'
                             }`}
                     >
                         <m.icon className={`h-3.5 w-3.5 ${activeMetricId === m.id ? 'text-white' : 'text-slate-400'}`} />
@@ -74,7 +77,7 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
                 ))}
             </div>
 
-            <div className="relative h-[300px] w-full group">
+            <div className="relative h-[300px] w-full group select-none">
                 <svg
                     viewBox="0 0 100 100"
                     preserveAspectRatio="none"
@@ -112,25 +115,65 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
                         d={pathData}
                         fill="none"
                         stroke={activeMetric.color}
-                        strokeWidth="1.5"
+                        strokeWidth="0.8"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="transition-all duration-1000 ease-in-out drop-shadow-lg"
-                        style={{ filter: `drop-shadow(0 4px 6px ${activeMetric.color}44)` }}
+                        className="transition-all duration-1000 ease-in-out drop-shadow-md"
                     />
 
-                    {/* Data Points */}
+                    {/* Interaction Points and Tooltips */}
                     {chartData.map((p, i) => (
-                        <circle
-                            key={i}
-                            cx={p.x}
-                            cy={p.y}
-                            r="0.8"
-                            fill="white"
-                            stroke={activeMetric.color}
-                            strokeWidth="0.4"
-                            className="opacity-0 group-hover:opacity-100 transition-all duration-500 delay-100"
-                        />
+                        <g key={i}>
+                            {/* Invisible Hit Area */}
+                            <circle
+                                cx={p.x}
+                                cy={p.y}
+                                r="4" // Larger hit area
+                                fill="transparent"
+                                className="cursor-pointer"
+                                onMouseEnter={() => setHoveredPoint(i)}
+                                onMouseLeave={() => setHoveredPoint(null)}
+                            />
+
+                            {/* Visible Point (Only on hover) */}
+                            <circle
+                                cx={p.x}
+                                cy={p.y}
+                                r={hoveredPoint === i ? 1.5 : 0}
+                                fill="white"
+                                stroke={activeMetric.color}
+                                strokeWidth="0.5"
+                                className={`transition-all duration-300 ${hoveredPoint === i ? 'opacity-100' : 'opacity-0'}`}
+                                pointerEvents="none"
+                            />
+
+                            {/* Tooltip SVG */}
+                            {hoveredPoint === i && (
+                                <g pointerEvents="none" className="transition-opacity duration-200">
+                                    <rect
+                                        x={p.x - 15}
+                                        y={p.y - 12}
+                                        width="30"
+                                        height="8"
+                                        rx="2"
+                                        fill="#1e293b"
+                                        filter="drop-shadow(0 2px 4px rgb(0 0 0 / 0.1))"
+                                    />
+                                    <text
+                                        x={p.x}
+                                        y={p.y - 7}
+                                        textAnchor="middle"
+                                        fill="white"
+                                        fontSize="3"
+                                        fontWeight="bold"
+                                        dominantBaseline="middle"
+                                    >
+                                        {activeMetric.format(p.value)}
+                                    </text>
+                                    {/* Optional Date in tooltip could be added here if needed */}
+                                </g>
+                            )}
+                        </g>
                     ))}
                 </svg>
 
