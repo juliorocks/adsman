@@ -54,7 +54,7 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
     let accounts: AdAccount[] = data.data || [];
 
     try {
-        const bizUrl = `${META_GRAPH_URL}/${META_API_VERSION}/me/businesses?fields=id,name,owned_ad_accounts{id,name,account_id,currency},client_ad_accounts{id,name,account_id,currency}&access_token=${accessToken}`;
+        const bizUrl = `${META_GRAPH_URL}/${META_VERSION}/me/businesses?fields=id,name,owned_ad_accounts{id,name,account_id,currency},client_ad_accounts{id,name,account_id,currency}&access_token=${accessToken}`;
         const bizResponse = await fetch(bizUrl);
         const bizData = await bizResponse.json();
 
@@ -69,7 +69,7 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
             });
         }
     } catch (bizErr) {
-        console.error("Business scan error:", bizErr);
+        // Fallback or log
     }
 
     return Array.from(new Map(accounts.map(acc => [acc.id, acc])).values());
@@ -80,9 +80,7 @@ export async function getCampaigns(adAccountId: string, accessToken: string) {
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns?fields=${fields}&access_token=${accessToken}`);
     const data = await response.json();
 
-    if (data.error) {
-        throw new Error(data.error.message);
-    }
+    if (data.error) throw new Error(data.error.message);
     return data.data || [];
 }
 
@@ -100,10 +98,74 @@ export async function getInsights(id: string, accessToken: string, datePreset: s
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${id}/insights?fields=${fields}&date_preset=${datePreset}&access_token=${accessToken}`);
     const data = await response.json();
 
-    if (data.error) {
-        throw new Error(data.error.message);
-    }
+    if (data.error) throw new Error(data.error.message);
     return data.data || [];
+}
+
+// CREATION METHODS
+export async function createCampaign(adAccountId: string, name: string, objective: string, accessToken: string) {
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name,
+            objective,
+            status: 'PAUSED', // Safety first
+            special_ad_categories: ['NONE'],
+            access_token: accessToken
+        })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    return data;
+}
+
+export async function createAdSet(adAccountId: string, campaignId: string, params: any, accessToken: string) {
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adsets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            ...params,
+            campaign_id: campaignId,
+            status: 'PAUSED',
+            access_token: accessToken
+        })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    return data;
+}
+
+export async function createAdCreative(adAccountId: string, name: string, objectStorySpec: any, accessToken: string) {
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name,
+            object_story_spec: objectStorySpec,
+            access_token: accessToken
+        })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    return data;
+}
+
+export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string) {
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/ads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name,
+            adset_id: adSetId,
+            creative: { creative_id: creativeId },
+            status: 'PAUSED',
+            access_token: accessToken
+        })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    return data;
 }
 
 export async function updateObjectStatus(id: string, status: 'ACTIVE' | 'PAUSED', accessToken: string) {
