@@ -101,30 +101,29 @@ export function AgentsFactory() {
     };
 
     const AgentStation = ({ type, glowColor, robotImg, eyeColor }: any) => {
-        // Unique variations for each agent
+        // Unique variations for each agent - much smoother and slower
         const variants: any = {
             auditor: {
-                y: [0, -12, 0],
-                rotate: [-1, 1, -1],
-                transition: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+                y: [0, -6, 0],
+                rotate: [-0.5, 0.5, -0.5],
+                transition: { duration: 6, repeat: Infinity, ease: "linear" }
             },
             strategist: {
-                y: [0, -18, 0],
-                rotate: [0, 0, 0],
-                scale: [1, 1.05, 1],
-                transition: { duration: 3.5, repeat: Infinity, ease: "easeInOut" }
+                y: [0, -9, 0],
+                scale: [1, 1.02, 1],
+                transition: { duration: 5, repeat: Infinity, ease: "easeInOut" }
             },
             creative: {
-                y: [0, -8, 0],
-                rotate: [2, -2, 2],
-                transition: { duration: 5, repeat: Infinity, ease: "easeInOut" }
+                y: [0, -4, 0],
+                rotate: [1, -1, 1],
+                transition: { duration: 7, repeat: Infinity, ease: "easeInOut" }
             }
         };
 
         return (
-            <div className={`relative w-[30%] flex flex-col items-center justify-center pt-12 group transition-all`}>
+            <div className={`relative w-[30%] flex flex-col items-center justify-end group transition-all`}>
                 {/* Name Label ABOVE robot */}
-                <div className="mb-4 px-4 py-1 rounded-full bg-slate-900/80 border border-slate-700/50 backdrop-blur-md shadow-xl z-30 group-hover:bg-slate-800 transition-colors">
+                <div className="mb-3 px-4 py-1 rounded-full bg-slate-900/60 border border-slate-800/50 backdrop-blur-sm z-30 group-hover:bg-slate-800/80 transition-colors">
                     <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${glowColor}`}>
                         {type}
                     </span>
@@ -134,7 +133,7 @@ export function AgentsFactory() {
                 <motion.div
                     className="relative z-10 cursor-pointer w-28 h-28"
                     animate={variants[type]}
-                    whileHover={{ scale: 1.15, y: -10 }}
+                    whileHover={{ scale: 1.1, y: -5 }}
                 >
                     {/* Robot Image */}
                     <img
@@ -151,10 +150,10 @@ export function AgentsFactory() {
 
                     {/* Popup Tooltip */}
                     <div className="absolute bottom-full mb-6 left-1/2 -translate-x-1/2 w-56 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none transform translate-y-2 group-hover:translate-y-0 z-50">
-                        <div className="bg-slate-900/98 backdrop-blur-2xl text-white p-4 rounded-2xl border border-slate-700 shadow-[0_20px_50px_rgba(0,0,0,0.7)] text-xs">
+                        <div className="bg-slate-900/98 backdrop-blur-3xl text-white p-4 rounded-2xl border border-slate-700 shadow-[0_20px_50px_rgba(0,0,0,0.8)] text-xs">
                             <div className="font-bold flex items-center gap-2 mb-2 text-[10px] uppercase tracking-widest text-slate-400">
                                 <Activity className="w-3.5 h-3.5 text-green-400" />
-                                Real-time Analysis
+                                Monitoramento Ativo
                             </div>
                             <p className="font-semibold text-slate-100 leading-relaxed text-[13px]">
                                 {activeStatuses[type as keyof typeof activeStatuses]}
@@ -168,18 +167,18 @@ export function AgentsFactory() {
     };
 
     return (
-        <div className="relative w-full h-[400px] bg-slate-950 rounded-[40px] overflow-hidden border border-slate-800 shadow-2xl shadow-black/80">
+        <div className="relative w-full h-[420px] bg-slate-950 rounded-[40px] overflow-hidden border border-slate-800 shadow-2xl shadow-black/80">
             {/* Background Grid */}
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(30,41,59,0.4)_1px,transparent_1px),linear-gradient(90deg,rgba(30,41,59,0.4)_1px,transparent_1px)] bg-[size:40px_40px] opacity-10" />
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(30,41,59,0.4)_1px,transparent_1px),linear-gradient(90deg,rgba(30,41,59,0.4)_1px,transparent_1px)] bg-[size:40px_40px] opacity:10" />
 
             {/* Header Info */}
             <div className="absolute top-6 left-8 z-30 pointer-events-none">
                 <div className="flex items-center gap-2 mb-1.5">
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_15px_#22c55e]" />
-                    <span className="text-[10px] uppercase font-black text-slate-500 tracking-[0.3em]">Neural Interface</span>
+                    <span className="text-[10px] uppercase font-black text-slate-500 tracking-[0.3em]">LIVE OPERATIONS</span>
                 </div>
                 <h3 className="text-2xl font-black text-white bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-slate-500">
-                    Neural Factory 1.0
+                    Central de Comando Neural
                 </h3>
             </div>
 
@@ -191,12 +190,12 @@ export function AgentsFactory() {
                     className="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-500 disabled:bg-slate-800 text-white text-xs font-bold rounded-2xl transition-all shadow-[0_10px_30px_rgba(37,99,235,0.3)] hover:shadow-[0_15px_40px_rgba(37,99,235,0.4)] active:scale-95 border border-primary-400/20"
                 >
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
-                    {loading ? 'Processando...' : 'Processar Inteligência'}
+                    {loading ? 'Sincronizando...' : 'Processar Inteligência'}
                 </button>
             </div>
 
             {/* Robots Layer (Z-10) */}
-            <div className="relative w-full h-full flex justify-center items-center px-10 pb-16 z-10">
+            <div className="relative w-full h-full flex justify-center items-end px-10 pb-6 z-10">
                 <AgentStation
                     type="auditor"
                     glowColor="text-orange-500"
