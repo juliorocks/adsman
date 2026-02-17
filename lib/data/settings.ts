@@ -22,15 +22,16 @@ export async function getIntegration() {
     if (user.id === "mock_user_id_dev") {
         // Try to get real token from cookie first
         const devToken = cookies().get("dev_meta_token")?.value;
+        const selectedAccountId = cookies().get("dev_ad_account_id")?.value || "act_mock_123";
 
         if (devToken) {
-            console.log("Mock Mode: Using real token from cookie.");
+            console.log(`Mock Mode: Using real token and account ID: ${selectedAccountId}`);
             return {
                 id: "mock_int_real",
                 user_id: "mock_user_id_dev",
                 platform: "meta",
                 status: "active",
-                ad_account_id: "act_mock_123", // Can be updated by selection
+                ad_account_id: selectedAccountId,
                 access_token_ref: devToken,
                 updated_at: new Date().toISOString()
             };
@@ -41,7 +42,7 @@ export async function getIntegration() {
             user_id: "mock_user_id_dev",
             platform: "meta",
             status: "active",
-            ad_account_id: "act_mock_123", // Default mock account
+            ad_account_id: selectedAccountId,
             // Format: iv(24):tag(32):content
             access_token_ref: "000000000000000000000000:00000000000000000000000000000000:mock_encrypted_content",
             updated_at: new Date().toISOString()

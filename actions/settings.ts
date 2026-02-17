@@ -4,6 +4,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
 export async function selectAdAccount(accountId: string, formData: FormData) {
     const supabase = await createClient();
@@ -11,9 +12,9 @@ export async function selectAdAccount(accountId: string, formData: FormData) {
 
     // Support Mock User
     let user = supabaseUser;
-    if (!user && (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_MOCK_MODE === "true")) {
-        // We check for the cookie set by loginDev, but for actions we might just assume if env is dev
-        // For safety, let's assume we are okay in dev.
+    const devSession = cookies().get("dev_session");
+
+    if (!user && (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_MOCK_MODE === "true" || devSession)) {
         user = { id: "mock_user_id_dev" } as any;
     }
 
@@ -30,6 +31,9 @@ export async function selectAdAccount(accountId: string, formData: FormData) {
             console.error(error);
             throw new Error("Failed to update account");
         }
+    } else {
+        // Save to cookie for mock user session
+        cookies().set("dev_ad_account_id", accountId, { httpOnly: true, path: "/" });
     }
 
     revalidatePath("/dashboard");
