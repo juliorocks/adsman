@@ -71,7 +71,12 @@ export async function getAvailableAdAccounts(): Promise<AdAccount[]> {
 
     try {
         const accessToken = decrypt(integration.access_token_ref);
-        return await getAdAccounts(accessToken);
+        console.log("Decrypted Token for Ad Accounts:", accessToken ? "Token exists (hidden)" : "No token");
+
+        const accounts = await getAdAccounts(accessToken);
+        console.log("Fetched Ad Accounts:", JSON.stringify(accounts));
+
+        return accounts;
     } catch (error) {
         console.error("Failed to fetch ad accounts", error);
         return [];
