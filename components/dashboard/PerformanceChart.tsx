@@ -40,6 +40,15 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
         const min = Math.min(...values);
         const range = max - min || 1;
 
+        if (data.length === 1) {
+            return [{
+                x: 50, // Center the single point
+                y: 50, // Center vertically roughly
+                value: (data[0] as any)[activeMetricId],
+                date: new Date(data[0].date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+            }];
+        }
+
         return data.map((d, i) => ({
             x: (i / (data.length - 1)) * 100,
             y: 100 - ((((d as any)[activeMetricId] || 0) - min) / range) * 80 - 10, // 10% padding
@@ -49,12 +58,19 @@ export function PerformanceChart({ data }: PerformanceChartProps) {
     }, [data, activeMetricId]);
 
     const pathData = useMemo(() => {
-        if (chartData.length < 2) return "";
+        if (chartData.length === 0) return "";
+        if (chartData.length === 1) {
+            // Horizontal line for single point
+            return `M 0,${chartData[0].y} L 100,${chartData[0].y}`;
+        }
         return `M ${chartData.map(p => `${p.x},${p.y}`).join(" L ")}`;
     }, [chartData]);
 
     const areaData = useMemo(() => {
-        if (chartData.length < 2) return "";
+        if (chartData.length === 0) return "";
+        if (chartData.length === 1) {
+            return `M 0,${chartData[0].y} L 100,${chartData[0].y} L 100,100 L 0,100 Z`;
+        }
         return `${pathData} L 100,100 L 0,100 Z`;
     }, [chartData, pathData]);
 
