@@ -141,6 +141,12 @@ export async function getDailyPerformance(filter?: MetricsFilter) {
 
         const insights = await getInsights(targetId, accessToken, datePreset, timeRange, 1);
 
+        const manualSales = await getManualRevenue(
+            integration.ad_account_id,
+            filter?.since,
+            filter?.until
+        );
+
         const dailyData = insights.reduce((acc: any[], curr: any) => {
             const date = curr.date_start;
             const existingIndex = acc.findIndex((d: any) => d.date === date);
@@ -149,28 +155,35 @@ export async function getDailyPerformance(filter?: MetricsFilter) {
             const clicks = parseInt(curr.clicks || 0);
             const impressions = parseInt(curr.impressions || 0);
             const roasMultiplier = curr.purchase_roas ? curr.purchase_roas.reduce((sum: number, r: any) => sum + parseFloat(r.value), 0) : 0;
+            const metaRevenue = (curr.action_values ? curr.action_values.reduce((sum: number, r: any) => sum + parseFloat(r.value), 0) : 0);
 
             if (existingIndex > -1) {
                 acc[existingIndex].spend += spend;
                 acc[existingIndex].clicks += clicks;
                 acc[existingIndex].impressions += impressions;
-                acc[existingIndex].revenue_est += (roasMultiplier * spend);
+                acc[existingIndex].meta_revenue += metaRevenue;
             } else {
                 acc.push({
                     date,
                     spend,
                     clicks,
                     impressions,
-                    revenue_est: (roasMultiplier * spend)
+                    meta_revenue: metaRevenue
                 });
             }
             return acc;
         }, []);
 
-        return dailyData.map((d: any) => ({
-            ...d,
-            roas: d.spend > 0 ? d.revenue_est / d.spend : 0
-        })).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        return dailyData.map((d: any) => {
+            const manualEntry = manualSales.find((s: any) => s.date === d.date);
+            const totalRevenue = manualEntry ? Number(manualEntry.revenue) : d.meta_revenue;
+
+            return {
+                ...d,
+                roas: d.spend > 0 ? totalRevenue / d.spend : 0,
+                revenue: totalRevenue // Return total revenue explicitly if needed by frontend
+            };
+        }).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
     } catch (error) {
         console.error("Error fetching daily performance:", error);
         return [];
