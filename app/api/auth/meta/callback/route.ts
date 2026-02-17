@@ -24,7 +24,11 @@ export async function GET(request: NextRequest) {
             user = { id: "mock_user_id_dev", email: "dev@example.com" } as any;
         }
 
-        if (!user) return redirect("/login");
+        // IMPORTANT: If user is still null (e.g. prod environment not logged in), force login
+        if (!user) {
+            console.error("No user found in callback, redirecting to login");
+            return redirect("/login");
+        }
 
         // 1. Exchange Code for Long-Lived Token
         let accessToken = "mock_access_token_" + Date.now();
