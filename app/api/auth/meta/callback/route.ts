@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
         } else {
             console.log("Mock Mode: Saving real token to cookie for session use.");
             // Hack for Dev: Store encrypted token in cookie so we can use it without DB
-            const { cookies } = require("next/headers");
+            const { cookies } = await import("next/headers");
             cookies().set("dev_meta_token", encryptedToken, { httpOnly: true, path: "/" });
         }
     } catch (err) {

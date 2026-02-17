@@ -1,8 +1,10 @@
 
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
-const SECRET_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 32) || ""; // Fallback for dev only
+const SECRET_KEY = createHash("sha256")
+    .update(process.env.SUPABASE_SERVICE_ROLE_KEY || "fallback_dev_key")
+    .digest();
 
 export const encrypt = (text: string) => {
     const iv = randomBytes(12);

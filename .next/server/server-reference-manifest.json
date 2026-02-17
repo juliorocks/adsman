@@ -15,8 +15,16 @@
       "layer": {
         "app/login/page": "action-browser"
       }
+    },
+    "04daa053c2732e9a6b56876053b97c8b9302f234": {
+      "workers": {
+        "app/dashboard/create/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22C%3A%5C%5CUsers%5C%5Cojuli%5C%5CAIOS%5C%5Cmeu-projeto%5C%5Cactions%5C%5Ccampaigns.ts%22%2C%5B%22createCampaign%22%5D%5D%5D&__client_imported__=true!"
+      },
+      "layer": {
+        "app/dashboard/create/page": "action-browser"
+      }
     }
   },
   "edge": {},
-  "encryptionKey": "N4Dk+2CS3Ek1oB/8d2knHykVpzooQKGOQ9RYQoF2Pnc="
+  "encryptionKey": "RXym+NpvjAEhe+/mQpPsZA9u5LOA476Xl3XXinmDrB0="
 }

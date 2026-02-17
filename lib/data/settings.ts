@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/security/vault";
 import { getAdAccounts, AdAccount } from "@/lib/meta/api";
 
+import { cookies } from "next/headers";
+
 export async function getIntegration() {
     const supabase = await createClient();
     const { data: { user: supabaseUser } } = await supabase.auth.getUser();
@@ -16,7 +18,6 @@ export async function getIntegration() {
 
     if (user.id === "mock_user_id_dev") {
         // Try to get real token from cookie first
-        const { cookies } = require("next/headers");
         const devToken = cookies().get("dev_meta_token")?.value;
 
         if (devToken) {
