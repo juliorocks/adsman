@@ -82,7 +82,19 @@ export async function applyCreativeVariationAction(adId: string, headline: strin
         if (newSpec.link_data) {
             newSpec.link_data.message = bodyText;
             if (newSpec.link_data.call_to_action) {
-                newSpec.link_data.call_to_action.type = cta;
+                // Map Portuguese CTA to Meta API enum
+                const ctaMapping: Record<string, string> = {
+                    "SAIBA_MAIS": "LEARN_MORE",
+                    "COMPRAR_AGORA": "SHOP_NOW",
+                    "CADASTRAR_SE": "SIGN_UP",
+                    "VER_MAIS": "WATCH_MORE",
+                    "FALAR_COM": "CONTACT_US",
+                    "RESERVAR": "BOOK_TRAVEL"
+                };
+
+                const validCta = ctaMapping[cta] || "LEARN_MORE"; // Fallback to LEARN_MORE
+
+                newSpec.link_data.call_to_action.type = validCta;
                 if (newSpec.link_data.call_to_action.value) {
                     newSpec.link_data.call_to_action.value.link_title = headline;
                 }
