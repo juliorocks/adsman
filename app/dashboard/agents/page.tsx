@@ -4,6 +4,7 @@ import { Bot, ShieldCheck, Zap, Sparkles, TrendingUp, CheckCircle2, PenTool } fr
 import { getIntegration } from "@/lib/data/settings";
 import { AgentsFactory } from "@/components/dashboard/AgentsFactory";
 import { AgentsPageSkeleton } from "@/components/dashboard/AgentsPageSkeleton";
+import { NeuralLoadingState } from "@/components/dashboard/NeuralLoadingState";
 import { ExpertAnalysisSection } from "@/components/dashboard/sections/ExpertAnalysisSection";
 import { CreativeStudioSection } from "@/components/dashboard/sections/CreativeStudioSection";
 import { HiveSummarySection } from "@/components/dashboard/sections/HiveSummarySection";
@@ -49,23 +50,17 @@ export default async function AgentsPage() {
             </div>
 
             {/* DYNAMIC SECTIONS - Suspended */}
-            <Suspense fallback={<div className="h-96 w-full bg-slate-900/50 rounded-3xl animate-pulse border border-slate-800" />}>
+            <Suspense fallback={<NeuralLoadingState />}>
                 <ExpertAnalysisSection adAccountId={integration.ad_account_id} />
-            </Suspense>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-8 border-t border-slate-800">
-                <div className="lg:col-span-2">
-                    <Suspense fallback={<div className="h-64 w-full bg-slate-900/50 rounded-3xl animate-pulse" />}>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-8 border-t border-slate-800">
+                    <div className="lg:col-span-2">
                         <CreativeStudioSection />
-                    </Suspense>
-                </div>
-
-                <div>
-                    <Suspense fallback={<div className="h-64 w-full bg-slate-900/50 rounded-3xl animate-pulse" />}>
+                    </div>
+                    <div>
                         <HiveSummarySection />
-                    </Suspense>
+                    </div>
                 </div>
-            </div>
+            </Suspense>
         </div>
     );
 }
