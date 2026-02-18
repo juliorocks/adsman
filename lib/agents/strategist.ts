@@ -25,10 +25,10 @@ export async function runScaleStrategy(metrics?: DashboardMetrics): Promise<Scal
         const accessToken = decrypt(integration.access_token_ref);
         const adSets = await getAdSets(integration.ad_account_id, accessToken);
 
-        // Filter active adsets and limit to top 8 to avoid timeout
+        // Filter active adsets and limit to top 5 to avoid timeout
         const activeAdSets = adSets
             .filter((a: any) => a.status === 'ACTIVE')
-            .slice(0, 8);
+            .slice(0, 5);
 
         const recommendationPromises = activeAdSets.map(async (adSet: any) => {
             try {
