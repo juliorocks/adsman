@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getIntegration } from "@/lib/data/settings";
 
-export async function saveManualRevenue(date: string, amount: number) {
+export async function saveManualRevenue(date: string, amount: number, salesCount: number = 0, unitPrice: number = 0) {
     const integration = await getIntegration();
     if (!integration || !integration.ad_account_id) {
         throw new Error("Ad account not selected");
@@ -13,14 +13,14 @@ export async function saveManualRevenue(date: string, amount: number) {
 
     const supabase = await createClient();
 
-    // We try to upsert as different platforms might have different date formats
-    // Meta uses YYYY-MM-DD
     const { error } = await supabase
         .from("manual_revenue")
         .upsert({
             ad_account_id: integration.ad_account_id,
             date: date,
             revenue: amount,
+            sales_count: salesCount,
+            unit_price: unitPrice,
             updated_at: new Date().toISOString()
         }, { onConflict: 'ad_account_id,date' });
 
@@ -55,7 +55,7 @@ export async function getManualRevenue(adAccountId: string, startDate?: string, 
 
     let query = supabase
         .from("manual_revenue")
-        .select("id, revenue, date")
+        .select("id, revenue, date, sales_count")
         .eq("ad_account_id", adAccountId)
         .order('date', { ascending: false });
 

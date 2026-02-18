@@ -22,7 +22,9 @@ export function ManualRevenueModal({
     const [isOpen, setIsOpen] = useState(forceOpen);
     const [loading, setLoading] = useState(false);
     const [date, setDate] = useState(initialDate || new Date().toISOString().split('T')[0]);
-    const [amount, setAmount] = useState(initialAmount || "");
+    const [amount, setAmount] = useState(initialAmount || "0");
+    const [salesCount, setSalesCount] = useState("0");
+    const [unitPrice, setUnitPrice] = useState("0");
     const [success, setSuccess] = useState(false);
 
     useEffect(() => {
@@ -30,6 +32,12 @@ export function ManualRevenueModal({
         if (initialDate) setDate(initialDate);
         if (initialAmount) setAmount(initialAmount);
     }, [forceOpen, initialDate, initialAmount]);
+
+    // Update total amount when sales count or unit price changes
+    useEffect(() => {
+        const total = parseFloat(salesCount || "0") * parseFloat(unitPrice || "0");
+        setAmount(total.toFixed(2));
+    }, [salesCount, unitPrice]);
 
     const handleClose = () => {
         setIsOpen(false);
@@ -40,11 +48,20 @@ export function ManualRevenueModal({
         e.preventDefault();
         setLoading(true);
         try {
-            await saveManualRevenue(date, parseFloat(amount));
+            await saveManualRevenue(
+                date,
+                parseFloat(amount),
+                parseInt(salesCount || "0"),
+                parseFloat(unitPrice || "0")
+            );
             setSuccess(true);
             setTimeout(() => {
                 setSuccess(false);
-                if (!forceOpen) setAmount("");
+                if (!forceOpen) {
+                    setAmount("0");
+                    setSalesCount("0");
+                    setUnitPrice("0");
+                }
                 handleClose();
             }, 1000);
         } catch (err) {
@@ -76,7 +93,7 @@ export function ManualRevenueModal({
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-900 dark:text-white">{initialDate ? 'Editar' : 'Lançar'} Faturamento</h3>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">Para cálculo de ROAS de alta precisão</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Cálculo de ROAS e CPA baseado no faturamento manual</p>
                                 </div>
                             </div>
                             <button onClick={handleClose} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300">
@@ -99,20 +116,44 @@ export function ManualRevenueModal({
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                                    Valor Faturado (R$)
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                        Núm. Vendas
+                                    </label>
+                                    <input
+                                        type="number"
+                                        placeholder="0"
+                                        value={salesCount}
+                                        onChange={(e) => setSalesCount(e.target.value)}
+                                        className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900 dark:text-white"
+                                        required
+                                        autoFocus
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                        Valor Unit. (R$)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                        value={unitPrice}
+                                        onChange={(e) => setUnitPrice(e.target.value)}
+                                        className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 focus:ring-2 focus:ring-emerald-500 outline-none text-slate-900 dark:text-white"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+                                <label className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-widest block mb-1">
+                                    Total Faturado (Multiplicação Automática)
                                 </label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    placeholder="0,00"
-                                    value={amount}
-                                    onChange={(e) => setAmount(e.target.value)}
-                                    className="w-full p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 focus:ring-2 focus:ring-emerald-500 outline-none text-lg font-bold text-slate-900 dark:text-white"
-                                    required
-                                    autoFocus
-                                />
+                                <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                                    R$ {amount}
+                                </div>
                             </div>
 
                             <div className="flex gap-3 pt-4">

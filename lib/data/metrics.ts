@@ -101,6 +101,7 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
 
         const manualSales = await getManualRevenue(integration.ad_account_id, startDate, endDate);
         const totalManualRevenue = manualSales.reduce((acc: number, curr: any) => acc + Number(curr.revenue), 0);
+        const totalManualSalesCount = manualSales.reduce((acc: number, curr: any) => acc + Number(curr.sales_count || 0), 0);
 
         const totalInsights = insights.reduce((acc: any, curr: any) => {
             const actions = curr.actions || [];
@@ -135,12 +136,16 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
         const topAge = Object.entries(ageMap).sort((a: any, b: any) => b[1] - a[1])[0]?.[0] || "N/A";
 
         const activeCampaigns = campaigns.filter((c: any) => c.status === "ACTIVE").length;
+
+        // Prioritize manual data for Revenue and Results (Conversions)
         const totalRevenue = totalManualRevenue > 0 ? totalManualRevenue : totalInsights.meta_revenue;
+        const totalResults = totalManualSalesCount > 0 ? totalManualSalesCount : totalInsights.results;
+
         const roas = totalInsights.spend > 0 ? totalRevenue / totalInsights.spend : 0;
         const cpc = totalInsights.clicks > 0 ? totalInsights.spend / totalInsights.clicks : 0;
         const ctr = totalInsights.impressions > 0 ? (totalInsights.clicks / totalInsights.impressions) * 100 : 0;
         const cpm = totalInsights.impressions > 0 ? (totalInsights.spend / totalInsights.impressions) * 1000 : 0;
-        const cpa = totalInsights.results > 0 ? totalInsights.spend / totalInsights.results : 0;
+        const cpa = totalResults > 0 ? totalInsights.spend / totalResults : 0;
 
         return {
             spend: totalInsights.spend,
@@ -152,10 +157,10 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
             cpc: Number(cpc.toFixed(2)),
             cpm: Number(cpm.toFixed(2)),
             ctr: Number(ctr.toFixed(2)),
-            conversions: totalInsights.results, // Using results as standard conversion count for high level
+            conversions: totalResults,
             leads: totalInsights.leads,
             conversations: totalInsights.conversations,
-            results: totalInsights.results,
+            results: totalResults,
             cpa: Number(cpa.toFixed(2)),
             top_gender: genderLabel,
             top_age: topAge
@@ -223,18 +228,28 @@ export async function getDailyPerformance(filter?: MetricsFilter) {
             const roasMultiplier = curr.purchase_roas ? curr.purchase_roas.reduce((sum: number, r: any) => sum + parseFloat(r.value), 0) : 0;
             const metaRevenue = (curr.action_values ? curr.action_values.reduce((sum: number, r: any) => sum + parseFloat(r.value), 0) : 0);
 
+            const actions = curr.actions || [];
+            const results = actions.reduce((sum: number, a: any) => {
+                if (['lead', 'complete_registration', 'purchase', 'messaging_conversation_started_7d'].includes(a.action_type)) {
+                    return sum + parseInt(a.value);
+                }
+                return sum;
+            }, 0);
+
             if (existingIndex > -1) {
                 acc[existingIndex].spend += spend;
                 acc[existingIndex].clicks += clicks;
                 acc[existingIndex].impressions += impressions;
                 acc[existingIndex].meta_revenue += metaRevenue;
+                acc[existingIndex].results += results;
             } else {
                 acc.push({
                     date,
                     spend,
                     clicks,
                     impressions,
-                    meta_revenue: metaRevenue
+                    meta_revenue: metaRevenue,
+                    results
                 });
             }
             return acc;
@@ -243,11 +258,13 @@ export async function getDailyPerformance(filter?: MetricsFilter) {
         return dailyData.map((d: any) => {
             const manualEntry = manualSales.find((s: any) => s.date === d.date);
             const totalRevenue = manualEntry ? Number(manualEntry.revenue) : d.meta_revenue;
+            const totalSales = manualEntry ? Number(manualEntry.sales_count || 0) : d.results || 0;
 
             return {
                 ...d,
                 roas: d.spend > 0 ? totalRevenue / d.spend : 0,
-                revenue: totalRevenue // Return total revenue explicitly if needed by frontend
+                revenue: totalRevenue,
+                results: totalSales
             };
         }).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
     } catch (error) {
