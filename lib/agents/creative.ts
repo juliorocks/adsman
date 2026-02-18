@@ -23,13 +23,21 @@ export async function generateCreativeIdeas(): Promise<CreativeVariation[]> {
     try {
         const accessToken = decrypt(integration.access_token_ref);
         const ads = await getAds(integration.ad_account_id, accessToken);
+        console.log(`[CreativeAgent] Total ads fetched: ${ads.length}`);
+
         let activeAds = ads.filter((a: any) => a.status === 'ACTIVE').slice(0, 5);
+        console.log(`[CreativeAgent] Active ads found: ${activeAds.length}`);
 
         // If no active ads, take top 5 ads regardless of status
         if (activeAds.length === 0) {
             activeAds = ads.slice(0, 5);
+            console.log(`[CreativeAgent] No active ads. Using fallback top ${activeAds.length} ads.`);
         }
-        console.log(`[CreativeAgent] Found ${activeAds.length} active ads for analysis.`);
+
+        if (activeAds.length === 0) {
+            console.warn("[CreativeAgent] No ads found in this account at all.");
+            return [];
+        }
 
         if (!userApiKey) {
             console.warn("[CreativeAgent] No OpenAI key found, using mock fallback.");
@@ -39,20 +47,26 @@ export async function generateCreativeIdeas(): Promise<CreativeVariation[]> {
                     targetAdId: ad.id,
                     targetAdName: ad.name,
                     adImage: ad.creative?.thumbnail_url,
-                    angle: 'Urgência',
-                    headline: 'Aproveite agora',
-                    bodyText: `Baseado no seu anúncio ${ad.name}, esta é uma variação de urgência.`,
+                    angle: 'Urgência (Simulado)',
+                    headline: 'Aproveite agora (Simulado)',
+                    bodyText: `Baseado no seu anúncio ${ad.name}, esta é uma variação de urgência simulada pois falta a chave da OpenAI.`,
                     cta: 'SAIBA_MAIS'
                 }
             ]);
         }
 
         const openai = new OpenAI({ apiKey: userApiKey });
+        console.log(`[CreativeAgent] Starting OpenAI generation for ${activeAds.length} ads.`);
 
         const generationPromises = activeAds.map(async (ad: any) => {
             try {
                 const currentTitle = ad.creative?.title || ad.name;
                 const currentBody = ad.creative?.body || "";
+
+                if (!currentTitle && !currentBody) {
+                    console.warn(`[CreativeAgent] Ad ${ad.id} has no title or body. Skipping.`);
+                    return [];
+                }
 
                 const response = await openai.chat.completions.create({
                     model: "gpt-4-turbo-preview",
@@ -87,11 +101,13 @@ export async function generateCreativeIdeas(): Promise<CreativeVariation[]> {
                 });
 
                 const data = JSON.parse(response.choices[0].message.content || "{}");
+                console.log(`[CreativeAgent] Generated ${data.variations?.length || 0} variations for ad ${ad.id}`);
+
                 return (data.variations || []).map((v: any, index: number) => ({
                     id: `ai_creative_${ad.id}_${index}`,
                     targetAdId: ad.id,
                     targetAdName: ad.name,
-                    adImage: ad.creative?.thumbnail_url,
+                    adImage: ad.creative?.thumbnail_url || ad.creative?.image_url,
                     angle: v.angle,
                     headline: v.headline,
                     bodyText: v.bodyText,
@@ -104,7 +120,9 @@ export async function generateCreativeIdeas(): Promise<CreativeVariation[]> {
         });
 
         const results = await Promise.all(generationPromises);
-        return results.flat();
+        const finalResults = results.flat();
+        console.log(`[CreativeAgent] Total variations generated: ${finalResults.length}`);
+        return finalResults;
     } catch (error) {
         console.error("Creative generation error:", error);
         return [];

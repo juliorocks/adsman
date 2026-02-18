@@ -151,8 +151,14 @@ export async function getInsights(
     if (data.error) throw new Error(data.error.message);
 
     if (Array.isArray(targets) && targets.length > 1) {
-        // Flatten insights from all requested IDs
-        return Object.values(data).flatMap((item: any) => item.insights?.data || []);
+        // Flatten insights from all requested IDs when using ?ids= batching
+        const insights: any[] = [];
+        Object.entries(data).forEach(([key, value]: [string, any]) => {
+            if (value.insights?.data) {
+                insights.push(...value.insights.data);
+            }
+        });
+        return insights;
     }
 
     return data.data || [];
