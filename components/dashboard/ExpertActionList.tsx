@@ -158,9 +158,13 @@ export function ExpertActionList({ recommendations, audit, isAutonomous: initial
                                     <div>
                                         <div className="flex items-start justify-between mb-2">
                                             <div>
-                                                <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${rec.type === 'scale_up' ? 'text-green-400 bg-green-400/10' : 'text-orange-400 bg-orange-400/10'
+                                                <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${rec.type === 'scale_up' ? 'text-green-400 bg-green-400/10' :
+                                                        rec.type === 'pause' || rec.type === 'critical' ? 'text-red-400 bg-red-400/10' :
+                                                            'text-orange-400 bg-orange-400/10'
                                                     }`}>
-                                                    {rec.type === 'scale_up' ? 'Escala Sugerida' : 'Otimização Expert'}
+                                                    {rec.type === 'scale_up' ? 'Escala Sugerida' :
+                                                        rec.type === 'pause' || rec.type === 'critical' ? 'Ação Crítica' :
+                                                            'Otimização Expert'}
                                                 </span>
                                                 <h4 className="text-lg font-bold text-white mt-1 group-hover:text-primary-400 transition-colors">
                                                     {rec.targetName}
@@ -180,7 +184,12 @@ export function ExpertActionList({ recommendations, audit, isAutonomous: initial
                                         <Button
                                             onClick={() => handleAction(rec, 'apply')}
                                             disabled={applyingId === rec.id}
-                                            className="bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl px-6 h-10 gap-2 active:scale-95 transition-all"
+                                            className={`font-black rounded-xl px-6 h-10 gap-2 active:scale-95 transition-all ${rec.type === 'pause' || rec.type === 'critical'
+                                                    ? 'bg-red-500 hover:bg-red-600 text-white shadow-[0_5px_15px_rgba(239,68,68,0.3)]'
+                                                    : rec.type === 'scale_up'
+                                                        ? 'bg-green-500 hover:bg-green-600 text-white shadow-[0_5px_15px_rgba(34,197,94,0.3)]'
+                                                        : 'bg-primary-500 hover:bg-primary-600 text-white shadow-[0_5px_15px_rgba(59,130,246,0.3)]'
+                                                }`}
                                         >
                                             {applyingId === rec.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                                             {rec.type === 'scale_up' ? `Aumentar para R$ ${(rec.suggestedBudget || 0).toFixed(2)}` : (rec.actionLabel || 'Aplicar Ação')}

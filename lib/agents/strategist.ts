@@ -14,6 +14,7 @@ export interface ScalingRecommendation {
     suggestedBudget?: number;
     reason: string;
     impact: string;
+    actionLabel: string;
     thought?: string;
 }
 
@@ -64,6 +65,7 @@ export async function runScaleStrategy(metrics?: DashboardMetrics): Promise<Scal
                         targetId: adSet.id,
                         currentBudget,
                         suggestedBudget: verdict.status === 'WARNING' ? currentBudget * 1.2 : undefined,
+                        actionLabel: verdict.status === 'CRITICAL' ? 'Pausar Conjunto' : 'Aumentar Orçamento',
                         reason: verdict.recommendation,
                         impact: verdict.status === 'WARNING' ? 'Expansão de ROAS' : 'Corte de Gastos Ineficientes',
                         thought: verdict.thought
