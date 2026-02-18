@@ -1,6 +1,6 @@
 
-import OpenAI from "openai";
 import { DashboardMetrics } from "../data/metrics";
+import { getAIClient } from "./client";
 
 export interface AgentVerdict {
     agent: 'auditor' | 'strategist' | 'creative';
@@ -11,17 +11,15 @@ export interface AgentVerdict {
     impact?: string;
 }
 
-import { getOpenAIKey } from "../data/settings";
-
 export async function getAgentVerdict(context: {
     campaignName: string;
     metrics: any;
     currentBudget: number;
     objective: string;
 }): Promise<AgentVerdict[]> {
-    const userApiKey = await getOpenAIKey();
+    const ai = await getAIClient();
 
-    if (!userApiKey) {
+    if (!ai) {
         return [
             {
                 agent: 'auditor',
@@ -47,41 +45,37 @@ export async function getAgentVerdict(context: {
         ];
     }
 
-    const openai = new OpenAI({
-        apiKey: userApiKey,
-    });
-
     try {
-        const response = await openai.chat.completions.create({
-            model: "gpt-4-turbo-preview",
+        const response = await ai.client.chat.completions.create({
+            model: ai.model,
             messages: [
                 {
                     role: "system",
                     content: `Você é o Cérebro de uma Colmeia de Agentes de Meta Ads.
-                    Your task is to analyze the campaign context and generate verdicts for 3 agents:
-                    1. AUDITOR: Focus on anomaly detection and technical health (CTR, High CPC). 
-                       - If status is CRITICAL: Performance is so bad that the ad SHOULD BE PAUSED immediately. Recommendation MUST justify the PAUSE.
-                       - If status is WARNING: Performance is sub-optimal but fixable. Recommendation must suggest a specific optimization (Copy, Audience, etc.).
-                    2. STRATEGIST: Focus on ROI, Profitability, and Scaling (ROAS, CPA).
-                       - If status is CRITICAL: Budget is being wasted without return. Suggest pausing or massive budget cut.
-                       - If status is WARNING: Performance is okay but has room for scaling.
-                    3. CREATIVE: Focus on creative fatigue and new copy angles.
+                    Sua tarefa é analisar o contexto da campanha e gerar vereditos para 3 agentes:
+                    1. AUDITOR: Foco em detecção de anomalias e saúde técnica (CTR, CPC Alto). 
+                       - Se status for CRITICAL: A performance está tão ruim que o anúncio DEVE SER PAUSADO imediatamente. A recomendação DEVE justificar o PAUSE.
+                       - Se status for WARNING: Performance sub-otimizada mas corrigível. Sugira uma otimização específica.
+                    2. STRATEGIST: Foco em ROI, Lucratividade e Escala (ROAS, CPA).
+                       - Se status for CRITICAL: Orçamento está sendo desperdiçado sem retorno. Sugira pause ou corte massivo.
+                       - Se status for WARNING: Performance está ok mas tem espaço para escala.
+                    3. CREATIVE: Foco em fadiga criativa e novos ângulos de copy.
 
-                    JSON Structure:
+                    Estrutura JSON esperada:
                     {
                       "verdicts": [
                         {
                           "agent": "auditor" | "strategist" | "creative",
                           "status": "OPTIMAL" | "WARNING" | "CRITICAL",
-                          "impact": "e.g., ROAS, CTR, Cost per Lead",
-                          "thought": "Direct thought behind the verdict",
-                          "recommendation": "CLEAR ACTIONABLE ADVICE"
+                          "impact": "ex: ROAS, CTR, Custo por Lead",
+                          "thought": "Raciocínio direto por trás do veredito",
+                          "recommendation": "CONSELHO CLARO E ACIONÁVEL"
                         }
                       ]
                     }
 
-                    CRITICAL action MUST correspond to a STOP/PAUSE action.
-                    WARNING action MUST correspond to an OPTIMIZE/FIX action.`
+                    AÇÃO CRITICAL DEVE corresponder a um STOP/PAUSE.
+                    AÇÃO WARNING DEVE corresponder a uma OTIMIZAÇÃO/AJUSTE.`
                 },
                 {
                     role: "user",
@@ -94,13 +88,20 @@ export async function getAgentVerdict(context: {
                     - CTR: ${context.metrics.ctr}%`
                 }
             ],
-            response_format: { type: "json_object" }
+            response_format: ai.isModal ? undefined : { type: "json_object" }
         });
 
-        const content = response.choices[0].message.content;
+        let content = response.choices[0].message.content || "{}";
+
+        // Modal GLM-5 fallback for non-json_object mode
+        if (ai.isModal && content.includes("```json")) {
+            content = content.split("```json")[1].split("```")[0];
+        } else if (ai.isModal && content.includes("```")) {
+            content = content.split("```")[1].split("```")[0];
+        }
+
         const data = JSON.parse(content || "{}");
 
-        // Normalize results to always return an array
         let verdicts: AgentVerdict[] = [];
         if (Array.isArray(data.verdicts)) {
             verdicts = data.verdicts;

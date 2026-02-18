@@ -1,7 +1,7 @@
 import { decrypt } from "@/lib/security/vault";
 import { getAds } from "@/lib/meta/api";
-import { getIntegration, getOpenAIKey } from "../data/settings";
-import OpenAI from "openai";
+import { getIntegration } from "../data/settings";
+import { getAIClient } from "../ai/client";
 
 export interface CreativeVariation {
     id: string;
@@ -16,7 +16,7 @@ export interface CreativeVariation {
 
 export async function generateCreativeIdeas(): Promise<CreativeVariation[]> {
     const integration = await getIntegration();
-    const userApiKey = await getOpenAIKey();
+    const ai = await getAIClient();
 
     if (!integration || !integration.access_token_ref || !integration.ad_account_id) return [];
 
@@ -25,7 +25,7 @@ export async function generateCreativeIdeas(): Promise<CreativeVariation[]> {
         const ads = await getAds(integration.ad_account_id, accessToken);
         const activeAds = ads.filter((a: any) => a.status === 'ACTIVE').slice(0, 3); // Top 3 ads
 
-        if (!userApiKey) {
+        if (!ai) {
             // Fallback mock if no key
             return activeAds.flatMap((ad: any, i: number) => [
                 {
@@ -41,15 +41,14 @@ export async function generateCreativeIdeas(): Promise<CreativeVariation[]> {
             ]);
         }
 
-        const openai = new OpenAI({ apiKey: userApiKey });
         const allVariations: CreativeVariation[] = [];
 
         for (const ad of activeAds) {
             const currentTitle = ad.creative?.title || ad.name;
             const currentBody = ad.creative?.body || "";
 
-            const response = await openai.chat.completions.create({
-                model: "gpt-4-turbo-preview",
+            const response = await ai.client.chat.completions.create({
+                model: ai.model,
                 messages: [
                     {
                         role: "system",
@@ -77,10 +76,19 @@ export async function generateCreativeIdeas(): Promise<CreativeVariation[]> {
                         Gere variações para este contexto específico.`
                     }
                 ],
-                response_format: { type: "json_object" }
+                response_format: ai.isModal ? undefined : { type: "json_object" }
             });
 
-            const data = JSON.parse(response.choices[0].message.content || "{}");
+            let content = response.choices[0].message.content || "{}";
+
+            // Modal GLM-5 fallback
+            if (ai.isModal && content.includes("```json")) {
+                content = content.split("```json")[1].split("```")[0];
+            } else if (ai.isModal && content.includes("```")) {
+                content = content.split("```")[1].split("```")[0];
+            }
+
+            const data = JSON.parse(content || "{}");
             if (data.variations) {
                 data.variations.forEach((v: any, index: number) => {
                     allVariations.push({

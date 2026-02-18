@@ -90,3 +90,35 @@ export async function getOpenAIKey() {
         return null;
     }
 }
+export async function getModalKey() {
+    const supabase = await createClient();
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+    let user = supabaseUser;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
+    if (!user) return null;
+
+    let encryptedKey: string | null = null;
+
+    if (user.id === "mock_user_id_dev") {
+        encryptedKey = cookies().get("dev_modal_token")?.value || null;
+    } else {
+        const { data } = await supabase
+            .from("integrations")
+            .select("access_token_ref")
+            .eq("user_id", user.id)
+            .eq("platform", "modal")
+            .single();
+
+        encryptedKey = data?.access_token_ref || null;
+    }
+
+    if (!encryptedKey) return process.env.MODAL_API_KEY || null;
+
+    try {
+        return decrypt(encryptedKey);
+    } catch (e) {
+        return null;
+    }
+}

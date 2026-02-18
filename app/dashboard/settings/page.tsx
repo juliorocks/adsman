@@ -1,12 +1,15 @@
 import { ConnectMetaButton } from "@/components/settings/ConnectMetaButton";
-import { getIntegration, getOpenAIKey } from "@/lib/data/settings";
+import { getIntegration, getOpenAIKey, getModalKey } from "@/lib/data/settings";
 import { OpenAIKeyForm } from "@/components/settings/OpenAIKeyForm";
+import { ModalKeyForm } from "@/components/settings/ModalKeyForm";
 
 export default async function SettingsPage() {
     const integration = await getIntegration();
     const openAIKey = await getOpenAIKey();
+    const modalKey = await getModalKey();
     const isConnected = !!integration && integration.status === "active";
     const hasOpenAI = !!openAIKey;
+    const hasModal = !!modalKey;
 
     return (
         <div className="max-w-4xl mx-auto space-y-12">
@@ -28,7 +31,10 @@ export default async function SettingsPage() {
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white">Inteligência Artificial</h3>
                     <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
                 </div>
-                <OpenAIKeyForm hasKey={hasOpenAI} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <OpenAIKeyForm hasKey={hasOpenAI} />
+                    <ModalKeyForm hasKey={hasModal} />
+                </div>
             </section>
         </div>
     );
