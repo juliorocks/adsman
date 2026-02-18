@@ -4,6 +4,7 @@ import { decrypt } from "@/lib/security/vault";
 import { getIntegration } from "@/lib/data/settings";
 import { updateObjectStatus, updateBudget, getAd, createAdCreative, updateAdCreativeId, createAd } from "@/lib/meta/api";
 import { revalidatePath } from "next/cache";
+import { createLog } from "@/lib/data/logs";
 
 async function updateBudgetRobust(targetId: string, amount: number, accessToken: string) {
     try {
@@ -29,14 +30,29 @@ export async function applyRecommendationAction(recommendationId: string, type: 
         } else if (type === 'scale_up' && suggestedBudget) {
             await updateBudgetRobust(targetId, suggestedBudget * 100, accessToken);
         } else if (type === 'optimization') {
-            // Log and bypass for now, or perform soft-action
             console.log(`[OPTIMIZATION] Manual review required for ${targetId}`);
         }
+
+        await createLog({
+            action_type: (type === 'pause' || type === 'critical') ? 'PAUSE' : (type === 'scale_up' ? 'BUDGET' : 'OPTIMIZATION'),
+            description: `Aplicou recomendação: ${type} (Orçamento: ${suggestedBudget || 'N/A'})`,
+            target_id: targetId,
+            agent: 'USER',
+            status: 'SUCCESS'
+        });
 
         revalidatePath("/dashboard/agents");
         return { success: true, message: type === 'optimization' ? "Revisão agendada. Use as variações abaixo." : "Ação aplicada com sucesso!" };
     } catch (error: any) {
         console.error("Apply recommendation error:", error);
+        await createLog({
+            action_type: 'OTHER',
+            description: `Erro ao aplicar recomendação ${type}`,
+            target_id: targetId,
+            agent: 'USER',
+            status: 'FAILED',
+            metadata: { error: error.message }
+        });
         return { success: false, error: error.message };
     }
 }
@@ -136,10 +152,28 @@ export async function applyCreativeVariationAction(adId: string, headline: strin
         // Create as PAUSED for safety and review
         await createAd(integration.ad_account_id, ad.adset_id, newCreative.id, newAdName, accessToken, 'PAUSED');
 
+        await createLog({
+            action_type: 'CREATIVE',
+            description: `Criou teste A/B com variação: "${headline}"`,
+            target_id: adId,
+            agent: 'CREATIVE',
+            status: 'SUCCESS'
+        });
+
         revalidatePath("/dashboard/agents");
         return { success: true, message: "Novo anúncio criado (Pausado) para teste A/B!" };
     } catch (error: any) {
         console.error("Apply creative variation error details:", JSON.stringify(error, null, 2));
+
+        await createLog({
+            action_type: 'CREATIVE',
+            description: `Erro ao criar variação para "${headline}"`,
+            target_id: adId,
+            agent: 'CREATIVE',
+            status: 'FAILED',
+            metadata: { error: error.message }
+        });
+
         return { success: false, error: error.message || "Unknown error" };
     }
 }

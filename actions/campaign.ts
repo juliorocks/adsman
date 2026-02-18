@@ -1,12 +1,49 @@
-
 "use server";
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getIntegration } from "@/lib/data/settings";
 import { decrypt } from "@/lib/security/vault";
-import { createCampaign, createAdSet } from "@/lib/meta/api";
+import { createCampaign, createAdSet, updateObjectStatus } from "@/lib/meta/api";
 import { parseTargetingFromGoal } from "@/lib/ai/openai";
+import { createLog } from "@/lib/data/logs";
+
+export async function toggleCampaignStatus(id: string, status: 'ACTIVE' | 'PAUSED', name: string) {
+    const integration = await getIntegration();
+    if (!integration || !integration.access_token_ref) {
+        throw new Error("No Meta integration found");
+    }
+
+    try {
+        const accessToken = decrypt(integration.access_token_ref);
+
+        await updateObjectStatus(id, status, accessToken);
+
+        await createLog({
+            action_type: status === 'ACTIVE' ? 'ACTIVATE' : 'PAUSE',
+            description: `Campanha "${name}" foi ${status === 'ACTIVE' ? 'ativada' : 'pausada'}.`,
+            target_id: id,
+            target_name: name,
+            agent: 'USER',
+            status: 'SUCCESS'
+        });
+
+        revalidatePath("/dashboard/campaigns");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Toggle campaign status error:", error);
+        await createLog({
+            action_type: status === 'ACTIVE' ? 'ACTIVATE' : 'PAUSE',
+            description: `Erro ao alterar status da campanha "${name}".`,
+            target_id: id,
+            target_name: name,
+            agent: 'USER',
+            status: 'FAILED',
+            metadata: { error: error.message }
+        });
+        return { success: false, error: error.message };
+    }
+}
 
 export async function createSmartCampaignAction(formData: { objective: string, goal: string, budget: string }) {
     const integration = await getIntegration();
