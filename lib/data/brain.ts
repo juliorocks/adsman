@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 export interface BusinessContext {
     id: string;
     content: string;
-    category: 'brand' | 'product' | 'audience' | 'competitor' | 'links';
+    category: 'brand' | 'product' | 'audience' | 'competitor' | 'context' | 'links';
     updated_at: string;
 }
 

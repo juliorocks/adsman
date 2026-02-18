@@ -10,6 +10,7 @@ export default async function BrainPage() {
         { id: 'product', label: 'Produtos e Serviços' },
         { id: 'audience', label: 'Público-Alvo' },
         { id: 'competitor', label: 'Concorrência' },
+        { id: 'context', label: 'Contexto & Regras' },
         { id: 'links', label: 'Links Importantes' },
     ];
 
