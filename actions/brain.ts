@@ -10,8 +10,15 @@ export async function addBusinessFact(formData: FormData) {
 
     if (!content || !category) throw new Error("Missing fields");
 
-    await saveBusinessContext(content, category);
-    revalidatePath('/dashboard/brain');
+    console.log("[Brain Action] Adding fact:", { content, category });
+
+    try {
+        await saveBusinessContext(content, category);
+        revalidatePath('/dashboard/brain');
+    } catch (error) {
+        console.error("[Brain Action] Error adding fact:", error);
+        throw error;
+    }
 }
 
 export async function removeBusinessFact(id: string) {
