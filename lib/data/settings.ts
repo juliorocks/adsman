@@ -122,25 +122,3 @@ export async function getModalKey() {
         return null;
     }
 }
-export async function getAIPreference(): Promise<'openai' | 'modal'> {
-    const supabase = await createClient();
-    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-
-    let user = supabaseUser;
-    const devSession = cookies().get("dev_session");
-    if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
-    if (!user) return 'openai';
-
-    if (user.id === "mock_user_id_dev") {
-        return (cookies().get("dev_ai_preference")?.value as any) || 'modal';
-    }
-
-    const { data } = await supabase
-        .from("integrations")
-        .select("access_token_ref")
-        .eq("user_id", user.id)
-        .eq("platform", "ai_preference")
-        .single();
-
-    return (data?.access_token_ref as any) || 'modal';
-}

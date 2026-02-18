@@ -19,41 +19,35 @@ export async function ExpertAnalysisSection({ adAccountId }: { adAccountId: stri
         getAdCreatives(adAccountId, accessToken)
     ]);
 
-    console.log(`[ExpertAnalysis] Metrics: ${metrics ? 'OK' : 'FAIL'}, Creatives count: ${creatives?.length || 0}`);
-
-    // Run agents sequentially to support Modal's concurrent request limits
-    const audit = await runPerformanceAudit(metrics);
-    const scaling = await runScaleStrategy(metrics);
-
-    console.log(`[ExpertAnalysis] Audit score: ${audit?.score}, Recs: ${audit?.recommendations?.length || 0}`);
-    console.log(`[ExpertAnalysis] Scaling count: ${scaling?.length || 0}`);
+    const [audit, scaling] = await Promise.all([
+        runPerformanceAudit(metrics),
+        runScaleStrategy(metrics)
+    ]);
 
     // Concatenate all expert findings: Audit (Ad level) + Scaling (Adset level)
     const combinedActions = [
-        ...(audit?.recommendations || []).map((r: any) => ({
-            id: r?.id || Math.random().toString(),
-            type: r?.type === 'critical' ? 'pause' : 'optimization',
-            targetName: r?.title || 'Anúncio sem nome',
-            targetId: r?.targetId || '',
-            reason: r?.description || '',
-            impact: r?.impact || 'Análise técnica',
-            thought: r?.thought || '',
-            adImage: r?.adImage || '',
-            actionLabel: r?.actionLabel || 'Ver anúncio',
+        ...(audit.recommendations || []).map((r: any) => ({
+            id: r.id,
+            type: r.type === 'critical' ? 'pause' : 'optimization',
+            targetName: r.title,
+            targetId: r.targetId,
+            reason: r.description,
+            impact: r.impact,
+            thought: r.thought,
+            adImage: r.adImage,
+            actionLabel: r.actionLabel,
             suggestedBudget: 0,
             currentBudget: 0,
             isAdLevel: true
         })),
         ...(scaling || []).map((s: any) => {
             const adImage = Array.isArray(creatives)
-                ? creatives.find((c: any) =>
-                    (c.name && s.targetName && (c.name.includes(s.targetName) || s.targetName.includes(c.name)))
-                )?.thumbnail_url
+                ? creatives.find((c: any) => c.name?.includes(s.targetName) || s.targetName?.includes(c.name))?.thumbnail_url
                 : undefined;
             return {
                 ...s,
-                targetId: s?.targetId || '',
-                adImage: adImage || ''
+                targetId: s.targetId,
+                adImage
             };
         })
     ];

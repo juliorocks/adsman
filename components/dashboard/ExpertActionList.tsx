@@ -126,7 +126,7 @@ export function ExpertActionList({ recommendations, audit, isAutonomous: initial
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-                <AnimatePresence initial={false}>
+                <AnimatePresence mode="popLayout">
                     {activeRecommendations.map((rec, index) => (
                         <motion.div
                             key={rec.id}

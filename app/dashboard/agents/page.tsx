@@ -49,25 +49,18 @@ export default async function AgentsPage() {
                 <AgentsFactory />
             </div>
 
-            {/* DYNAMIC SECTIONS - Suspended individually for resilience */}
-            <div className="space-y-10">
-                <Suspense fallback={<NeuralLoadingState />}>
-                    <ExpertAnalysisSection adAccountId={integration.ad_account_id} />
-                </Suspense>
-
+            {/* DYNAMIC SECTIONS - Suspended */}
+            <Suspense fallback={<NeuralLoadingState />}>
+                <ExpertAnalysisSection adAccountId={integration.ad_account_id} />
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-8 border-t border-slate-800">
                     <div className="lg:col-span-2">
-                        <Suspense fallback={<NeuralLoadingState />}>
-                            <CreativeStudioSection />
-                        </Suspense>
+                        <CreativeStudioSection />
                     </div>
                     <div>
-                        <Suspense fallback={<NeuralLoadingState />}>
-                            <HiveSummarySection />
-                        </Suspense>
+                        <HiveSummarySection />
                     </div>
                 </div>
-            </div>
+            </Suspense>
         </div>
     );
 }

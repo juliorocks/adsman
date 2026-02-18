@@ -1,6 +1,6 @@
 
+import OpenAI from "openai";
 import { DashboardMetrics } from "../data/metrics";
-import { getAIClient } from "./client";
 
 export interface AgentVerdict {
     agent: 'auditor' | 'strategist' | 'creative';
@@ -11,15 +11,17 @@ export interface AgentVerdict {
     impact?: string;
 }
 
+import { getOpenAIKey } from "../data/settings";
+
 export async function getAgentVerdict(context: {
     campaignName: string;
     metrics: any;
     currentBudget: number;
     objective: string;
 }): Promise<AgentVerdict[]> {
-    const ai = await getAIClient();
+    const userApiKey = await getOpenAIKey();
 
-    if (!ai) {
+    if (!userApiKey) {
         return [
             {
                 agent: 'auditor',
@@ -45,81 +47,77 @@ export async function getAgentVerdict(context: {
         ];
     }
 
+    const openai = new OpenAI({
+        apiKey: userApiKey,
+    });
+
     try {
-        const response = await ai.acquireLock(() => ai.client.chat.completions.create({
-            model: ai.model,
+        const response = await openai.chat.completions.create({
+            model: "gpt-4-turbo-preview",
             messages: [
                 {
                     role: "system",
-                    content: `Você é um analista de tráfego especialista em Meta Ads. 
-                    Responda RIGOROSAMENTE apenas em formato JSON.
-                    Não inclua explicações fora do JSON.
-                    
-                    Estrutura obrigatória:
+                    content: `Você é o Cérebro de uma Colmeia de Agentes de Meta Ads.
+                    Your task is to analyze the campaign context and generate verdicts for 3 agents:
+                    1. AUDITOR: Focus on anomaly detection and technical health (CTR, High CPC). 
+                       - If status is CRITICAL: Performance is so bad that the ad SHOULD BE PAUSED immediately. Recommendation MUST justify the PAUSE.
+                       - If status is WARNING: Performance is sub-optimal but fixable. Recommendation must suggest a specific optimization (Copy, Audience, etc.).
+                    2. STRATEGIST: Focus on ROI, Profitability, and Scaling (ROAS, CPA).
+                       - If status is CRITICAL: Budget is being wasted without return. Suggest pausing or massive budget cut.
+                       - If status is WARNING: Performance is okay but has room for scaling.
+                    3. CREATIVE: Focus on creative fatigue and new copy angles.
+
+                    JSON Structure:
                     {
                       "verdicts": [
                         {
                           "agent": "auditor" | "strategist" | "creative",
                           "status": "OPTIMAL" | "WARNING" | "CRITICAL",
-                          "impact": "Métrica principal atingida",
-                          "thought": "O que você observou nos dados",
-                          "recommendation": "Ação clara e direta (mesmo para status OPTIMAL, sugira como manter ou melhorar ligeiramente)"
+                          "impact": "e.g., ROAS, CTR, Cost per Lead",
+                          "thought": "Direct thought behind the verdict",
+                          "recommendation": "CLEAR ACTIONABLE ADVICE"
                         }
                       ]
-                    }`
+                    }
+
+                    CRITICAL action MUST correspond to a STOP/PAUSE action.
+                    WARNING action MUST correspond to an OPTIMIZE/FIX action.`
                 },
                 {
                     role: "user",
-                    content: `Analise estes dados e gere os 3 vereditos:
-                    Campanha: "${context.campaignName}"
-                    Objetivo: ${context.objective}
-                    Metrics: Spend=${context.metrics.spend}, Clicks=${context.metrics.clicks}, ROAS=${context.metrics.roas}, CTR=${context.metrics.ctr}%`
+                    content: `Dados da Campanha "${context.campaignName}":
+                    - Objetivo: ${context.objective}
+                    - Orçamento Atual: R$ ${context.currentBudget}
+                    - Gasto: R$ ${context.metrics.spend}
+                    - Cliques: ${context.metrics.clicks}
+                    - ROAS: ${context.metrics.roas}x
+                    - CTR: ${context.metrics.ctr}%`
                 }
             ],
-            temperature: 0.2,
-            response_format: ai.isModal ? undefined : { type: "json_object" }
-        }));
+            response_format: { type: "json_object" }
+        });
 
-        let content = response.choices[0].message.content || "{}";
+        const content = response.choices[0].message.content;
+        const data = JSON.parse(content || "{}");
 
-        if (ai.isModal) {
-            console.log("GLM-5 Raw Output:", content);
-            // Powerful cleanup for LLMs that talk too much
-            const jsonMatch = content.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                content = jsonMatch[0];
-            }
-        }
-
-        const data = JSON.parse(content);
-        console.log(`[Brain] Parsed response keys: ${Object.keys(data).join(', ')}`);
-
+        // Normalize results to always return an array
         let verdicts: AgentVerdict[] = [];
-        // Flatten and normalize various possible structures
-        const potentialArray = data.verdicts || data.agents || (Array.isArray(data) ? data : Object.values(data).find(v => Array.isArray(v)));
-
-        if (Array.isArray(potentialArray)) {
-            verdicts = potentialArray;
+        if (Array.isArray(data.verdicts)) {
+            verdicts = data.verdicts;
+        } else if (Array.isArray(data.agents)) {
+            verdicts = data.agents;
         } else if (typeof data === 'object' && data !== null) {
-            // Case where it returned a single verdict object instead of array
-            if (data.agent || data.recommendation) {
-                verdicts = [data as any];
+            const values = Object.values(data);
+            if (Array.isArray(values[0])) {
+                verdicts = values[0];
+            } else if (typeof values[0] === 'object') {
+                verdicts = values as any[];
             }
         }
 
-        const normalized = verdicts.map(v => ({
-            agent: String(v.agent || '').toLowerCase().trim() as "auditor" | "strategist" | "creative",
-            status: String(v.status || 'OPTIMAL').toUpperCase().trim() as "OPTIMAL" | "WARNING" | "CRITICAL",
-            thought: String(v.thought || ''),
-            recommendation: String(v.recommendation || 'Continuar monitorando métricas.'),
-            impact: String(v.impact || '')
-        })).filter(v => ['auditor', 'strategist', 'creative'].includes(v.agent));
-
-        console.log(`[Brain] Normalized verdicts count: ${normalized.length}`);
-        return normalized;
-
+        return Array.isArray(verdicts) ? verdicts : [];
     } catch (error) {
-        console.error("AI Brain Error:", error);
+        console.error("Agent brain error:", error);
         return [];
     }
 }

@@ -28,8 +28,10 @@ export function NeuralLoadingState() {
         <div className="w-full py-12 flex flex-col items-center justify-center space-y-6">
             {/* Connection Animation */}
             <div className="relative h-20 w-64">
+                {/* Horizontal connection line */}
                 <div className="absolute top-1/2 left-0 w-full h-[1px] bg-slate-800" />
 
+                {/* Traveling pulse */}
                 <motion.div
                     className="absolute top-1/2 left-0 h-1 w-20 bg-gradient-to-r from-transparent via-primary-500 to-transparent blur-sm"
                     animate={{ left: ["-20%", "100%"] }}
@@ -37,24 +39,46 @@ export function NeuralLoadingState() {
                 />
 
                 <div className="absolute inset-0 flex items-center justify-around">
-                    <div className="p-2 bg-slate-900 border border-slate-700 rounded-lg">
+                    <motion.div
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        className="p-2 bg-slate-900 border border-slate-700 rounded-lg"
+                    >
                         <Cpu className="h-4 w-4 text-primary-400" />
-                    </div>
-                    <div className="p-2 bg-slate-900 border border-slate-700 rounded-lg">
+                    </motion.div>
+
+                    <motion.div
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+                        className="p-2 bg-slate-900 border border-slate-700 rounded-lg"
+                    >
                         <Share2 className="h-4 w-4 text-purple-400" />
-                    </div>
-                    <div className="p-2 bg-slate-900 border border-slate-700 rounded-lg">
+                    </motion.div>
+
+                    <motion.div
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 2, repeat: Infinity, delay: 1 }}
+                        className="p-2 bg-slate-900 border border-slate-700 rounded-lg"
+                    >
                         <Zap className="h-4 w-4 text-orange-400" />
-                    </div>
+                    </motion.div>
                 </div>
             </div>
 
             {/* Pulsing Text */}
             <div className="flex flex-col items-center space-y-2">
-                <p className="text-sm font-bold text-slate-300 tracking-wide uppercase font-sans flex items-center gap-3">
-                    <Loader2 className="h-4 w-4 animate-spin text-primary-500" />
-                    {LOADING_MESSAGES[messageIndex]}
-                </p>
+                <AnimatePresence mode="wait">
+                    <motion.p
+                        key={messageIndex}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="text-sm font-bold text-slate-300 tracking-wide uppercase font-sans flex items-center gap-3"
+                    >
+                        <Loader2 className="h-4 w-4 animate-spin text-primary-500" />
+                        {LOADING_MESSAGES[messageIndex]}
+                    </motion.p>
+                </AnimatePresence>
                 <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">
                     Estabelecendo conexão neural segura
                 </p>

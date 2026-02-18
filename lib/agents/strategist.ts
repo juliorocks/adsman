@@ -27,26 +27,21 @@ export const runScaleStrategy = cache(async function (metrics?: DashboardMetrics
         const accessToken = decrypt(integration.access_token_ref);
         const adSets = await getAdSets(integration.ad_account_id, accessToken);
 
-        // Filter active or recently paused adsets and limit to top 10
+        // Filter active adsets and limit to top 5 to avoid timeout
         const activeAdSets = adSets
-            .filter((a: any) => a.status === 'ACTIVE' || a.status === 'PAUSED')
-            .slice(0, 10);
+            .filter((a: any) => a.status === 'ACTIVE')
+            .slice(0, 5);
 
-        console.log(`[Strategist] Found ${adSets.length} total adsets, analyzing ${activeAdSets.length} active/paused.`);
-
-        // Sequential analysis to support low-concurrency providers
-        const recommendations: ScalingRecommendation[] = [];
-        for (const adSet of activeAdSets) {
+        const recommendationPromises = activeAdSets.map(async (adSet: any) => {
             try {
-                const insights = await getInsights(adSet.id, accessToken, 'last_30d');
-                const data = insights && insights.length > 0 ? insights[0] : { spend: 0, clicks: 0, impressions: 0 };
+                const insights = await getInsights(adSet.id, accessToken, 'last_7d');
+                if (!insights || insights.length === 0) return null;
 
+                const data = insights[0];
                 const currentBudget = parseFloat(adSet.daily_budget || adSet.lifetime_budget || 0) / 100;
                 const spend = parseFloat(data.spend || 0);
                 const clicks = parseInt(data.clicks || 0);
                 const impressions = parseInt(data.impressions || 0);
-
-                console.log(`[Strategist] Analyzing AdSet: ${adSet.name} (Budget: ${currentBudget}, Spend: ${spend})`);
 
                 // Call AI Brain for scaling verdict
                 const brainVerdicts = await getAgentVerdict({
@@ -62,31 +57,30 @@ export const runScaleStrategy = cache(async function (metrics?: DashboardMetrics
                 });
 
                 const verdict = brainVerdicts.find(v => v.agent === 'strategist');
-                console.log(`[Strategist] Verdict for ${adSet.name}: ${verdict?.status || 'NONE'}`);
 
-                if (verdict) {
-                    if (verdict.status !== 'OPTIMAL' || recommendations.length < 2) {
-                        recommendations.push({
-                            id: `ai_scale_${adSet.id}_${Date.now()}`,
-                            type: (verdict.status === 'CRITICAL' ? 'pause' : 'scale_up') as any,
-                            targetName: adSet.name,
-                            targetId: adSet.id,
-                            currentBudget,
-                            suggestedBudget: verdict.status === 'WARNING' ? currentBudget * 1.2 : undefined,
-                            actionLabel: verdict.status === 'CRITICAL' ? 'Pausar Conjunto' : 'Ajustar Orçamento',
-                            reason: verdict.recommendation,
-                            impact: verdict.status === 'WARNING' ? 'Expansão de ROAS' : 'Otimização de Verba',
-                            thought: verdict.thought
-                        });
-                    }
+                if (verdict && verdict.status !== 'OPTIMAL') {
+                    return {
+                        id: `ai_scale_${adSet.id}`,
+                        type: (verdict.status === 'CRITICAL' ? 'pause' : 'scale_up') as any,
+                        targetName: adSet.name,
+                        targetId: adSet.id,
+                        currentBudget,
+                        suggestedBudget: verdict.status === 'WARNING' ? currentBudget * 1.2 : undefined,
+                        actionLabel: verdict.status === 'CRITICAL' ? 'Pausar Conjunto' : 'Aumentar Orçamento',
+                        reason: verdict.recommendation,
+                        impact: verdict.status === 'WARNING' ? 'Expansão de ROAS' : 'Corte de Gastos Ineficientes',
+                        thought: verdict.thought
+                    } as ScalingRecommendation;
                 }
+                return null;
             } catch (err) {
-                console.error(`[Strategist] Error analyzing adset ${adSet.id}:`, err);
+                console.error(`Error analyzing adset ${adSet.id}:`, err);
+                return null;
             }
-        }
+        });
 
-        console.log(`[Strategist] Final recommendation count: ${recommendations.length}`);
-        return recommendations;
+        const results = await Promise.all(recommendationPromises);
+        return results.filter((r): r is ScalingRecommendation => r !== null);
     } catch (error) {
         console.error("Scale strategy core error:", error);
         return [];
