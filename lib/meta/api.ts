@@ -102,6 +102,14 @@ export async function getAds(adAccountId: string, accessToken: string) {
     return data.data || [];
 }
 
+export async function getAd(adId: string, accessToken: string) {
+    const fields = "id,name,status,adset_id,campaign_id,creative{id,name,thumbnail_url,title,body,object_story_spec,image_hash,image_url}";
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adId}?fields=${fields}&access_token=${accessToken}`);
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    return data;
+}
+
 export async function getAdCreatives(adAccountId: string, accessToken: string) {
     const fields = "id,name,title,body,object_story_spec,thumbnail_url";
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives?fields=${fields}&access_token=${accessToken}&limit=10`);
@@ -219,6 +227,20 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
 export async function updateObjectStatus(id: string, status: 'ACTIVE' | 'PAUSED', accessToken: string) {
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${id}?status=${status}&access_token=${accessToken}`, {
         method: 'POST'
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    return data;
+}
+
+export async function updateAdCreativeId(adId: string, creativeId: string, accessToken: string) {
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            creative: { creative_id: creativeId },
+            access_token: accessToken
+        })
     });
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
