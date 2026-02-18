@@ -83,23 +83,28 @@ export async function saveOpenAIKey(key: string) {
     if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
     if (!user) throw new Error("Unauthorized");
 
-    const encryptedKey = encrypt(key);
+    const encryptedKey = encrypt(key.trim());
 
-    const { error } = await supabase
-        .from("integrations")
-        .upsert({
-            user_id: user.id,
-            platform: "openai",
-            access_token_ref: encryptedKey,
-            status: "active",
-            updated_at: new Date().toISOString()
-        }, {
-            onConflict: "user_id,platform"
-        });
+    if (user.id === "mock_user_id_dev") {
+        // Save to cookie for dev/mock mode to avoid UUID database error
+        cookies().set("dev_openai_token", encryptedKey, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 30 });
+    } else {
+        const { error } = await supabase
+            .from("integrations")
+            .upsert({
+                user_id: user.id,
+                platform: "openai",
+                access_token_ref: encryptedKey,
+                status: "active",
+                updated_at: new Date().toISOString()
+            }, {
+                onConflict: "user_id,platform"
+            });
 
-    if (error) {
-        console.error(error);
-        throw new Error("Failed to save API Key");
+        if (error) {
+            console.error("Supabase error saving OpenAI key:", error);
+            throw new Error(error.message);
+        }
     }
 
     revalidatePath("/dashboard/settings");

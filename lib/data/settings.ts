@@ -67,17 +67,25 @@ export async function getOpenAIKey() {
     if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
     if (!user) return null;
 
-    const { data } = await supabase
-        .from("integrations")
-        .select("access_token_ref")
-        .eq("user_id", user.id)
-        .eq("platform", "openai")
-        .single();
+    let encryptedKey: string | null = null;
 
-    if (!data?.access_token_ref) return process.env.OPENAI_API_KEY || null;
+    if (user.id === "mock_user_id_dev") {
+        encryptedKey = cookies().get("dev_openai_token")?.value || null;
+    } else {
+        const { data } = await supabase
+            .from("integrations")
+            .select("access_token_ref")
+            .eq("user_id", user.id)
+            .eq("platform", "openai")
+            .single();
+
+        encryptedKey = data?.access_token_ref || null;
+    }
+
+    if (!encryptedKey) return process.env.OPENAI_API_KEY || null;
 
     try {
-        return decrypt(data.access_token_ref);
+        return decrypt(encryptedKey);
     } catch (e) {
         return null;
     }
