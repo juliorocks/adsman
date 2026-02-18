@@ -81,8 +81,8 @@ export async function runPerformanceAudit(metrics: DashboardMetrics, campaignNam
                             type: (verdict.status === 'CRITICAL' ? 'critical' : 'optimization') as any,
                             title: `Anúncio: ${ad.name}`,
                             description: verdict.recommendation,
-                            actionLabel: verdict.status === 'CRITICAL' ? 'Pausar Anúncio' : 'Otimizar Criativo',
-                            impact: 'Eficácia Criativa',
+                            actionLabel: verdict.status === 'CRITICAL' ? 'Pausar Agora' : 'Revisar Criativo',
+                            impact: verdict.impact || 'Performance',
                             thought: verdict.thought,
                             adImage: ad.creative?.thumbnail_url || ad.creative?.image_url,
                             campaignId: ad.campaign_id

@@ -8,6 +8,7 @@ export interface AgentVerdict {
     thought: string;
     action?: string;
     recommendation: string;
+    impact?: string;
 }
 
 import { getOpenAIKey } from "../data/settings";
@@ -26,19 +27,22 @@ export async function getAgentVerdict(context: {
                 agent: 'auditor',
                 status: 'WARNING',
                 thought: 'Simulação: Analisando padrões de CTR e CPC.',
-                recommendation: 'Detectamos que 2 anúncios estão com CTR abaixo da média do setor (0.8%). Considere revisar a headline.'
+                recommendation: 'Detectamos que 2 anúncios estão com CTR abaixo da média do setor (0.8%). Considere revisar a headline.',
+                impact: 'CTR'
             },
             {
                 agent: 'strategist',
                 status: 'WARNING',
                 thought: 'Simulação: Avaliando ROAS e teto de gastos.',
-                recommendation: 'Sua campanha principal tem ROAS de 3.5x. Recomendamos escalar o orçamento em 15% para aproveitar o momentum.'
+                recommendation: 'Sua campanha principal tem ROAS de 3.5x. Recomendamos escalar o orçamento em 15% para aproveitar o momentum.',
+                impact: 'ROAS'
             },
             {
                 agent: 'creative',
                 status: 'OPTIMAL',
                 thought: 'Simulação: Fadiga de criativos está em níveis baixos.',
-                recommendation: 'Seus criativos atuais ainda performam bem. Continue o monitoramento.'
+                recommendation: 'Seus criativos atuais ainda performam bem. Continue o monitoramento.',
+                impact: 'CPA'
             }
         ];
     }
@@ -54,13 +58,30 @@ export async function getAgentVerdict(context: {
                 {
                     role: "system",
                     content: `Você é o Cérebro de uma Colmeia de Agentes de Meta Ads.
-                    Sua tarefa é analisar o contexto da campanha e gerar vereditos para 3 agentes:
-                    1. AUDITOR: Focado em anomalias e saúde técnica (CTR, CPC alto).
-                    2. STRATEGIST: Focado em ROI, escala e orçamento (ROAS, CPA).
-                    3. CREATIVE: Focado em fadiga de criativo e novas ideias.
+                    Your task is to analyze the campaign context and generate verdicts for 3 agents:
+                    1. AUDITOR: Focus on anomaly detection and technical health (CTR, High CPC). 
+                       - If status is CRITICAL: Performance is so bad that the ad SHOULD BE PAUSED immediately. Recommendation MUST justify the PAUSE.
+                       - If status is WARNING: Performance is sub-optimal but fixable. Recommendation must suggest a specific optimization (Copy, Audience, etc.).
+                    2. STRATEGIST: Focus on ROI, Profitability, and Scaling (ROAS, CPA).
+                       - If status is CRITICAL: Budget is being wasted without return. Suggest pausing or massive budget cut.
+                       - If status is WARNING: Performance is okay but has room for scaling.
+                    3. CREATIVE: Focus on creative fatigue and new copy angles.
 
-                    Responda APENAS um objeto JSON com uma lista chamada 'verdicts'.
-                    Exemplo: { "verdicts": [{ "agent": "auditor", "status": "OPTIMAL", "thought": "...", "recommendation": "..." }] }`
+                    JSON Structure:
+                    {
+                      "verdicts": [
+                        {
+                          "agent": "auditor" | "strategist" | "creative",
+                          "status": "OPTIMAL" | "WARNING" | "CRITICAL",
+                          "impact": "e.g., ROAS, CTR, Cost per Lead",
+                          "thought": "Direct thought behind the verdict",
+                          "recommendation": "CLEAR ACTIONABLE ADVICE"
+                        }
+                      ]
+                    }
+
+                    CRITICAL action MUST correspond to a STOP/PAUSE action.
+                    WARNING action MUST correspond to an OPTIMIZE/FIX action.`
                 },
                 {
                     role: "user",
@@ -86,12 +107,10 @@ export async function getAgentVerdict(context: {
         } else if (Array.isArray(data.agents)) {
             verdicts = data.agents;
         } else if (typeof data === 'object' && data !== null) {
-            // Check if values are the verdicts themselves
             const values = Object.values(data);
             if (Array.isArray(values[0])) {
                 verdicts = values[0];
             } else if (typeof values[0] === 'object') {
-                // It might be a mapped object { auditor: {..}, ... }
                 verdicts = values as any[];
             }
         }
