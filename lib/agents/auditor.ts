@@ -10,6 +10,8 @@ export interface AIRecommendation {
     actionLabel: string;
     impact: string;
     thought?: string;
+    adImage?: string;
+    campaignId?: string;
 }
 
 export interface AuditResult {

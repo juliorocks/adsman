@@ -94,7 +94,7 @@ export async function getAdSets(adAccountId: string, accessToken: string) {
 }
 
 export async function getAdCreatives(adAccountId: string, accessToken: string) {
-    const fields = "id,name,title,body,object_story_spec";
+    const fields = "id,name,title,body,object_story_spec,thumbnail_url";
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives?fields=${fields}&access_token=${accessToken}&limit=10`);
     const data = await response.json();
 

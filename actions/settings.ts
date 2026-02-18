@@ -72,3 +72,36 @@ export async function disconnectMeta() {
     revalidatePath("/dashboard/settings");
     return { success: true };
 }
+import { encrypt } from "@/lib/security/vault";
+
+export async function saveOpenAIKey(key: string) {
+    const supabase = await createClient();
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+    let user = supabaseUser;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
+    if (!user) throw new Error("Unauthorized");
+
+    const encryptedKey = encrypt(key);
+
+    const { error } = await supabase
+        .from("integrations")
+        .upsert({
+            user_id: user.id,
+            platform: "openai",
+            access_token_ref: encryptedKey,
+            status: "active",
+            updated_at: new Date().toISOString()
+        }, {
+            onConflict: "user_id,platform"
+        });
+
+    if (error) {
+        console.error(error);
+        throw new Error("Failed to save API Key");
+    }
+
+    revalidatePath("/dashboard/settings");
+    return { success: true };
+}

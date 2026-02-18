@@ -10,13 +10,17 @@ export interface AgentVerdict {
     recommendation: string;
 }
 
+import { getOpenAIKey } from "../data/settings";
+
 export async function getAgentVerdict(context: {
     campaignName: string;
     metrics: any;
     currentBudget: number;
     objective: string;
 }): Promise<AgentVerdict[]> {
-    if (!process.env.OPENAI_API_KEY) {
+    const userApiKey = await getOpenAIKey();
+
+    if (!userApiKey) {
         return [
             {
                 agent: 'auditor',
@@ -40,7 +44,7 @@ export async function getAgentVerdict(context: {
     }
 
     const openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
+        apiKey: userApiKey,
     });
 
     try {
