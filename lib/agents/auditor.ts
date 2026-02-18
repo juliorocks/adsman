@@ -74,8 +74,9 @@ export const runPerformanceAudit = cache(async function (metrics: DashboardMetri
             };
         }).sort((a: any, b: any) => parseFloat(b.insight.spend) - parseFloat(a.insight.spend));
 
-        // Analyze TOP 5 ads to maintain high performance
-        const analysisPromises = adsWithPerformance.slice(0, 5).map(async (ad: any) => {
+        // Analyze TOP 5 ads sequentially to support low-concurrency providers
+        const recommendations: AIRecommendation[] = [];
+        for (const ad of adsWithPerformance.slice(0, 5)) {
             const spend = parseFloat(ad.insight.spend || 0);
             const clicks = parseInt(ad.insight.clicks || 0);
             const impressions = parseInt(ad.insight.impressions || 0);
@@ -94,7 +95,7 @@ export const runPerformanceAudit = cache(async function (metrics: DashboardMetri
                     const verdict = brainVerdicts.find(v => v.agent === 'auditor');
 
                     if (verdict && verdict.status !== 'OPTIMAL') {
-                        return {
+                        recommendations.push({
                             id: `ai_ad_audit_${ad.id}`,
                             type: (verdict.status === 'CRITICAL' ? 'critical' : 'optimization') as any,
                             title: `Anúncio: ${ad.name}`,
@@ -105,17 +106,13 @@ export const runPerformanceAudit = cache(async function (metrics: DashboardMetri
                             thought: verdict.thought,
                             adImage: ad.creative?.thumbnail_url || ad.creative?.image_url,
                             campaignId: ad.campaign_id
-                        } as AIRecommendation;
+                        });
                     }
                 } catch (e) {
                     console.error("AI Analysis failed for ad", ad.id, e);
                 }
             }
-            return null;
-        });
-
-        const results = await Promise.all(analysisPromises);
-        const recommendations = results.filter((r): r is AIRecommendation => r !== null);
+        }
 
         let score = 100;
         if (recommendations.some((r: any) => r.type === 'critical')) score = 55;

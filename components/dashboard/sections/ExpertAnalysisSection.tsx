@@ -19,10 +19,9 @@ export async function ExpertAnalysisSection({ adAccountId }: { adAccountId: stri
         getAdCreatives(adAccountId, accessToken)
     ]);
 
-    const [audit, scaling] = await Promise.all([
-        runPerformanceAudit(metrics),
-        runScaleStrategy(metrics)
-    ]);
+    // Run agents sequentially to support Modal's concurrent request limits
+    const audit = await runPerformanceAudit(metrics);
+    const scaling = await runScaleStrategy(metrics);
 
     // Concatenate all expert findings: Audit (Ad level) + Scaling (Adset level)
     const combinedActions = [

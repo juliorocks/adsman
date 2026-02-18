@@ -2,6 +2,9 @@
 import OpenAI from "openai";
 import { getOpenAIKey, getModalKey } from "@/lib/data/settings";
 
+// Simple semaphore to prevent concurrent AI calls on Modal (Limit: 1)
+let aiLock: Promise<void> = Promise.resolve();
+
 export async function getAIClient() {
     const modalKey = await getModalKey();
     const openaiKey = await getOpenAIKey();
@@ -14,7 +17,19 @@ export async function getAIClient() {
                 baseURL: "https://api.us-west-2.modal.direct/v1"
             }),
             model: "zai-org/GLM-5-FP8",
-            isModal: true
+            isModal: true,
+            // Function to wrap calls in the lock
+            acquireLock: async <T>(fn: () => Promise<T>): Promise<T> => {
+                const currentLock = aiLock;
+                let release: () => void;
+                aiLock = new Promise((resolve) => { release = resolve; });
+                await currentLock;
+                try {
+                    return await fn();
+                } finally {
+                    release!();
+                }
+            }
         };
     }
 
@@ -24,7 +39,8 @@ export async function getAIClient() {
                 apiKey: openaiKey
             }),
             model: "gpt-4-turbo-preview",
-            isModal: false
+            isModal: false,
+            acquireLock: async <T>(fn: () => Promise<T>): Promise<T> => await fn()
         };
     }
 

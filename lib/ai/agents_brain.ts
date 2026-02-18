@@ -46,79 +46,74 @@ export async function getAgentVerdict(context: {
     }
 
     try {
-        const response = await ai.client.chat.completions.create({
+        const response = await ai.acquireLock(() => ai.client.chat.completions.create({
             model: ai.model,
             messages: [
                 {
                     role: "system",
-                    content: `Você é o Cérebro de uma Colmeia de Agentes de Meta Ads.
-                    Sua tarefa é analisar o contexto da campanha e gerar vereditos para 3 agentes:
-                    1. AUDITOR: Foco em detecção de anomalias e saúde técnica (CTR, CPC Alto). 
-                       - Se status for CRITICAL: A performance está tão ruim que o anúncio DEVE SER PAUSADO imediatamente. A recomendação DEVE justificar o PAUSE.
-                       - Se status for WARNING: Performance sub-otimizada mas corrigível. Sugira uma otimização específica.
-                    2. STRATEGIST: Foco em ROI, Lucratividade e Escala (ROAS, CPA).
-                       - Se status for CRITICAL: Orçamento está sendo desperdiçado sem retorno. Sugira pause ou corte massivo.
-                       - Se status for WARNING: Performance está ok mas tem espaço para escala.
-                    3. CREATIVE: Foco em fadiga criativa e novos ângulos de copy.
-
-                    Estrutura JSON esperada:
+                    content: `Você é um analista de tráfego especialista em Meta Ads. 
+                    Responda RIGOROSAMENTE apenas em formato JSON.
+                    Não inclua explicações fora do JSON.
+                    
+                    Estrutura obrigatória:
                     {
                       "verdicts": [
                         {
                           "agent": "auditor" | "strategist" | "creative",
                           "status": "OPTIMAL" | "WARNING" | "CRITICAL",
-                          "impact": "ex: ROAS, CTR, Custo por Lead",
-                          "thought": "Raciocínio direto por trás do veredito",
-                          "recommendation": "CONSELHO CLARO E ACIONÁVEL"
+                          "impact": "Métrica principal atingida",
+                          "thought": "O que você observou nos dados",
+                          "recommendation": "Ação clara e direta"
                         }
                       ]
-                    }
-
-                    AÇÃO CRITICAL DEVE corresponder a um STOP/PAUSE.
-                    AÇÃO WARNING DEVE corresponder a uma OTIMIZAÇÃO/AJUSTE.`
+                    }`
                 },
                 {
                     role: "user",
-                    content: `Dados da Campanha "${context.campaignName}":
-                    - Objetivo: ${context.objective}
-                    - Orçamento Atual: R$ ${context.currentBudget}
-                    - Gasto: R$ ${context.metrics.spend}
-                    - Cliques: ${context.metrics.clicks}
-                    - ROAS: ${context.metrics.roas}x
-                    - CTR: ${context.metrics.ctr}%`
+                    content: `Analise estes dados e gere os 3 vereditos:
+                    Campanha: "${context.campaignName}"
+                    Objetivo: ${context.objective}
+                    Metrics: Spend=${context.metrics.spend}, Clicks=${context.metrics.clicks}, ROAS=${context.metrics.roas}, CTR=${context.metrics.ctr}%`
                 }
             ],
+            temperature: 0.2,
             response_format: ai.isModal ? undefined : { type: "json_object" }
-        });
+        }));
 
         let content = response.choices[0].message.content || "{}";
 
-        // Modal GLM-5 fallback for non-json_object mode
-        if (ai.isModal && content.includes("```json")) {
-            content = content.split("```json")[1].split("```")[0];
-        } else if (ai.isModal && content.includes("```")) {
-            content = content.split("```")[1].split("```")[0];
-        }
-
-        const data = JSON.parse(content || "{}");
-
-        let verdicts: AgentVerdict[] = [];
-        if (Array.isArray(data.verdicts)) {
-            verdicts = data.verdicts;
-        } else if (Array.isArray(data.agents)) {
-            verdicts = data.agents;
-        } else if (typeof data === 'object' && data !== null) {
-            const values = Object.values(data);
-            if (Array.isArray(values[0])) {
-                verdicts = values[0];
-            } else if (typeof values[0] === 'object') {
-                verdicts = values as any[];
+        if (ai.isModal) {
+            console.log("GLM-5 Raw Output:", content);
+            // Powerful cleanup for LLMs that talk too much
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                content = jsonMatch[0];
             }
         }
 
-        return Array.isArray(verdicts) ? verdicts : [];
+        const data = JSON.parse(content);
+
+        let verdicts: AgentVerdict[] = [];
+        // Flatten and normalize various possible structures
+        const potentialArray = data.verdicts || data.agents || (Array.isArray(data) ? data : Object.values(data).find(v => Array.isArray(v)));
+
+        if (Array.isArray(potentialArray)) {
+            verdicts = potentialArray;
+        } else if (typeof data === 'object' && data !== null) {
+            // If it's just one object or odd structure
+            verdicts = [data as any];
+        }
+
+        return verdicts.map(v => ({
+            agent: v.agent || 'auditor',
+            status: v.status || 'OPTIMAL',
+            thought: v.thought || '',
+            recommendation: v.recommendation || '',
+            impact: v.impact || ''
+        })).filter(v => ['auditor', 'strategist', 'creative'].includes(v.agent));
+
     } catch (error) {
-        console.error("Agent brain error:", error);
+        console.error("AI Brain Error:", error);
         return [];
     }
 }

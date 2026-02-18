@@ -32,10 +32,12 @@ export const runScaleStrategy = cache(async function (metrics?: DashboardMetrics
             .filter((a: any) => a.status === 'ACTIVE')
             .slice(0, 5);
 
-        const recommendationPromises = activeAdSets.map(async (adSet: any) => {
+        // Sequential analysis to support low-concurrency providers
+        const recommendations: ScalingRecommendation[] = [];
+        for (const adSet of activeAdSets) {
             try {
                 const insights = await getInsights(adSet.id, accessToken, 'last_7d');
-                if (!insights || insights.length === 0) return null;
+                if (!insights || insights.length === 0) continue;
 
                 const data = insights[0];
                 const currentBudget = parseFloat(adSet.daily_budget || adSet.lifetime_budget || 0) / 100;
@@ -59,7 +61,7 @@ export const runScaleStrategy = cache(async function (metrics?: DashboardMetrics
                 const verdict = brainVerdicts.find(v => v.agent === 'strategist');
 
                 if (verdict && verdict.status !== 'OPTIMAL') {
-                    return {
+                    recommendations.push({
                         id: `ai_scale_${adSet.id}`,
                         type: (verdict.status === 'CRITICAL' ? 'pause' : 'scale_up') as any,
                         targetName: adSet.name,
@@ -70,17 +72,14 @@ export const runScaleStrategy = cache(async function (metrics?: DashboardMetrics
                         reason: verdict.recommendation,
                         impact: verdict.status === 'WARNING' ? 'Expansão de ROAS' : 'Corte de Gastos Ineficientes',
                         thought: verdict.thought
-                    } as ScalingRecommendation;
+                    });
                 }
-                return null;
             } catch (err) {
                 console.error(`Error analyzing adset ${adSet.id}:`, err);
-                return null;
             }
-        });
+        }
 
-        const results = await Promise.all(recommendationPromises);
-        return results.filter((r): r is ScalingRecommendation => r !== null);
+        return recommendations;
     } catch (error) {
         console.error("Scale strategy core error:", error);
         return [];
