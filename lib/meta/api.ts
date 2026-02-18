@@ -216,7 +216,7 @@ export async function createAdCreative(adAccountId: string, name: string, object
     return data;
 }
 
-export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string) {
+export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED') {
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/ads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -224,7 +224,7 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
             name,
             adset_id: adSetId,
             creative: { creative_id: creativeId },
-            status: 'PAUSED',
+            status: status,
             access_token: accessToken
         })
     });

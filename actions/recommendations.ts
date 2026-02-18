@@ -2,7 +2,7 @@
 
 import { decrypt } from "@/lib/security/vault";
 import { getIntegration } from "@/lib/data/settings";
-import { updateObjectStatus, updateBudget, getAd, createAdCreative, updateAdCreativeId } from "@/lib/meta/api";
+import { updateObjectStatus, updateBudget, getAd, createAdCreative, updateAdCreativeId, createAd } from "@/lib/meta/api";
 import { revalidatePath } from "next/cache";
 
 async function updateBudgetRobust(targetId: string, amount: number, accessToken: string) {
@@ -126,14 +126,18 @@ export async function applyCreativeVariationAction(adId: string, headline: strin
         console.log("[Creative] Sending Spec:", JSON.stringify(newSpec, null, 2));
 
         // 3. Create the new creative
-        const creativeName = `AI Opt: ${originalCreative.name} (${new Date().toLocaleDateString()})`;
+        const creativeName = `[AI] ${headline.substring(0, 20)}... - ${new Date().toISOString()}`;
         const newCreative = await createAdCreative(integration.ad_account_id, creativeName, newSpec, accessToken);
 
-        // 4. Update the Ad to use this new creative
-        await updateAdCreativeId(adId, newCreative.id, accessToken);
+        // 4. Create a NEW Ad (Duplicate logic) instead of updating the existing one
+        // Use a descriptive name for the new Ad
+        const newAdName = `[AI Variação] ${headline} - ${ad.name}`;
+
+        // Create as PAUSED for safety and review
+        await createAd(integration.ad_account_id, ad.adset_id, newCreative.id, newAdName, accessToken, 'PAUSED');
 
         revalidatePath("/dashboard/agents");
-        return { success: true };
+        return { success: true, message: "Novo anúncio criado (Pausado) para teste A/B!" };
     } catch (error: any) {
         console.error("Apply creative variation error details:", JSON.stringify(error, null, 2));
         return { success: false, error: error.message || "Unknown error" };
