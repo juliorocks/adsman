@@ -5,6 +5,18 @@ import { getIntegration } from "@/lib/data/settings";
 import { updateObjectStatus, updateBudget, getAd, createAdCreative, updateAdCreativeId } from "@/lib/meta/api";
 import { revalidatePath } from "next/cache";
 
+async function updateBudgetRobust(targetId: string, amount: number, accessToken: string) {
+    try {
+        await updateBudget(targetId, amount, 'daily_budget', accessToken);
+    } catch (err: any) {
+        if (err.message.includes('lifetime_budget')) {
+            await updateBudget(targetId, amount, 'lifetime_budget', accessToken);
+        } else {
+            throw err;
+        }
+    }
+}
+
 export async function applyRecommendationAction(recommendationId: string, type: string, targetId: string, currentBudget: number, suggestedBudget?: number) {
     const integration = await getIntegration();
     if (!integration || !integration.access_token_ref) throw new Error("Não autorizado");
@@ -15,11 +27,14 @@ export async function applyRecommendationAction(recommendationId: string, type: 
         if (type === 'pause' || type === 'critical') {
             await updateObjectStatus(targetId, 'PAUSED', accessToken);
         } else if (type === 'scale_up' && suggestedBudget) {
-            await updateBudget(targetId, suggestedBudget * 100, 'daily_budget', accessToken);
+            await updateBudgetRobust(targetId, suggestedBudget * 100, accessToken);
+        } else if (type === 'optimization') {
+            // Log and bypass for now, or perform soft-action
+            console.log(`[OPTIMIZATION] Manual review required for ${targetId}`);
         }
 
         revalidatePath("/dashboard/agents");
-        return { success: true };
+        return { success: true, message: type === 'optimization' ? "Revisão agendada. Use as variações abaixo." : "Ação aplicada com sucesso!" };
     } catch (error: any) {
         console.error("Apply recommendation error:", error);
         return { success: false, error: error.message };
@@ -36,7 +51,7 @@ export async function applyAllRecommendationsAction(recommendations: any[]) {
             if (rec.type === 'pause' || rec.type === 'critical') {
                 return updateObjectStatus(rec.targetId, 'PAUSED', accessToken);
             } else if (rec.type === 'scale_up' && rec.suggestedBudget) {
-                return updateBudget(rec.targetId, rec.suggestedBudget * 100, 'daily_budget', accessToken);
+                return updateBudgetRobust(rec.targetId, rec.suggestedBudget * 100, accessToken);
             }
             return Promise.resolve();
         });

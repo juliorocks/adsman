@@ -1,6 +1,9 @@
 
 import { DashboardMetrics } from "../data/metrics";
 import { getAgentVerdict } from "../ai/agents_brain";
+import { decrypt } from "@/lib/security/vault";
+import { getAds, getInsights, getAdSets, getCampaigns } from "../meta/api";
+import { getIntegration } from "../data/settings";
 
 export interface AIRecommendation {
     id: string;
@@ -21,10 +24,6 @@ export interface AuditResult {
     recommendations: AIRecommendation[];
 }
 
-import { decrypt } from "@/lib/security/vault";
-import { getAds, getInsights } from "../meta/api";
-import { getIntegration } from "../data/settings";
-
 export async function runPerformanceAudit(metrics: DashboardMetrics, campaignName: string = "Geral"): Promise<AuditResult> {
     const integration = await getIntegration();
     if (!integration || !integration.access_token_ref || !integration.ad_account_id) {
@@ -33,7 +32,13 @@ export async function runPerformanceAudit(metrics: DashboardMetrics, campaignNam
 
     try {
         const accessToken = decrypt(integration.access_token_ref);
-        const ads = await getAds(integration.ad_account_id, accessToken);
+
+        // Parallel fetch for better performance
+        const [ads, adsets, campaigns] = await Promise.all([
+            getAds(integration.ad_account_id, accessToken),
+            getAdSets(integration.ad_account_id, accessToken),
+            getCampaigns(integration.ad_account_id, accessToken)
+        ]);
 
         // Filter active ads and get their IDs
         const activeAds = ads.filter((a: any) => a.status === 'ACTIVE');
@@ -43,14 +48,26 @@ export async function runPerformanceAudit(metrics: DashboardMetrics, campaignNam
             return { score: 100, status: 'good', summary: "Nenhum anúncio ativo encontrado.", recommendations: [] };
         }
 
-        // Fetch insights for these ads to find the biggest spenders
+        // Fetch insights for these ads
         const adInsights = await getInsights(adIds, accessToken, 'last_7d');
 
-        // Match insights with ads and sort by spend descendant
+        // Match insights and budgets with ads
         const adsWithPerformance = activeAds.map((ad: any) => {
             const insight = adInsights.find((i: any) => i.ad_id === ad.id);
+            const parentAdSet = adsets.find((as: any) => as.id === ad.adset_id);
+            const parentCampaign = campaigns.find((c: any) => c.id === ad.campaign_id);
+
+            // Get budget (could be daily or lifetime, first from adset, then campaign for CBO)
+            let rawBudget = parentAdSet?.daily_budget || parentAdSet?.lifetime_budget;
+            if (!rawBudget) {
+                rawBudget = parentCampaign?.daily_budget || parentCampaign?.lifetime_budget;
+            }
+
+            const budget = (parseFloat(rawBudget || 0) / 100);
+
             return {
                 ...ad,
+                budget,
                 insight: insight || { spend: 0, clicks: 0, impressions: 0, purchase_roas: [{ value: 0 }] }
             };
         }).sort((a: any, b: any) => parseFloat(b.insight.spend) - parseFloat(a.insight.spend));
@@ -63,13 +80,12 @@ export async function runPerformanceAudit(metrics: DashboardMetrics, campaignNam
             const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
             const roas = ad.insight.purchase_roas ? parseFloat(ad.insight.purchase_roas[0]?.value || 0) : 0;
 
-            // Only analyze using AI if there's a performance signal or decent spend
-            if (spend > 10 || ctr < 1.0) {
+            if (spend > 1 || ctr < 1.0) {
                 try {
                     const brainVerdicts = await getAgentVerdict({
                         campaignName: ad.name,
                         metrics: { spend, clicks, roas, ctr },
-                        currentBudget: 0,
+                        currentBudget: ad.budget,
                         objective: "SALES"
                     });
 
@@ -99,8 +115,8 @@ export async function runPerformanceAudit(metrics: DashboardMetrics, campaignNam
         const recommendations = results.filter((r): r is AIRecommendation => r !== null);
 
         let score = 100;
-        if (recommendations.some(r => r.type === 'critical')) score = 55;
-        else if (recommendations.some(r => r.type === 'optimization')) score = 82;
+        if (recommendations.some((r: any) => r.type === 'critical')) score = 55;
+        else if (recommendations.some((r: any) => r.type === 'optimization')) score = 82;
 
         return {
             score,

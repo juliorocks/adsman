@@ -34,7 +34,7 @@ export function ExpertActionList({ recommendations, audit, isAutonomous: initial
         setApplyingId(null);
 
         if (res.success) {
-            toast.success("Ação aplicada com sucesso no Meta Ads!");
+            toast.success(res.message || "Ação aplicada com sucesso no Meta Ads!");
             setHiddenActions(prev => [...prev, rec.id]);
         } else {
             toast.error(`Erro ao aplicar: ${res.error}`);
@@ -159,8 +159,8 @@ export function ExpertActionList({ recommendations, audit, isAutonomous: initial
                                         <div className="flex items-start justify-between mb-2">
                                             <div>
                                                 <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${rec.type === 'scale_up' ? 'text-green-400 bg-green-400/10' :
-                                                        rec.type === 'pause' || rec.type === 'critical' ? 'text-red-400 bg-red-400/10' :
-                                                            'text-orange-400 bg-orange-400/10'
+                                                    rec.type === 'pause' || rec.type === 'critical' ? 'text-red-400 bg-red-400/10' :
+                                                        'text-orange-400 bg-orange-400/10'
                                                     }`}>
                                                     {rec.type === 'scale_up' ? 'Escala Sugerida' :
                                                         rec.type === 'pause' || rec.type === 'critical' ? 'Ação Crítica' :
@@ -185,10 +185,10 @@ export function ExpertActionList({ recommendations, audit, isAutonomous: initial
                                             onClick={() => handleAction(rec, 'apply')}
                                             disabled={applyingId === rec.id}
                                             className={`font-black rounded-xl px-6 h-10 gap-2 active:scale-95 transition-all ${rec.type === 'pause' || rec.type === 'critical'
-                                                    ? 'bg-red-500 hover:bg-red-600 text-white shadow-[0_5px_15px_rgba(239,68,68,0.3)]'
-                                                    : rec.type === 'scale_up'
-                                                        ? 'bg-green-500 hover:bg-green-600 text-white shadow-[0_5px_15px_rgba(34,197,94,0.3)]'
-                                                        : 'bg-primary-500 hover:bg-primary-600 text-white shadow-[0_5px_15px_rgba(59,130,246,0.3)]'
+                                                ? 'bg-red-500 hover:bg-red-600 text-white shadow-[0_5px_15px_rgba(239,68,68,0.3)]'
+                                                : rec.type === 'scale_up'
+                                                    ? 'bg-green-500 hover:bg-green-600 text-white shadow-[0_5px_15px_rgba(34,197,94,0.3)]'
+                                                    : 'bg-primary-500 hover:bg-primary-600 text-white shadow-[0_5px_15px_rgba(59,130,246,0.3)]'
                                                 }`}
                                         >
                                             {applyingId === rec.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
