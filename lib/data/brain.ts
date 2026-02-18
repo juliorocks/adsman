@@ -1,6 +1,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 
+import { cookies } from "next/headers";
+
 export interface BusinessContext {
     id: string;
     content: string;
@@ -8,12 +10,29 @@ export interface BusinessContext {
     updated_at: string;
 }
 
-export async function getBusinessContext(): Promise<BusinessContext[]> {
+// Helper to get unified user (Supabase or Mock)
+async function getUnifiedUser() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
+    if (user) return user;
+
+    const devSession = cookies().get("dev_session");
+    if (devSession) {
+        return { id: "mock_user_id_dev" } as any;
+    }
+
+    return null;
+}
+
+export async function getBusinessContext(): Promise<BusinessContext[]> {
+    const user = await getUnifiedUser();
     if (!user) return [];
 
+    const supabase = await createClient(); // Re-create client to ensure context is fresh if needed
+
+    // For mock user, we still use Supabase but with the mock ID string. 
+    // The table column was altered to TEXT to support this.
     const { data, error } = await supabase
         .from('business_context')
         .select('*')
@@ -29,11 +48,10 @@ export async function getBusinessContext(): Promise<BusinessContext[]> {
 }
 
 export async function saveBusinessContext(content: string, category: BusinessContext['category']) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
+    const user = await getUnifiedUser();
     if (!user) throw new Error("Unauthorized");
 
+    const supabase = await createClient();
     const { error } = await supabase
         .from('business_context')
         .insert({
