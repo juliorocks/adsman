@@ -57,17 +57,16 @@ export async function runPerformanceAudit(metrics: DashboardMetrics, campaignNam
 
         const recommendations: AIRecommendation[] = [];
 
-        // Analyze TOP 12 most expensive ads
-        for (const ad of adsWithPerformance.slice(0, 12)) {
+        // Analyze TOP 20 ads
+        for (const ad of adsWithPerformance.slice(0, 20)) {
             const spend = parseFloat(ad.insight.spend || 0);
             const clicks = parseInt(ad.insight.clicks || 0);
             const impressions = parseInt(ad.insight.impressions || 0);
             const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
             const roas = ad.insight.purchase_roas ? parseFloat(ad.insight.purchase_roas[0]?.value || 0) : 0;
 
-            // Problematic: High Spend and low CTR/ROAS
-            if (spend > 15 && (ctr < 1.0 || (spend > 80 && roas < 1.3))) {
-                // Potential problematic ad
+            // Analyze ANY ad with spend > 5.00 for visibility
+            if (spend > 5.0) {
                 const brainVerdicts = await getAgentVerdict({
                     campaignName: ad.name,
                     metrics: { spend, clicks, roas, ctr },
@@ -77,14 +76,14 @@ export async function runPerformanceAudit(metrics: DashboardMetrics, campaignNam
 
                 const verdict = brainVerdicts.find(v => v.agent === 'auditor');
 
-                if (verdict && verdict.status !== 'OPTIMAL') {
+                if (verdict) {
                     recommendations.push({
                         id: `ai_ad_audit_${ad.id}`,
-                        type: verdict.status === 'CRITICAL' ? 'critical' : 'optimization',
+                        type: verdict.status === 'CRITICAL' ? 'critical' : verdict.status === 'OPTIMAL' ? 'opportunity' : 'optimization',
                         title: `Anúncio: ${ad.name}`,
                         description: verdict.recommendation,
-                        actionLabel: verdict.status === 'CRITICAL' ? 'Pausar Anúncio' : 'Otimizar Criativo',
-                        impact: 'Eficácia Criativa',
+                        actionLabel: verdict.status === 'CRITICAL' ? 'Pausar Anúncio' : verdict.status === 'OPTIMAL' ? 'Manter Ativo' : 'Otimizar Criativo',
+                        impact: verdict.status === 'OPTIMAL' ? 'Manutenção de ROAS' : 'Eficácia Criativa',
                         thought: verdict.thought,
                         adImage: ad.creative?.thumbnail_url || ad.creative?.image_url,
                         campaignId: ad.campaign_id

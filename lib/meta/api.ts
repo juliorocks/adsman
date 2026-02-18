@@ -119,7 +119,7 @@ export async function getInsights(
     timeIncrement?: number | 'all_days',
     breakdowns?: string
 ) {
-    const fields = "spend,impressions,clicks,cpc,cpm,actions,conversions,purchase_roas,action_values,date_start,outbound_clicks,cost_per_action_type";
+    const fields = "ad_id,adset_id,campaign_id,spend,impressions,clicks,cpc,cpm,actions,conversions,purchase_roas,action_values,date_start,outbound_clicks,cost_per_action_type";
     const idParam = Array.isArray(targets) ? targets.join(',') : targets;
 
     let url;
