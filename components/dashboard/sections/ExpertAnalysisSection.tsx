@@ -25,28 +25,30 @@ export async function ExpertAnalysisSection({ adAccountId }: { adAccountId: stri
 
     // Concatenate all expert findings: Audit (Ad level) + Scaling (Adset level)
     const combinedActions = [
-        ...(audit.recommendations || []).map((r: any) => ({
-            id: r.id,
-            type: r.type === 'critical' ? 'pause' : 'optimization',
-            targetName: r.title,
-            targetId: r.targetId,
-            reason: r.description,
-            impact: r.impact,
-            thought: r.thought,
-            adImage: r.adImage,
-            actionLabel: r.actionLabel,
+        ...(audit?.recommendations || []).map((r: any) => ({
+            id: r?.id || Math.random().toString(),
+            type: r?.type === 'critical' ? 'pause' : 'optimization',
+            targetName: r?.title || 'Anúncio sem nome',
+            targetId: r?.targetId || '',
+            reason: r?.description || '',
+            impact: r?.impact || 'Análise técnica',
+            thought: r?.thought || '',
+            adImage: r?.adImage || '',
+            actionLabel: r?.actionLabel || 'Ver anúncio',
             suggestedBudget: 0,
             currentBudget: 0,
             isAdLevel: true
         })),
         ...(scaling || []).map((s: any) => {
             const adImage = Array.isArray(creatives)
-                ? creatives.find((c: any) => c.name?.includes(s.targetName) || s.targetName?.includes(c.name))?.thumbnail_url
+                ? creatives.find((c: any) =>
+                    (c.name && s.targetName && (c.name.includes(s.targetName) || s.targetName.includes(c.name)))
+                )?.thumbnail_url
                 : undefined;
             return {
                 ...s,
-                targetId: s.targetId,
-                adImage
+                targetId: s?.targetId || '',
+                adImage: adImage || ''
             };
         })
     ];
