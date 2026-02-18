@@ -174,3 +174,38 @@ export async function saveModalKey(key: string) {
     revalidatePath("/dashboard/settings");
     return { success: true };
 }
+
+export async function saveAIPreference(provider: 'openai' | 'modal') {
+    const supabase = await createClient();
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+    let user = supabaseUser;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
+    if (!user) throw new Error("Unauthorized");
+
+    if (user.id === "mock_user_id_dev") {
+        cookies().set("dev_ai_preference", provider, { httpOnly: true, path: "/" });
+    } else {
+        const { error } = await supabase
+            .from("integrations")
+            .upsert({
+                user_id: user.id,
+                platform: "ai_preference",
+                access_token_ref: provider,
+                status: "active",
+                updated_at: new Date().toISOString()
+            }, {
+                onConflict: "user_id,platform"
+            });
+
+        if (error) {
+            console.error("Error saving AI preference:", error);
+            throw new Error(error.message);
+        }
+    }
+
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard/agents");
+    return { success: true };
+}
