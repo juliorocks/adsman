@@ -209,7 +209,10 @@ export async function createAdCreative(adAccountId: string, name: string, object
         })
     });
     const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
+    if (data.error) {
+        console.error("Meta API Error:", JSON.stringify(data.error, null, 2));
+        throw new Error(`Meta API Error: ${data.error.message} (Subcode: ${data.error.error_subcode || 'N/A'}) - Details: ${JSON.stringify(data.error)}`);
+    }
     return data;
 }
 
