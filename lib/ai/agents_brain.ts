@@ -12,6 +12,7 @@ export interface AgentVerdict {
 }
 
 import { getOpenAIKey } from "../data/settings";
+import { getBusinessContext } from "../data/brain";
 
 import { unstable_cache } from "next/cache";
 
@@ -59,6 +60,10 @@ export const getAgentVerdict = async (context: {
                 apiKey: userApiKey,
             });
 
+            // Fetch business context to inform the AI
+            const businessContext = await getBusinessContext();
+            const contextString = businessContext.map((c: any) => `- [${c.category.toUpperCase()}]: ${c.content}`).join("\n");
+
             try {
                 // Switched to gpt-4o-mini for significant cost reduction (approx 10x cheaper)
                 const response = await openai.chat.completions.create({
@@ -68,6 +73,10 @@ export const getAgentVerdict = async (context: {
                             role: "system",
                             content: `Você é o Cérebro de uma Colmeia de Agentes de Meta Ads.
                             Your task is to analyze the campaign context and generate verdicts for 3 agents:
+                            
+                            CONTEXTO DO NEGÓCIO (Use estas informações para validar suas decisões):
+                            ${contextString || "Nenhum contexto adicional fornecido."}
+                            
                             1. AUDITOR: Focus on anomaly detection and technical health (CTR, High CPC). 
                                - If status is CRITICAL: Performance is so bad that the ad SHOULD BE PAUSED immediately. Recommendation MUST justify the PAUSE.
                                - If status is WARNING: Performance is sub-optimal but fixable. Recommendation must suggest a specific optimization (Copy, Audience, etc.).
