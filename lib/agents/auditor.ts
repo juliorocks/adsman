@@ -1,5 +1,6 @@
 
 import { DashboardMetrics } from "../data/metrics";
+import { cache } from 'react';
 import { getAgentVerdict } from "../ai/agents_brain";
 import { decrypt } from "@/lib/security/vault";
 import { getAds, getInsights, getAdSets, getCampaigns } from "../meta/api";
@@ -25,7 +26,7 @@ export interface AuditResult {
     recommendations: AIRecommendation[];
 }
 
-export async function runPerformanceAudit(metrics: DashboardMetrics, campaignName: string = "Geral"): Promise<AuditResult> {
+export const runPerformanceAudit = cache(async function (metrics: DashboardMetrics, campaignName: string = "Geral"): Promise<AuditResult> {
     const integration = await getIntegration();
     if (!integration || !integration.access_token_ref || !integration.ad_account_id) {
         return { score: 100, status: 'good', summary: "Sem dados para análise", recommendations: [] };
@@ -132,4 +133,4 @@ export async function runPerformanceAudit(metrics: DashboardMetrics, campaignNam
         console.error("Auditor error:", error);
         return { score: 100, status: 'good', summary: "Erro técnico na auditoria", recommendations: [] };
     }
-}
+});

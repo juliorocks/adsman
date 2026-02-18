@@ -4,6 +4,7 @@ import { getInsights, getAdSets } from "@/lib/meta/api";
 import { getIntegration } from "../data/settings";
 import { DashboardMetrics } from "../data/metrics";
 import { getAgentVerdict } from "../ai/agents_brain";
+import { cache } from 'react';
 
 export interface ScalingRecommendation {
     id: string;
@@ -18,7 +19,7 @@ export interface ScalingRecommendation {
     thought?: string;
 }
 
-export async function runScaleStrategy(metrics?: DashboardMetrics): Promise<ScalingRecommendation[]> {
+export const runScaleStrategy = cache(async function (metrics?: DashboardMetrics): Promise<ScalingRecommendation[]> {
     const integration = await getIntegration();
     if (!integration || !integration.access_token_ref || !integration.ad_account_id) return [];
 
@@ -84,4 +85,4 @@ export async function runScaleStrategy(metrics?: DashboardMetrics): Promise<Scal
         console.error("Scale strategy core error:", error);
         return [];
     }
-}
+});

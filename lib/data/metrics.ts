@@ -2,6 +2,7 @@
 import { decrypt } from "@/lib/security/vault";
 import { getInsights, getCampaigns } from "@/lib/meta/api";
 import { getIntegration } from "./settings";
+import { cache } from 'react';
 
 export interface DashboardMetrics {
     spend: number;
@@ -38,7 +39,7 @@ export interface Campaign {
 
 import { getManualRevenue } from "@/actions/revenue";
 
-export async function getDashboardMetrics(filter?: MetricsFilter): Promise<DashboardMetrics> {
+export const getDashboardMetrics = cache(async function (filter?: MetricsFilter): Promise<DashboardMetrics> {
     const integration = await getIntegration();
 
     const emptyMetrics: DashboardMetrics = {
@@ -169,7 +170,7 @@ export async function getDashboardMetrics(filter?: MetricsFilter): Promise<Dashb
         console.error("Error fetching real metrics:", error);
         return emptyMetrics;
     }
-}
+});
 
 
 export async function getRecentActivity(): Promise<Campaign[]> {
