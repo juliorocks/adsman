@@ -23,16 +23,19 @@ export async function generateCreativeIdeas(): Promise<CreativeVariation[]> {
     try {
         const accessToken = decrypt(integration.access_token_ref);
         const ads = await getAds(integration.ad_account_id, accessToken);
-        const activeAds = ads.filter((a: any) => a.status === 'ACTIVE' || a.status === 'PAUSED').slice(0, 3); // Top 3 ads
+        const activeAds = ads.filter((a: any) => a.status === 'ACTIVE' || a.status === 'PAUSED').slice(0, 5);
+
+        console.log(`[Creative] Found ${ads.length} total ads, analyzing ${activeAds.length} for variations.`);
 
         if (!ai) {
+            console.log("[Creative] No AI client available, using fallback mock.");
             // Fallback mock if no key
             return activeAds.flatMap((ad: any, i: number) => [
                 {
                     id: `v1_${ad.id}`,
                     targetAdId: ad.id,
                     targetAdName: ad.name,
-                    adImage: ad.creative?.thumbnail_url,
+                    adImage: ad.creative?.thumbnail_url || ad.creative?.image_url,
                     angle: 'Urgência',
                     headline: 'Aproveite agora',
                     bodyText: `Baseado no seu anúncio ${ad.name}, esta é uma variação de urgência.`,
@@ -47,65 +50,73 @@ export async function generateCreativeIdeas(): Promise<CreativeVariation[]> {
             const currentTitle = ad.creative?.title || ad.name;
             const currentBody = ad.creative?.body || "";
 
-            const response = await ai.acquireLock(() => ai.client.chat.completions.create({
-                model: ai.model,
-                messages: [
-                    {
-                        role: "system",
-                        content: `Você é um Copywriter Especialista em Meta Ads.
-                        Responda RIGOROSAMENTE apenas em formato JSON.
-                        Crie 3 variações de anúncio (Ângulos: Urgência, Benefício, Prova Social).
-                        
-                        Estrutura JSON:
+            console.log(`[Creative] Generating variations for: ${ad.name}`);
+
+            try {
+                const response = await ai.acquireLock(() => ai.client.chat.completions.create({
+                    model: ai.model,
+                    messages: [
                         {
-                          "variations": [
+                            role: "system",
+                            content: `Você é um Copywriter Especialista em Meta Ads. 
+                            Gere 3 variações baseadas no anúncio do usuário.
+                            Responda APENAS em JSON válido.
+
+                            Estrutura JSON:
                             {
-                              "angle": "nome do ângulo",
-                              "headline": "máx 40 caracteres",
-                              "bodyText": "texto envolvente",
-                              "cta": "SAIBA_MAIS | COMPRAR_AGORA | CADASTRAR_SE"
-                            }
-                          ]
-                        }`
-                    },
-                    {
-                        role: "user",
-                        content: `Crie variações para o anúncio: "${currentTitle}". Texto atual: "${currentBody}"`
-                    }
-                ],
-                temperature: 0.7,
-                response_format: ai.isModal ? undefined : { type: "json_object" }
-            }));
+                              "variations": [
+                                {
+                                  "angle": "Urgência | Benefício | Prova Social",
+                                  "headline": "máx 40 caracteres",
+                                  "bodyText": "texto atraente",
+                                  "cta": "SAIBA_MAIS | COMPRAR_AGORA"
+                                }
+                              ]
+                            }`
+                        },
+                        {
+                            role: "user",
+                            content: `Anúncio: "${currentTitle}". Texto: "${currentBody}"`
+                        }
+                    ],
+                    temperature: 0.8,
+                    response_format: ai.isModal ? undefined : { type: "json_object" }
+                }));
 
-            let content = response.choices[0].message.content || "{}";
+                let content = response.choices[0].message.content || "{}";
+                console.log(`[Creative] Raw AI Response for ${ad.name}: ${content.substring(0, 50)}...`);
 
-            if (ai.isModal) {
-                const jsonMatch = content.match(/\{[\s\S]*\}/);
-                if (jsonMatch) content = jsonMatch[0];
-            }
+                if (ai.isModal) {
+                    const jsonMatch = content.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) content = jsonMatch[0];
+                }
 
-            const data = JSON.parse(content || "{}");
-            const variations = data.variations || (Array.isArray(data) ? data : Object.values(data).find(v => Array.isArray(v)));
+                const data = JSON.parse(content || "{}");
+                const variations = data.variations || (Array.isArray(data) ? data : Object.values(data).find(v => Array.isArray(v)));
 
-            if (Array.isArray(variations)) {
-                variations.forEach((v: any, index: number) => {
-                    allVariations.push({
-                        id: `ai_creative_${ad.id}_${index}`,
-                        targetAdId: ad.id,
-                        targetAdName: ad.name,
-                        adImage: ad.creative?.thumbnail_url,
-                        angle: v.angle || 'Geral',
-                        headline: v.headline || '',
-                        bodyText: v.bodyText || '',
-                        cta: v.cta || 'SAIBA_MAIS'
+                if (Array.isArray(variations)) {
+                    variations.forEach((v: any, index: number) => {
+                        allVariations.push({
+                            id: `ai_creative_${ad.id}_${index}_${Date.now()}`,
+                            targetAdId: ad.id,
+                            targetAdName: ad.name,
+                            adImage: ad.creative?.thumbnail_url || ad.creative?.image_url,
+                            angle: v.angle || 'Novidade',
+                            headline: v.headline || 'Confira agora',
+                            bodyText: v.bodyText || 'Variação gerada por IA.',
+                            cta: v.cta || 'SAIBA_MAIS'
+                        });
                     });
-                });
+                }
+            } catch (err) {
+                console.error(`[Creative] Error generating for ${ad.id}:`, err);
             }
         }
 
+        console.log(`[Creative] Final variation count: ${allVariations.length}`);
         return allVariations;
     } catch (error) {
-        console.error("Creative generation error:", error);
+        console.error("[Creative] Core routine error:", error);
         return [];
     }
 }

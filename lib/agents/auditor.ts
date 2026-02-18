@@ -79,43 +79,49 @@ export const runPerformanceAudit = cache(async function (metrics: DashboardMetri
             };
         }).sort((a: any, b: any) => parseFloat(b.insight.spend) - parseFloat(a.insight.spend));
 
-        // Analyze TOP 5 ads sequentially to support low-concurrency providers
+        // Analyze TOP 10 ads (increased) to find something
         const recommendations: AIRecommendation[] = [];
-        for (const ad of adsWithPerformance.slice(0, 5)) {
+        for (const ad of adsWithPerformance.slice(0, 10)) {
             const spend = parseFloat(ad.insight.spend || 0);
             const clicks = parseInt(ad.insight.clicks || 0);
             const impressions = parseInt(ad.insight.impressions || 0);
             const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
             const roas = ad.insight.purchase_roas ? parseFloat(ad.insight.purchase_roas[0]?.value || 0) : 0;
 
-            if (spend > 1 || ctr < 1.0) {
-                try {
-                    const brainVerdicts = await getAgentVerdict({
-                        campaignName: ad.name,
-                        metrics: { spend, clicks, roas, ctr },
-                        currentBudget: ad.budget,
-                        objective: "SALES"
-                    });
+            console.log(`[Auditor] Reviewing Ad: ${ad.name} (Spend: ${spend}, CTR: ${ctr.toFixed(2)}%)`);
 
-                    const verdict = brainVerdicts.find(v => v.agent === 'auditor');
+            // Analyze ANY ad to ensure we get results, prioritizing those with potential issues
+            try {
+                const brainVerdicts = await getAgentVerdict({
+                    campaignName: ad.name,
+                    metrics: { spend, clicks, roas, ctr },
+                    currentBudget: ad.budget,
+                    objective: "SALES"
+                });
 
-                    if (verdict && verdict.status !== 'OPTIMAL') {
+                const verdict = brainVerdicts.find(v => v.agent === 'auditor');
+                console.log(`[Auditor] Verdict for ${ad.name}: ${verdict?.status || 'NONE'}`);
+
+                if (verdict) {
+                    // Show everything except perfectly OPTIMAL if we have no other recs, 
+                    // or show WARNING/CRITICAL always.
+                    if (verdict.status !== 'OPTIMAL' || recommendations.length < 2) {
                         recommendations.push({
-                            id: `ai_ad_audit_${ad.id}`,
+                            id: `ai_ad_audit_${ad.id}_${Date.now()}`, // Unique ID
                             type: (verdict.status === 'CRITICAL' ? 'critical' : 'optimization') as any,
                             title: `Anúncio: ${ad.name}`,
                             description: verdict.recommendation,
-                            actionLabel: verdict.status === 'CRITICAL' ? 'Pausar Agora' : 'Revisar Criativo',
-                            impact: verdict.impact || 'Performance',
+                            actionLabel: verdict.status === 'CRITICAL' ? 'Pausar Agora' : 'Otimizar Performance',
+                            impact: verdict.impact || 'Conversão',
                             targetId: ad.id,
                             thought: verdict.thought,
                             adImage: ad.creative?.thumbnail_url || ad.creative?.image_url,
                             campaignId: ad.campaign_id
                         });
                     }
-                } catch (e) {
-                    console.error("AI Analysis failed for ad", ad.id, e);
                 }
+            } catch (e) {
+                console.error(`[Auditor] Analysis failed for ad ${ad.id}`, e);
             }
         }
 

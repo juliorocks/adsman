@@ -77,7 +77,8 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
 
 export async function getCampaigns(adAccountId: string, accessToken: string) {
     const fields = "id,name,status,objective,daily_budget,lifetime_budget,created_time";
-    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns?fields=${fields}&access_token=${accessToken}`);
+    const cleanId = adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`;
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${cleanId}/campaigns?fields=${fields}&access_token=${accessToken}`);
     const data = await response.json();
 
     if (data.error) throw new Error(data.error.message);
@@ -86,7 +87,8 @@ export async function getCampaigns(adAccountId: string, accessToken: string) {
 
 export async function getAdSets(adAccountId: string, accessToken: string) {
     const fields = "id,name,status,billing_event,bid_amount,daily_budget,lifetime_budget";
-    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adsets?fields=${fields}&access_token=${accessToken}`);
+    const cleanId = adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`;
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${cleanId}/adsets?fields=${fields}&access_token=${accessToken}`);
     const data = await response.json();
 
     if (data.error) throw new Error(data.error.message);
@@ -95,7 +97,8 @@ export async function getAdSets(adAccountId: string, accessToken: string) {
 
 export async function getAds(adAccountId: string, accessToken: string) {
     const fields = "id,name,status,adset_id,campaign_id,creative{id,name,thumbnail_url,title,body}";
-    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/ads?fields=${fields}&access_token=${accessToken}`);
+    const cleanId = adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`;
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${cleanId}/ads?fields=${fields}&access_token=${accessToken}`);
     const data = await response.json();
 
     if (data.error) throw new Error(data.error.message);
@@ -112,7 +115,8 @@ export async function getAd(adId: string, accessToken: string) {
 
 export async function getAdCreatives(adAccountId: string, accessToken: string) {
     const fields = "id,name,title,body,object_story_spec,thumbnail_url";
-    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives?fields=${fields}&access_token=${accessToken}&limit=10`);
+    const cleanId = adAccountId.startsWith('act_') ? adAccountId : `act_${adAccountId}`;
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${cleanId}/adcreatives?fields=${fields}&access_token=${accessToken}&limit=10`);
     const data = await response.json();
 
     if (data.error) throw new Error(data.error.message);
@@ -128,12 +132,19 @@ export async function getInsights(
     breakdowns?: string
 ) {
     const fields = "ad_id,adset_id,campaign_id,spend,impressions,clicks,cpc,cpm,actions,conversions,purchase_roas,action_values,date_start,outbound_clicks,cost_per_action_type";
-    const idParam = Array.isArray(targets) ? targets.join(',') : targets;
+    const idArray = Array.isArray(targets) ? targets : [targets];
+    const sanitizedTargets = idArray.map(id => {
+        // If it's a numeric string of typical length for ad accounts (~15-18 digits) and no act_ prefix
+        if (/^\d{10,20}$/.test(id)) return `act_` + id;
+        return id;
+    });
+
+    const idParam = sanitizedTargets.join(',');
 
     let url;
     const limit = 500; // Increased limit to avoid truncation of long periods
 
-    if (Array.isArray(targets) && targets.length > 1) {
+    if (sanitizedTargets.length > 1) {
         url = `${META_GRAPH_URL}/${META_API_VERSION}/?ids=${idParam}&fields=insights.limit(${limit}){${fields}${timeIncrement ? `,time_increment=${timeIncrement}` : ''}${breakdowns ? `,breakdowns=${breakdowns}` : ''}}&access_token=${accessToken}`;
     } else {
         url = `${META_GRAPH_URL}/${META_API_VERSION}/${idParam}/insights?fields=${fields}&access_token=${accessToken}&limit=${limit}${timeIncrement ? `&time_increment=${timeIncrement}` : ''}${breakdowns ? `&breakdowns=${breakdowns}` : ''}`;

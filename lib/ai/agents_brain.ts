@@ -92,6 +92,7 @@ export async function getAgentVerdict(context: {
         }
 
         const data = JSON.parse(content);
+        console.log(`[Brain] Parsed response keys: ${Object.keys(data).join(', ')}`);
 
         let verdicts: AgentVerdict[] = [];
         // Flatten and normalize various possible structures
@@ -100,17 +101,22 @@ export async function getAgentVerdict(context: {
         if (Array.isArray(potentialArray)) {
             verdicts = potentialArray;
         } else if (typeof data === 'object' && data !== null) {
-            // If it's just one object or odd structure
-            verdicts = [data as any];
+            // Case where it returned a single verdict object instead of array
+            if (data.agent || data.recommendation) {
+                verdicts = [data as any];
+            }
         }
 
-        return verdicts.map(v => ({
-            agent: v.agent || 'auditor',
-            status: v.status || 'OPTIMAL',
-            thought: v.thought || '',
-            recommendation: v.recommendation || '',
-            impact: v.impact || ''
+        const normalized = verdicts.map(v => ({
+            agent: String(v.agent || '').toLowerCase().trim() as "auditor" | "strategist" | "creative",
+            status: String(v.status || 'OPTIMAL').toUpperCase().trim() as "OPTIMAL" | "WARNING" | "CRITICAL",
+            thought: String(v.thought || ''),
+            recommendation: String(v.recommendation || 'Continuar monitorando métricas.'),
+            impact: String(v.impact || '')
         })).filter(v => ['auditor', 'strategist', 'creative'].includes(v.agent));
+
+        console.log(`[Brain] Normalized verdicts count: ${normalized.length}`);
+        return normalized;
 
     } catch (error) {
         console.error("AI Brain Error:", error);
