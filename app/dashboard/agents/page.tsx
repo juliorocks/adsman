@@ -44,16 +44,29 @@ export default async function AgentsPage() {
             generateCreativeIdeas()
         ]);
 
-        // Mapping recommendations with images
-        const recommendationsWithImages = (scaling || []).map((s: any) => {
-            const adImage = Array.isArray(creatives)
-                ? creatives.find((c: any) => c.name?.includes(s.targetName) || s.targetName?.includes(c.name))?.thumbnail_url
-                : undefined;
-            return {
-                ...s,
-                adImage
-            };
-        });
+        // Concatenate all expert findings: Audit (Ad level) + Scaling (Adset level)
+        const combinedActions = [
+            ...(audit.recommendations || []).map((r: any) => ({
+                id: r.id,
+                type: r.type === 'critical' ? 'pause' : 'optimization',
+                targetName: r.title,
+                reason: r.description,
+                impact: r.impact,
+                thought: r.thought,
+                adImage: r.adImage,
+                suggestedBudget: 0,
+                isAdLevel: true
+            })),
+            ...(scaling || []).map((s: any) => {
+                const adImage = Array.isArray(creatives)
+                    ? creatives.find((c: any) => c.name?.includes(s.targetName) || s.targetName?.includes(c.name))?.thumbnail_url
+                    : undefined;
+                return {
+                    ...s,
+                    adImage
+                };
+            })
+        ];
 
         return (
             <div className="max-w-6xl mx-auto space-y-10">
@@ -78,7 +91,7 @@ export default async function AgentsPage() {
                 </div>
 
                 {/* NEW SECTION: Expert Action List (opened after analysis) */}
-                <ExpertActionList recommendations={recommendationsWithImages} audit={audit} />
+                <ExpertActionList recommendations={combinedActions} audit={audit} />
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-8 border-t border-slate-800">
                     <div className="lg:col-span-2 space-y-12">
