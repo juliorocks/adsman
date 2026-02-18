@@ -70,6 +70,7 @@ export const runPerformanceAudit = cache(async function (metrics: DashboardMetri
             return {
                 ...ad,
                 budget,
+                objective: parentCampaign?.objective || "SALES",
                 insight: insight || { spend: 0, clicks: 0, impressions: 0, purchase_roas: [{ value: 0 }] }
             };
         }).sort((a: any, b: any) => parseFloat(b.insight.spend) - parseFloat(a.insight.spend));
@@ -88,7 +89,7 @@ export const runPerformanceAudit = cache(async function (metrics: DashboardMetri
                         campaignName: ad.name,
                         metrics: { spend, clicks, roas, ctr },
                         currentBudget: ad.budget,
-                        objective: "SALES"
+                        objective: ad.objective
                     });
 
                     const verdict = brainVerdicts.find(v => v.agent === 'auditor');

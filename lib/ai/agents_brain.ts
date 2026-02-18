@@ -52,7 +52,7 @@ export const getAgentVerdict = async (context: {
                         recommendation: 'Seus criativos atuais ainda performam bem. Continue o monitoramento.',
                         impact: 'CPA'
                     }
-                ];
+                ] as AgentVerdict[];
             }
 
             const openai = new OpenAI({
@@ -90,11 +90,13 @@ export const getAgentVerdict = async (context: {
                             }
 
                             CRITICAL action MUST correspond to a STOP/PAUSE action.
-                            WARNING action MUST correspond to an OPTIMIZE/FIX action.`
+                            WARNING action MUST correspond to an OPTIMIZE/FIX action.
+
+                            IMPORTANT: ALWAYS RESPOND IN PORTUGUESE (PT-BR).`
                         },
                         {
                             role: "user",
-                            content: `Dados da Campanha "${context.campaignName}":
+                            content: `Analise a campanha "${context.campaignName}" e responda em PT-BR:
                             - Objetivo: ${context.objective}
                             - Orçamento Atual: R$ ${context.currentBudget}
                             - Gasto: R$ ${context.metrics.spend}
