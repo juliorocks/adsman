@@ -2,24 +2,69 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, ShieldAlert, Sparkles, ArrowUpRight, TrendingUp, Info } from "lucide-react";
+import { Check, X, ShieldAlert, Sparkles, ArrowUpRight, TrendingUp, Info, Zap, Settings2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { applyRecommendationAction, applyAllRecommendationsAction } from "@/actions/recommendations";
+import { toggleAutonomousMode } from "@/actions/settings";
+import { toast } from "sonner";
 
 interface ExpertActionListProps {
     recommendations: any[];
     audit: any;
+    isAutonomous?: boolean;
 }
 
-export function ExpertActionList({ recommendations, audit }: ExpertActionListProps) {
+export function ExpertActionList({ recommendations, audit, isAutonomous: initialAutonomous }: ExpertActionListProps) {
     const [hiddenActions, setHiddenActions] = useState<string[]>([]);
-
-    const handleAction = (id: string, type: 'apply' | 'reject') => {
-        // In a real app, this would call a server action
-        setHiddenActions(prev => [...prev, id]);
-    };
+    const [isAutonomous, setIsAutonomous] = useState(initialAutonomous || false);
+    const [applyingAll, setApplyingAll] = useState(false);
+    const [applyingId, setApplyingId] = useState<string | null>(null);
 
     const activeRecommendations = recommendations.filter(r => !hiddenActions.includes(r.id));
+
+    const handleAction = async (rec: any, type: 'apply' | 'reject') => {
+        if (type === 'reject') {
+            setHiddenActions(prev => [...prev, rec.id]);
+            return;
+        }
+
+        setApplyingId(rec.id);
+        const res = await applyRecommendationAction(rec.id, rec.type, rec.targetId, rec.currentBudget, rec.suggestedBudget);
+        setApplyingId(null);
+
+        if (res.success) {
+            toast.success("Ação aplicada com sucesso no Meta Ads!");
+            setHiddenActions(prev => [...prev, rec.id]);
+        } else {
+            toast.error(`Erro ao aplicar: ${res.error}`);
+        }
+    };
+
+    const handleApplyAll = async () => {
+        setApplyingAll(true);
+        const res = await applyAllRecommendationsAction(activeRecommendations);
+        setApplyingAll(false);
+
+        if (res.success) {
+            toast.success(`${activeRecommendations.length} ações aplicadas com sucesso!`);
+            setHiddenActions(prev => [...prev, ...activeRecommendations.map(r => r.id)]);
+        } else {
+            toast.error(`Erro ao aplicar todas: ${res.error}`);
+        }
+    };
+
+    const handleToggleAutonomous = async () => {
+        const newValue = !isAutonomous;
+        setIsAutonomous(newValue);
+        const res = await toggleAutonomousMode(newValue);
+        if (res.success) {
+            toast.success(newValue ? "Modo Autônomo ATIVADO. A IA agora cuidará de tudo 24x7!" : "Modo Autônomo desativado.");
+        } else {
+            setIsAutonomous(!newValue);
+            toast.error("Falha ao alterar modo autônomo.");
+        }
+    };
 
     if (activeRecommendations.length === 0 && recommendations.length > 0) {
         return (
@@ -41,14 +86,43 @@ export function ExpertActionList({ recommendations, audit }: ExpertActionListPro
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between px-2">
-                <h3 className="text-xl font-black text-white flex items-center gap-2">
-                    <ShieldAlert className="h-6 w-6 text-orange-500" />
-                    Plano de Ação do Especialista
-                </h3>
-                <span className="text-[10px] bg-slate-800 text-slate-400 px-3 py-1 rounded-full uppercase font-black tracking-widest">
-                    {activeRecommendations.length} Recomendações Pendentes
-                </span>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
+                <div>
+                    <h3 className="text-xl font-black text-white flex items-center gap-2">
+                        <ShieldAlert className="h-6 w-6 text-orange-500" />
+                        Plano de Ação do Especialista
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider font-bold">
+                        {activeRecommendations.length} Recomendações Críticas Pendentes
+                    </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    {/* Autonomous Mode Toggle */}
+                    <button
+                        onClick={handleToggleAutonomous}
+                        className={`group flex items-center gap-3 px-4 py-2 rounded-2xl border transition-all ${isAutonomous
+                            ? 'bg-primary-500/10 border-primary-500/50 text-primary-400 shadow-[0_0_20px_rgba(59,130,246,0.1)]'
+                            : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'
+                            }`}
+                    >
+                        <div className={`p-1.5 rounded-lg transition-colors ${isAutonomous ? 'bg-primary-500 text-white animate-pulse' : 'bg-slate-800'}`}>
+                            <Zap className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="text-left">
+                            <p className="text-[10px] font-black uppercase tracking-widest leading-none">Modo Autônomo</p>
+                            <p className="text-[9px] font-bold opacity-60 leading-tight mt-0.5">{isAutonomous ? 'Agente Ativo 24x7' : 'Ativar IA Autônoma'}</p>
+                        </div>
+                    </button>
+
+                    <Button
+                        onClick={handleApplyAll}
+                        disabled={applyingAll}
+                        className="bg-white text-black hover:bg-slate-200 font-black rounded-2xl px-6 h-12 shadow-xl active:scale-95 transition-all text-xs"
+                    >
+                        {applyingAll ? 'Escalando...' : 'Aplicar Todas as Sugestões'}
+                    </Button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4">
@@ -86,7 +160,7 @@ export function ExpertActionList({ recommendations, audit }: ExpertActionListPro
                                             <div>
                                                 <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${rec.type === 'scale_up' ? 'text-green-400 bg-green-400/10' : 'text-orange-400 bg-orange-400/10'
                                                     }`}>
-                                                    {rec.type === 'scale_up' ? 'Escala Sugerida' : 'Otimização de Verba'}
+                                                    {rec.type === 'scale_up' ? 'Escala Sugerida' : 'Otimização Expert'}
                                                 </span>
                                                 <h4 className="text-lg font-bold text-white mt-1 group-hover:text-primary-400 transition-colors">
                                                     {rec.targetName}
@@ -104,15 +178,16 @@ export function ExpertActionList({ recommendations, audit }: ExpertActionListPro
 
                                     <div className="mt-6 flex items-center gap-4">
                                         <Button
-                                            onClick={() => handleAction(rec.id, 'apply')}
+                                            onClick={() => handleAction(rec, 'apply')}
+                                            disabled={applyingId === rec.id}
                                             className="bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl px-6 h-10 gap-2 active:scale-95 transition-all"
                                         >
-                                            <Check className="h-4 w-4" />
-                                            {rec.type === 'scale_up' ? `Aumentar para R$ ${(rec.suggestedBudget || 0).toFixed(2)}` : 'Aplicar Pausa'}
+                                            {applyingId === rec.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                            {rec.type === 'scale_up' ? `Aumentar para R$ ${(rec.suggestedBudget || 0).toFixed(2)}` : (rec.actionLabel || 'Aplicar Ação')}
                                         </Button>
                                         <Button
                                             variant="ghost"
-                                            onClick={() => handleAction(rec.id, 'reject')}
+                                            onClick={() => handleAction(rec, 'reject')}
                                             className="text-slate-500 hover:text-white hover:bg-white/5 rounded-xl px-4 h-10 gap-2"
                                         >
                                             <X className="h-4 w-4" />

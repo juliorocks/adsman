@@ -9,7 +9,7 @@ import { CreativeCard } from "@/components/dashboard/CreativeCard";
 import { AgentsFactory } from "@/components/dashboard/AgentsFactory";
 import { getAdCreatives } from "@/lib/meta/api";
 import { decrypt } from "@/lib/security/vault";
-import { ExpertActionList } from "@/components/dashboard/ExpertActionList";
+import { ExpertActionList } from "../../../components/dashboard/ExpertActionList";
 import { motion } from "framer-motion";
 
 export const dynamic = 'force-dynamic';
@@ -50,11 +50,14 @@ export default async function AgentsPage() {
                 id: r.id,
                 type: r.type === 'critical' ? 'pause' : 'optimization',
                 targetName: r.title,
+                targetId: r.id.replace('ai_ad_audit_', ''),
                 reason: r.description,
                 impact: r.impact,
                 thought: r.thought,
                 adImage: r.adImage,
+                actionLabel: r.actionLabel,
                 suggestedBudget: 0,
+                currentBudget: 0,
                 isAdLevel: true
             })),
             ...(scaling || []).map((s: any) => {
@@ -63,6 +66,7 @@ export default async function AgentsPage() {
                     : undefined;
                 return {
                     ...s,
+                    targetId: s.id,
                     adImage
                 };
             })
@@ -70,28 +74,31 @@ export default async function AgentsPage() {
 
         return (
             <div className="max-w-6xl mx-auto space-y-10">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-3xl font-black tracking-tight text-white flex items-center gap-3">
-                            <div className="p-2 rounded-xl bg-primary-500/10 border border-primary-500/20">
-                                <Bot className="h-7 w-7 text-primary-500" />
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-primary-500/10 rounded-2xl">
+                                <Sparkles className="h-6 w-6 text-primary-400" />
                             </div>
-                            Seus Agentes de IA
-                        </h2>
-                        <p className="text-slate-500 mt-1">Inteligência neural operando em {integration.ad_account_id}.</p>
-                    </div>
-                    <div className="flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-400 rounded-full text-xs font-black border border-green-500/20 uppercase tracking-widest">
-                        <CheckCircle2 className="h-4 w-4" />
-                        Live & Sincronizado
+                            <h2 className="text-4xl font-black text-white tracking-tight">Fábrica de Agentes</h2>
+                        </div>
+                        <p className="text-slate-400 text-lg max-w-2xl">
+                            Sua colmeia de especialistas está analisando <span className="text-white font-bold">{metrics.active_campaigns} campanhas</span> em tempo real para maximizar seu ROAS.
+                        </p>
                     </div>
                 </div>
 
-                <div className="w-full">
+                <div className="relative group">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-primary-500 to-purple-600 rounded-[42px] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
                     <AgentsFactory />
                 </div>
 
                 {/* NEW SECTION: Expert Action List (opened after analysis) */}
-                <ExpertActionList recommendations={combinedActions} audit={audit} />
+                <ExpertActionList
+                    recommendations={combinedActions}
+                    audit={audit}
+                    isAutonomous={integration.is_autonomous}
+                />
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-8 border-t border-slate-800">
                     <div className="lg:col-span-2 space-y-12">

@@ -110,3 +110,31 @@ export async function saveOpenAIKey(key: string) {
     revalidatePath("/dashboard/settings");
     return { success: true };
 }
+
+export async function toggleAutonomousMode(enabled: boolean) {
+    const supabase = await createClient();
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+    let user = supabaseUser;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
+    if (!user) throw new Error("Unauthorized");
+
+    if (user.id !== "mock_user_id_dev") {
+        const { error } = await supabase
+            .from("integrations")
+            .update({ is_autonomous: enabled })
+            .eq("user_id", user.id)
+            .eq("platform", "meta");
+
+        if (error) {
+            console.error(error);
+            throw new Error("Failed to update autonomous mode");
+        }
+    } else {
+        cookies().set("dev_is_autonomous", enabled ? "true" : "false", { httpOnly: true, path: "/" });
+    }
+
+    revalidatePath("/dashboard/agents");
+    return { success: true };
+}
