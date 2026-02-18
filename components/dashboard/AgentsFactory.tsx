@@ -115,19 +115,19 @@ export function AgentsFactory() {
     const AgentStation = ({ type, glowColor, robotImg, eyeColor, isLoading }: any) => {
         const variants: any = {
             auditor: {
-                y: isLoading ? [0, -15, 0] : [0, -6, 0],
-                rotate: isLoading ? [-2, 2, -2] : [-0.5, 0.5, -0.5],
-                transition: { duration: isLoading ? 1.5 : 6, repeat: Infinity, ease: "easeInOut" }
+                x: isLoading ? [-6, 6, -6] : [-3, 3, -3],
+                rotate: isLoading ? [-3, 3, -3] : [-1, 1, -1],
+                transition: { duration: isLoading ? 1.8 : 6, repeat: Infinity, ease: "easeInOut" }
             },
             strategist: {
-                y: isLoading ? [0, -20, 0] : [0, -9, 0],
-                scale: isLoading ? [1, 1.1, 1] : [1, 1.02, 1],
-                transition: { duration: isLoading ? 1.2 : 5, repeat: Infinity, ease: "easeInOut" }
+                x: isLoading ? [-8, 8, -8] : [-4, 4, -4],
+                scale: isLoading ? [1, 1.05, 1] : [1, 1.02, 1],
+                transition: { duration: isLoading ? 1.5 : 5, repeat: Infinity, ease: "easeInOut" }
             },
             creative: {
-                y: isLoading ? [0, -10, 0] : [0, -4, 0],
-                rotate: isLoading ? [5, -5, 5] : [1, -1, 1],
-                transition: { duration: isLoading ? 1.8 : 7, repeat: Infinity, ease: "easeInOut" }
+                x: isLoading ? [-5, 5, -5] : [-2, 2, -2],
+                rotate: isLoading ? [4, -4, 4] : [1, -1, 1],
+                transition: { duration: isLoading ? 2 : 7, repeat: Infinity, ease: "easeInOut" }
             }
         };
 
