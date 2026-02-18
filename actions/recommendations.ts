@@ -113,8 +113,12 @@ export async function applyCreativeVariationAction(adId: string, headline: strin
 
             if (newSpec.video_data.call_to_action) {
                 newSpec.video_data.call_to_action.type = validCta;
+                // Fix for "Title/Description Obsolete": Do not set link_title in CTA value for videos
+                // The error explicitly says to use 'title' field of video_data instead (which we set above)
                 if (newSpec.video_data.call_to_action.value) {
-                    newSpec.video_data.call_to_action.value.link_title = headline;
+                    delete newSpec.video_data.call_to_action.value.link_title;
+                    delete newSpec.video_data.call_to_action.value.link_description;
+                    delete newSpec.video_data.call_to_action.value.link_caption;
                 }
             }
         }
