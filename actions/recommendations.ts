@@ -104,6 +104,13 @@ export async function applyCreativeVariationAction(adId: string, headline: strin
             newSpec.video_data.message = bodyText; // Primary Text
             newSpec.video_data.title = headline;   // Headline
 
+            // Fix for "ObjectStorySpecRedundant": Remove image_hash if image_url exists
+            if (newSpec.video_data.image_url) {
+                delete newSpec.video_data.image_hash;
+            } else if (newSpec.video_data.image_hash) {
+                delete newSpec.video_data.image_url;
+            }
+
             if (newSpec.video_data.call_to_action) {
                 newSpec.video_data.call_to_action.type = validCta;
                 if (newSpec.video_data.call_to_action.value) {
