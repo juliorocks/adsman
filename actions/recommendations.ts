@@ -79,27 +79,40 @@ export async function applyCreativeVariationAction(adId: string, headline: strin
         // 2. Prepare new AdCreative data
         const newSpec = { ...originalCreative.object_story_spec };
 
+        const ctaMapping: Record<string, string> = {
+            "SAIBA_MAIS": "LEARN_MORE",
+            "COMPRAR_AGORA": "SHOP_NOW",
+            "CADASTRAR_SE": "SIGN_UP",
+            "VER_MAIS": "WATCH_MORE",
+            "FALAR_COM": "CONTACT_US",
+            "RESERVAR": "BOOK_TRAVEL"
+        };
+        const validCta = ctaMapping[cta] || "LEARN_MORE";
+
         if (newSpec.link_data) {
-            newSpec.link_data.message = bodyText;
+            newSpec.link_data.message = bodyText; // Primary Text
+            newSpec.link_data.name = headline;    // Headline (for link ads, usually 'name' or 'link_url' title)
+
+            // Sometimes headline is in call_to_action.value.link_title
             if (newSpec.link_data.call_to_action) {
-                // Map Portuguese CTA to Meta API enum
-                const ctaMapping: Record<string, string> = {
-                    "SAIBA_MAIS": "LEARN_MORE",
-                    "COMPRAR_AGORA": "SHOP_NOW",
-                    "CADASTRAR_SE": "SIGN_UP",
-                    "VER_MAIS": "WATCH_MORE",
-                    "FALAR_COM": "CONTACT_US",
-                    "RESERVAR": "BOOK_TRAVEL"
-                };
-
-                const validCta = ctaMapping[cta] || "LEARN_MORE"; // Fallback to LEARN_MORE
-
                 newSpec.link_data.call_to_action.type = validCta;
                 if (newSpec.link_data.call_to_action.value) {
                     newSpec.link_data.call_to_action.value.link_title = headline;
                 }
             }
+        } else if (newSpec.video_data) {
+            newSpec.video_data.message = bodyText; // Primary Text
+            newSpec.video_data.title = headline;   // Headline
+
+            if (newSpec.video_data.call_to_action) {
+                newSpec.video_data.call_to_action.type = validCta;
+                if (newSpec.video_data.call_to_action.value) {
+                    newSpec.video_data.call_to_action.value.link_title = headline;
+                }
+            }
         }
+
+        console.log("[Creative] Sending Spec:", JSON.stringify(newSpec, null, 2));
 
         // 3. Create the new creative
         const creativeName = `AI Opt: ${originalCreative.name} (${new Date().toLocaleDateString()})`;
@@ -111,7 +124,7 @@ export async function applyCreativeVariationAction(adId: string, headline: strin
         revalidatePath("/dashboard/agents");
         return { success: true };
     } catch (error: any) {
-        console.error("Apply creative variation error:", error);
-        return { success: false, error: error.message };
+        console.error("Apply creative variation error details:", JSON.stringify(error, null, 2));
+        return { success: false, error: error.message || "Unknown error" };
     }
 }
