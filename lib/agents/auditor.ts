@@ -12,6 +12,7 @@ export interface AIRecommendation {
     description: string;
     actionLabel: string;
     impact: string;
+    targetId: string;
     thought?: string;
     adImage?: string;
     campaignId?: string;
@@ -99,6 +100,7 @@ export async function runPerformanceAudit(metrics: DashboardMetrics, campaignNam
                             description: verdict.recommendation,
                             actionLabel: verdict.status === 'CRITICAL' ? 'Pausar Agora' : 'Revisar Criativo',
                             impact: verdict.impact || 'Performance',
+                            targetId: ad.id,
                             thought: verdict.thought,
                             adImage: ad.creative?.thumbnail_url || ad.creative?.image_url,
                             campaignId: ad.campaign_id

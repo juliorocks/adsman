@@ -225,8 +225,13 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
 }
 
 export async function updateObjectStatus(id: string, status: 'ACTIVE' | 'PAUSED', accessToken: string) {
-    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${id}?status=${status}&access_token=${accessToken}`, {
-        method: 'POST'
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            status,
+            access_token: accessToken
+        })
     });
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
@@ -248,8 +253,13 @@ export async function updateAdCreativeId(adId: string, creativeId: string, acces
 }
 
 export async function updateBudget(id: string, amount: number, type: 'daily_budget' | 'lifetime_budget', accessToken: string) {
-    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${id}?${type}=${Math.round(amount)}&access_token=${accessToken}`, {
-        method: 'POST'
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            [type]: Math.round(amount),
+            access_token: accessToken
+        })
     });
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);

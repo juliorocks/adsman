@@ -50,7 +50,7 @@ export default async function AgentsPage() {
                 id: r.id,
                 type: r.type === 'critical' ? 'pause' : 'optimization',
                 targetName: r.title,
-                targetId: r.id.replace('ai_ad_audit_', ''),
+                targetId: r.targetId,
                 reason: r.description,
                 impact: r.impact,
                 thought: r.thought,
@@ -66,7 +66,7 @@ export default async function AgentsPage() {
                     : undefined;
                 return {
                     ...s,
-                    targetId: s.id,
+                    targetId: s.targetId, // Correctly use the actual object ID
                     adImage
                 };
             })
