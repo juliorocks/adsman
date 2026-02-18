@@ -113,9 +113,42 @@ export async function generateCreativeIdeas(): Promise<CreativeVariation[]> {
                     bodyText: v.bodyText,
                     cta: v.cta
                 }));
-            } catch (err) {
-                console.error(`[CreativeAgent] Error generating for ad ${ad.id}:`, err);
-                return [];
+            } catch (err: any) {
+                console.error(`[CreativeAgent] Error generating for ad ${ad.id}:`, err.message);
+
+                // Fallback: If AI fails (e.g. rate limit, content policy), return template-based variations
+                return [
+                    {
+                        id: `backup_${ad.id}_1`,
+                        targetAdId: ad.id,
+                        targetAdName: ad.name,
+                        adImage: ad.creative?.thumbnail_url || ad.creative?.image_url,
+                        angle: "Urgência (Backup)",
+                        headline: "Oferta por Tempo Limitado",
+                        bodyText: `Aproveite as condições especiais para ${ad.name}. Restam poucas unidades disponíveis nesta condição exclusiva.`,
+                        cta: "COMPRAR_AGORA"
+                    },
+                    {
+                        id: `backup_${ad.id}_2`,
+                        targetAdId: ad.id,
+                        targetAdName: ad.name,
+                        adImage: ad.creative?.thumbnail_url || ad.creative?.image_url,
+                        angle: "Benefício (Backup)",
+                        headline: "Solução Comprovada",
+                        bodyText: `Descubra por que ${ad.name} é a escolha certa para você. Resultados consistentes e qualidade garantida.`,
+                        cta: "SAIBA_MAIS"
+                    },
+                    {
+                        id: `backup_${ad.id}_3`,
+                        targetAdId: ad.id,
+                        targetAdName: ad.name,
+                        adImage: ad.creative?.thumbnail_url || ad.creative?.image_url,
+                        angle: "Autoridade (Backup)",
+                        headline: "Junte-se aos Melhores",
+                        bodyText: `${ad.name}: A referência do mercado. Milhares de clientes satisfeitos não podem estar errados.`,
+                        cta: "SAIBA_MAIS"
+                    }
+                ];
             }
         });
 
@@ -125,6 +158,16 @@ export async function generateCreativeIdeas(): Promise<CreativeVariation[]> {
         return finalResults;
     } catch (error) {
         console.error("Creative generation error:", error);
-        return [];
+        return [
+            {
+                id: 'fallback_error_1',
+                targetAdId: 'error_state',
+                targetAdName: 'Campanha Genérica',
+                angle: 'Aviso de Sistema',
+                headline: 'Erro ao Carregar Anúncios',
+                bodyText: 'Não foi possível conectar à Meta Ads para recuperar seus criativos específicos. Verifique se a integração está ativa e se há anúncios criados.',
+                cta: 'VERIFICAR_AGORA'
+            }
+        ];
     }
 }
