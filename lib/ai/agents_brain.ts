@@ -59,8 +59,8 @@ export async function getAgentVerdict(context: {
                     2. STRATEGIST: Focado em ROI, escala e orçamento (ROAS, CPA).
                     3. CREATIVE: Focado em fadiga de criativo e novas ideias.
 
-                    Responda APENAS em JSON no formato:
-                    [{ "agent": "auditor", "status": "OPTIMAL|WARNING|CRITICAL", "thought": "...", "recommendation": "..." }, ...]`
+                    Responda APENAS um objeto JSON com uma lista chamada 'verdicts'.
+                    Exemplo: { "verdicts": [{ "agent": "auditor", "status": "OPTIMAL", "thought": "...", "recommendation": "..." }] }`
                 },
                 {
                     role: "user",
@@ -78,7 +78,25 @@ export async function getAgentVerdict(context: {
 
         const content = response.choices[0].message.content;
         const data = JSON.parse(content || "{}");
-        return data.verdicts || data.agents || Object.values(data)[0] as AgentVerdict[];
+
+        // Normalize results to always return an array
+        let verdicts: AgentVerdict[] = [];
+        if (Array.isArray(data.verdicts)) {
+            verdicts = data.verdicts;
+        } else if (Array.isArray(data.agents)) {
+            verdicts = data.agents;
+        } else if (typeof data === 'object' && data !== null) {
+            // Check if values are the verdicts themselves
+            const values = Object.values(data);
+            if (Array.isArray(values[0])) {
+                verdicts = values[0];
+            } else if (typeof values[0] === 'object') {
+                // It might be a mapped object { auditor: {..}, ... }
+                verdicts = values as any[];
+            }
+        }
+
+        return Array.isArray(verdicts) ? verdicts : [];
     } catch (error) {
         console.error("Agent brain error:", error);
         return [];

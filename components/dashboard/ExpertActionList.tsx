@@ -108,7 +108,7 @@ export function ExpertActionList({ recommendations, audit }: ExpertActionListPro
                                             className="bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl px-6 h-10 gap-2 active:scale-95 transition-all"
                                         >
                                             <Check className="h-4 w-4" />
-                                            {rec.type === 'scale_up' ? `Aumentar para R$ ${rec.suggestedBudget?.toFixed(2)}` : 'Aplicar Pausa'}
+                                            {rec.type === 'scale_up' ? `Aumentar para R$ ${(rec.suggestedBudget || 0).toFixed(2)}` : 'Aplicar Pausa'}
                                         </Button>
                                         <Button
                                             variant="ghost"
