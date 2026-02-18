@@ -42,16 +42,21 @@ export const runPerformanceAudit = cache(async function (metrics: DashboardMetri
             getCampaigns(integration.ad_account_id, accessToken)
         ]);
 
-        // Filter active ads and get their IDs
-        const activeAds = ads.filter((a: any) => a.status === 'ACTIVE');
+        console.log(`[Auditor Raw] Ads: ${ads?.length}, AdSets: ${adsets?.length}, Campaigns: ${campaigns?.length}`);
+
+        // Filter active or recently paused ads
+        const activeAds = ads.filter((a: any) => a.status === 'ACTIVE' || a.status === 'PAUSED');
         const adIds = activeAds.map((a: any) => a.id);
 
+        console.log(`[Auditor] Total ads: ${ads.length}, Active ads: ${activeAds.length}`);
+
         if (adIds.length === 0) {
+            console.log("[Auditor] No active ads found.");
             return { score: 100, status: 'good', summary: "Nenhum anúncio ativo encontrado.", recommendations: [] };
         }
 
         // Fetch insights for these ads
-        const adInsights = await getInsights(adIds, accessToken, 'last_7d');
+        const adInsights = await getInsights(adIds, accessToken, 'last_30d');
 
         // Match insights and budgets with ads
         const adsWithPerformance = activeAds.map((ad: any) => {

@@ -63,7 +63,7 @@ export async function getAgentVerdict(context: {
                           "status": "OPTIMAL" | "WARNING" | "CRITICAL",
                           "impact": "Métrica principal atingida",
                           "thought": "O que você observou nos dados",
-                          "recommendation": "Ação clara e direta"
+                          "recommendation": "Ação clara e direta (mesmo para status OPTIMAL, sugira como manter ou melhorar ligeiramente)"
                         }
                       ]
                     }`

@@ -19,9 +19,14 @@ export async function ExpertAnalysisSection({ adAccountId }: { adAccountId: stri
         getAdCreatives(adAccountId, accessToken)
     ]);
 
+    console.log(`[ExpertAnalysis] Metrics: ${metrics ? 'OK' : 'FAIL'}, Creatives count: ${creatives?.length || 0}`);
+
     // Run agents sequentially to support Modal's concurrent request limits
     const audit = await runPerformanceAudit(metrics);
     const scaling = await runScaleStrategy(metrics);
+
+    console.log(`[ExpertAnalysis] Audit score: ${audit?.score}, Recs: ${audit?.recommendations?.length || 0}`);
+    console.log(`[ExpertAnalysis] Scaling count: ${scaling?.length || 0}`);
 
     // Concatenate all expert findings: Audit (Ad level) + Scaling (Adset level)
     const combinedActions = [

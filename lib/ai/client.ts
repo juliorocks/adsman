@@ -12,6 +12,7 @@ export async function getAIClient() {
 
     // 1. If OpenAI is preferred and available
     if (preference === 'openai' && openaiKey) {
+        console.log("[AI Client] Using OpenAI (User Preference)");
         return {
             client: new OpenAI({
                 apiKey: openaiKey
@@ -24,6 +25,7 @@ export async function getAIClient() {
 
     // 2. If Modal is available (either preferred or as default/fallback)
     if (modalKey) {
+        console.log("[AI Client] Using Modal/GLM-5");
         return {
             client: new OpenAI({
                 apiKey: modalKey,

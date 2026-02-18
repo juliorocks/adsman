@@ -23,7 +23,7 @@ export async function generateCreativeIdeas(): Promise<CreativeVariation[]> {
     try {
         const accessToken = decrypt(integration.access_token_ref);
         const ads = await getAds(integration.ad_account_id, accessToken);
-        const activeAds = ads.filter((a: any) => a.status === 'ACTIVE').slice(0, 3); // Top 3 ads
+        const activeAds = ads.filter((a: any) => a.status === 'ACTIVE' || a.status === 'PAUSED').slice(0, 3); // Top 3 ads
 
         if (!ai) {
             // Fallback mock if no key

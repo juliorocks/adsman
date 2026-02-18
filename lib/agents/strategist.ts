@@ -29,14 +29,14 @@ export const runScaleStrategy = cache(async function (metrics?: DashboardMetrics
 
         // Filter active adsets and limit to top 5 to avoid timeout
         const activeAdSets = adSets
-            .filter((a: any) => a.status === 'ACTIVE')
+            .filter((a: any) => a.status === 'ACTIVE' || a.status === 'PAUSED')
             .slice(0, 5);
 
         // Sequential analysis to support low-concurrency providers
         const recommendations: ScalingRecommendation[] = [];
         for (const adSet of activeAdSets) {
             try {
-                const insights = await getInsights(adSet.id, accessToken, 'last_7d');
+                const insights = await getInsights(adSet.id, accessToken, 'last_30d');
                 if (!insights || insights.length === 0) continue;
 
                 const data = insights[0];
