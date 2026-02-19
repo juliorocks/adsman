@@ -363,14 +363,18 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                                             {ad.creative?.title || 'Sem título'}
                                                                         </p>
                                                                     </div>
-                                                                    <div className="flex items-center gap-2 ml-2" onClick={(e) => e.stopPropagation()}>
+                                                                    <div className="flex items-center gap-4 ml-auto" onClick={(e) => e.stopPropagation()}>
+                                                                        <div className="hidden xl:block text-right">
+                                                                            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">Status</p>
+                                                                            <p className="text-[10px] font-mono text-slate-500 uppercase mt-0.5">{ad.status}</p>
+                                                                        </div>
                                                                         {loadingIds.has(ad.id) ? (
                                                                             <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
                                                                         ) : (
                                                                             <Switch
                                                                                 checked={ad.status === 'ACTIVE'}
                                                                                 onCheckedChange={() => toggleStatus(ad.id, 'AD', ad.status, ad.name)}
-                                                                                className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-300 dark:data-[state=unchecked]:bg-slate-700 scale-75"
+                                                                                className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-300 dark:data-[state=unchecked]:bg-slate-600 shadow-sm"
                                                                             />
                                                                         )}
                                                                     </div>
