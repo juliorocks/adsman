@@ -118,11 +118,12 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                 try {
                     const res = await getCampaignAdSetsAction(campaignId);
 
-                    if (res && res.success && res.data) {
-                        setLoadedAdSets(prev => ({ ...prev, [campaignId]: res.data }));
+                    if (res?.success) {
+                        setLoadedAdSets(prev => ({ ...prev, [campaignId]: res.data || [] }));
                         setAdSetErrors(prev => { const n = { ...prev }; delete n[campaignId]; return n; });
                     } else {
-                        const msg = res?.error ? (typeof res.error === 'string' ? res.error : JSON.stringify(res.error)) : "Erro desconhecido";
+                        const errorVal = (res as any)?.error;
+                        const msg = errorVal ? (typeof errorVal === 'string' ? errorVal : JSON.stringify(errorVal)) : "Erro desconhecido";
                         setAdSetErrors(prev => ({ ...prev, [campaignId]: msg }));
                         toast.error("Erro: " + msg);
                     }
@@ -157,11 +158,12 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                 try {
                     const res = await getAdSetAdsAction(adSetId);
 
-                    if (res && res.success && res.data) {
-                        setLoadedAds(prev => ({ ...prev, [adSetId]: res.data }));
+                    if (res?.success) {
+                        setLoadedAds(prev => ({ ...prev, [adSetId]: res.data || [] }));
                         setAdErrors(prev => { const n = { ...prev }; delete n[adSetId]; return n; });
                     } else {
-                        const msg = res?.error ? (typeof res.error === 'string' ? res.error : JSON.stringify(res.error)) : "Erro desconhecido";
+                        const errorVal = (res as any)?.error;
+                        const msg = errorVal ? (typeof errorVal === 'string' ? errorVal : JSON.stringify(errorVal)) : "Erro desconhecido";
                         setAdErrors(prev => ({ ...prev, [adSetId]: msg }));
                         toast.error("Erro: " + msg);
                     }
