@@ -5,13 +5,16 @@ import { getAdAccounts, AdAccount } from "@/lib/meta/api";
 import { cookies } from "next/headers";
 
 export async function getIntegration() {
-    const supabase = await createClient();
+    let supabase;
     let supabaseUser = null;
+
     try {
+        supabase = await createClient();
         const { data } = await supabase.auth.getUser();
         supabaseUser = data?.user;
     } catch (e) {
-        console.error("Auth error in getIntegration:", e);
+        // Suppress errors if createClient fails (e.g. cookies unavailable)
+        // console.error("Auth error in getIntegration:", e);
     }
 
     let user = supabaseUser;
@@ -43,6 +46,8 @@ export async function getIntegration() {
         }
         return null;
     }
+
+    if (!supabase) return null;
 
     const { data } = await supabase
         .from("integrations")
