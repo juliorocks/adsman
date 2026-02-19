@@ -5,7 +5,7 @@ import { getCampaigns } from "@/lib/meta/api";
 import { getLogs } from "@/lib/data/logs";
 import { CampaignsTable } from "@/components/dashboard/campaigns/CampaignsTable";
 import { ActivityFeed } from "@/components/dashboard/campaigns/ActivityFeed";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Assuming Tabs exist or use simple layout
+
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +31,12 @@ export default async function CampaignsPage() {
         }
     }
 
-    const logs = await getLogs(50); // Get last 50 logs
+    let logs: any[] = [];
+    try {
+        logs = await getLogs(50);
+    } catch (e) {
+        console.error("Error fetching logs:", e);
+    }
 
     return (
         <div className="max-w-[1600px] mx-auto space-y-8 p-6">

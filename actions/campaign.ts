@@ -43,40 +43,47 @@ export async function getAdSetAdsAction(adSetId: string) {
 }
 
 export async function toggleStatusAction(id: string, type: 'CAMPAIGN' | 'ADSET' | 'AD', status: 'ACTIVE' | 'PAUSED', name: string) {
-    const integration = await getIntegration();
-    if (!integration || !integration.access_token_ref) throw new Error("No Meta integration found");
-
     try {
+        const integration = await getIntegration();
+        if (!integration || !integration.access_token_ref) throw new Error("No Meta integration found");
+
         const accessToken = decrypt(integration.access_token_ref);
         await updateObjectStatus(id, status, accessToken);
 
         const typeLabel = type === 'CAMPAIGN' ? 'Campanha' : type === 'ADSET' ? 'Conjunto' : 'Anúncio';
 
-        await createLog({
-            action_type: status === 'ACTIVE' ? 'ACTIVATE' : 'PAUSE',
-            description: `${typeLabel} "${name}" foi ${status === 'ACTIVE' ? 'ativado(a)' : 'pausado(a)'}.`,
-            target_id: id,
-            target_name: name,
-            agent: 'USER',
-            status: 'SUCCESS'
-        });
+        try {
+            await createLog({
+                action_type: status === 'ACTIVE' ? 'ACTIVATE' : 'PAUSE',
+                description: `${typeLabel} "${name}" foi ${status === 'ACTIVE' ? 'ativado(a)' : 'pausado(a)'}.`,
+                target_id: id,
+                target_name: name,
+                agent: 'USER',
+                status: 'SUCCESS'
+            });
+        } catch (logError) {
+            console.error("Failed to create log:", logError);
+        }
 
         revalidatePath("/dashboard/campaigns");
         return { success: true };
     } catch (error: any) {
         console.error(`Toggle ${type} status error:`, error);
 
-        const typeLabel = type === 'CAMPAIGN' ? 'Campanha' : type === 'ADSET' ? 'Conjunto' : 'Anúncio';
+        // Attempt to log failure if possible, but don't crash if logging fails
+        try {
+            const typeLabel = type === 'CAMPAIGN' ? 'Campanha' : type === 'ADSET' ? 'Conjunto' : 'Anúncio';
+            await createLog({
+                action_type: status === 'ACTIVE' ? 'ACTIVATE' : 'PAUSE',
+                description: `Erro ao alterar status de ${typeLabel} "${name}".`,
+                target_id: id,
+                target_name: name,
+                agent: 'USER',
+                status: 'FAILED',
+                metadata: { error: error.message }
+            });
+        } catch (ignore) { }
 
-        await createLog({
-            action_type: status === 'ACTIVE' ? 'ACTIVATE' : 'PAUSE',
-            description: `Erro ao alterar status de ${typeLabel} "${name}".`,
-            target_id: id,
-            target_name: name,
-            agent: 'USER',
-            status: 'FAILED',
-            metadata: { error: error.message }
-        });
         return { success: false, error: error.message };
     }
 }

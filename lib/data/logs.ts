@@ -16,14 +16,21 @@ export interface ActivityLog {
 
 // Helper to get unified user (Supabase or Mock)
 async function getUnifiedUser() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) return user;
+    } catch (e) {
+        console.error("Auth error in getUnifiedUser:", e);
+    }
 
-    if (user) return user;
-
-    const devSession = cookies().get("dev_session");
-    if (devSession) {
-        return { id: "mock_user_id_dev" } as any;
+    try {
+        const devSession = cookies().get("dev_session");
+        if (devSession) {
+            return { id: "mock_user_id_dev" } as any;
+        }
+    } catch (e) {
+        // ignore cookies error in some contexts
     }
 
     return null;

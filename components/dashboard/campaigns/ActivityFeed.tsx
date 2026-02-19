@@ -2,9 +2,11 @@
 
 import type { ActivityLog } from "@/lib/data/logs";
 import { User, Sparkles, Brain, Bot, FileText } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const AgentIcon = ({ agent }: { agent: string }) => {
-    switch (agent) {
+    const safeAgent = (agent || 'SYSTEM').toUpperCase();
+    switch (safeAgent) {
         case 'AUDITOR': return <Brain className="h-5 w-5 text-purple-500" />;
         case 'CREATIVE': return <Sparkles className="h-5 w-5 text-pink-500" />;
         case 'STRATEGIST': return <Bot className="h-5 w-5 text-blue-500" />;
@@ -14,6 +16,12 @@ const AgentIcon = ({ agent }: { agent: string }) => {
 };
 
 export function ActivityFeed({ logs }: { logs: ActivityLog[] }) {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     if (!logs || logs.length === 0) {
         return (
             <div className="p-8 text-center text-slate-500 border border-dashed rounded-xl">
@@ -33,7 +41,7 @@ export function ActivityFeed({ logs }: { logs: ActivityLog[] }) {
                         <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
                                 <h4 className="font-bold text-sm text-slate-900 dark:text-white capitalize">
-                                    {log.agent === 'USER' ? 'Usuário' : log.agent.toLowerCase()}
+                                    {(log.agent || 'SYSTEM').toUpperCase() === 'USER' ? 'Usuário' : (log.agent || 'SYSTEM').toLowerCase()}
                                 </h4>
                                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${log.status === 'SUCCESS'
                                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
@@ -43,7 +51,7 @@ export function ActivityFeed({ logs }: { logs: ActivityLog[] }) {
                                 </span>
                             </div>
                             <span className="text-xs text-slate-400 font-medium">
-                                {new Date(log.created_at).toLocaleString('pt-BR')}
+                                {mounted ? new Date(log.created_at).toLocaleString('pt-BR') : '...'}
                             </span>
                         </div>
                         <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
