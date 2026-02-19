@@ -5,9 +5,9 @@ import { getAdAccounts, AdAccount } from "@/lib/meta/api";
 import { cookies } from "next/headers";
 
 export async function getIntegration() {
+    const supabase = await createClient();
     let supabaseUser = null;
     try {
-        const supabase = await createClient();
         const { data } = await supabase.auth.getUser();
         supabaseUser = data?.user;
     } catch (e) {
