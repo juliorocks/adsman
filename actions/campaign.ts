@@ -9,30 +9,30 @@ import { parseTargetingFromGoal } from "@/lib/ai/openai";
 import { createLog } from "@/lib/data/logs";
 
 export async function getCampaignAdSetsAction(campaignId: string) {
-    const integration = await getIntegration();
-    if (!integration || !integration.access_token_ref) return { success: false, error: "Não autorizado" };
-
     try {
+        const integration = await getIntegration();
+        if (!integration || !integration.access_token_ref) return { success: false, error: "Integração não encontrada ou sem token" };
+
         const accessToken = decrypt(integration.access_token_ref);
         const data = await getAdSetsForCampaign(campaignId, accessToken);
         return { success: true, data };
     } catch (error: any) {
         console.error("getCampaignAdSetsAction Error:", error);
-        return { success: false, error: error.message };
+        return { success: false, error: `Erro no servidor: ${error.message}` };
     }
 }
 
 export async function getAdSetAdsAction(adSetId: string) {
-    const integration = await getIntegration();
-    if (!integration || !integration.access_token_ref) return { success: false, error: "Não autorizado" };
-
     try {
+        const integration = await getIntegration();
+        if (!integration || !integration.access_token_ref) return { success: false, error: "Integração não encontrada ou sem token" };
+
         const accessToken = decrypt(integration.access_token_ref);
         const data = await getAdsForAdSet(adSetId, accessToken);
         return { success: true, data };
     } catch (error: any) {
         console.error("getAdSetAdsAction Error:", error);
-        return { success: false, error: error.message };
+        return { success: false, error: `Erro no servidor: ${error.message}` };
     }
 }
 
