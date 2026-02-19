@@ -156,8 +156,8 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
 
     const StatusBadge = ({ status }: { status: string }) => (
         <Badge variant="outline" className={`text-[10px] uppercase font-bold tracking-wider ${status === 'ACTIVE'
-                ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-900/50'
-                : 'bg-slate-50 text-slate-500 border-slate-100 dark:bg-slate-800 dark:border-slate-700'
+            ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-900/50'
+            : 'bg-slate-50 text-slate-500 border-slate-100 dark:bg-slate-800 dark:border-slate-700'
             }`}>
             {status === 'ACTIVE' ? 'Ativo' : 'Pausado'}
         </Badge>
@@ -185,13 +185,17 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                     ) : (
                         campaigns.map((c) => (
                             <>
-                                <TableRow key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
+                                <TableRow
+                                    key={c.id}
+                                    className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group cursor-pointer"
+                                    onClick={() => toggleCampaignExpand(c.id)}
+                                >
                                     <TableCell>
                                         <Button
                                             variant="ghost"
                                             size="icon"
                                             className="h-6 w-6"
-                                            onClick={() => toggleCampaignExpand(c.id)}
+                                            onClick={(e) => { e.stopPropagation(); toggleCampaignExpand(c.id); }}
                                         >
                                             {loadingIds.has(`load-${c.id}`) ? (
                                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -202,7 +206,7 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                             )}
                                         </Button>
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell onClick={(e) => e.stopPropagation()}>
                                         <div className="flex items-center gap-2">
                                             {loadingIds.has(c.id) ? (
                                                 <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
@@ -248,12 +252,15 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                     <div className="border rounded-xl bg-white dark:bg-slate-950 overflow-hidden text-sm">
                                                         {loadedAdSets[c.id].map(adSet => (
                                                             <div key={adSet.id} className="border-b last:border-0 border-slate-100 dark:border-slate-800">
-                                                                <div className="flex items-center p-3 gap-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                                                                <div
+                                                                    className="flex items-center p-3 gap-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors cursor-pointer"
+                                                                    onClick={() => toggleAdSetExpand(adSet.id)}
+                                                                >
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="icon"
                                                                         className="h-5 w-5"
-                                                                        onClick={() => toggleAdSetExpand(adSet.id)}
+                                                                        onClick={(e) => { e.stopPropagation(); toggleAdSetExpand(adSet.id); }}
                                                                     >
                                                                         {loadingIds.has(`load-${adSet.id}`) ? (
                                                                             <Loader2 className="h-3 w-3 animate-spin" />
@@ -264,7 +271,7 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                                         )}
                                                                     </Button>
 
-                                                                    <div className="flex items-center gap-2 min-w-[140px]">
+                                                                    <div className="flex items-center gap-2 min-w-[140px]" onClick={(e) => e.stopPropagation()}>
                                                                         {loadingIds.has(adSet.id) ? (
                                                                             <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
                                                                         ) : (
@@ -308,7 +315,7 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                                                             <p className="text-xs font-bold truncate">{ad.name}</p>
                                                                                             <p className="text-[10px] text-slate-500 truncate">{ad.creative?.title || 'Sem título'}</p>
                                                                                         </div>
-                                                                                        <div className="flex items-center gap-2">
+                                                                                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                                                                             {loadingIds.has(ad.id) ? (
                                                                                                 <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
                                                                                             ) : (

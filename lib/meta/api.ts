@@ -104,7 +104,7 @@ export async function getAds(adAccountId: string, accessToken: string) {
 
 export async function getAdSetsForCampaign(campaignId: string, accessToken: string) {
     const fields = "id,name,status,billing_event,daily_budget,lifetime_budget,start_time,end_time";
-    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${campaignId}/adsets?fields=${fields}&access_token=${accessToken}`);
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${campaignId}/adsets?fields=${fields}&limit=50&access_token=${accessToken}`);
     const data = await response.json();
 
     if (data.error) throw new Error(data.error.message);
@@ -113,7 +113,7 @@ export async function getAdSetsForCampaign(campaignId: string, accessToken: stri
 
 export async function getAdsForAdSet(adSetId: string, accessToken: string) {
     const fields = "id,name,status,creative{id,name,thumbnail_url,title,body}";
-    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adSetId}/ads?fields=${fields}&access_token=${accessToken}`);
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adSetId}/ads?fields=${fields}&limit=50&access_token=${accessToken}`);
     const data = await response.json();
 
     if (data.error) throw new Error(data.error.message);
