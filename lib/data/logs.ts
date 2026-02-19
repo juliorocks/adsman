@@ -59,17 +59,22 @@ export async function getLogs(limit = 100): Promise<ActivityLog[]> {
 
     const supabase = await createClient();
 
-    const { data, error } = await supabase
-        .from('activity_logs')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(limit);
+    try {
+        const { data, error } = await supabase
+            .from('activity_logs')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(limit);
 
-    if (error) {
-        console.error("Error fetching logs:", error);
+        if (error) {
+            console.error("Error fetching logs:", error);
+            return [];
+        }
+
+        return data || [];
+    } catch (err) {
+        console.error("Unexpected error in getLogs:", err);
         return [];
     }
-
-    return data || [];
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { ActivityLog } from "@/lib/data/logs";
+import type { ActivityLog } from "@/lib/data/logs";
 import { User, Sparkles, Brain, Bot, FileText } from "lucide-react";
 
 const AgentIcon = ({ agent }: { agent: string }) => {
@@ -36,8 +36,8 @@ export function ActivityFeed({ logs }: { logs: ActivityLog[] }) {
                                     {log.agent === 'USER' ? 'Usuário' : log.agent.toLowerCase()}
                                 </h4>
                                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${log.status === 'SUCCESS'
-                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                        : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                    : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
                                     }`}>
                                     {log.status === 'SUCCESS' ? 'Sucesso' : 'Falha'}
                                 </span>
@@ -51,10 +51,10 @@ export function ActivityFeed({ logs }: { logs: ActivityLog[] }) {
                         </p>
                         <div className="flex items-center gap-2 mt-2">
                             <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider ${log.action_type === 'ACTIVATE' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                                    log.action_type === 'PAUSE' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                                        log.action_type === 'CREATIVE' ? 'bg-pink-50 text-pink-600 border border-pink-100' :
-                                            log.action_type === 'BUDGET' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
-                                                'bg-slate-50 text-slate-500 border border-slate-100'
+                                log.action_type === 'PAUSE' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                                    log.action_type === 'CREATIVE' ? 'bg-pink-50 text-pink-600 border border-pink-100' :
+                                        log.action_type === 'BUDGET' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                                            'bg-slate-50 text-slate-500 border border-slate-100'
                                 } dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400`}>
                                 {log.action_type}
                             </span>
