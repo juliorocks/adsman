@@ -21,7 +21,7 @@ export default async function CampaignsPage() {
         error = "Erro ao carregar configurações de integração.";
     }
 
-    if (integration && integration.access_token_ref) {
+    if (integration && integration.access_token_ref && integration.ad_account_id) {
         try {
             const accessToken = decrypt(integration.access_token_ref);
             campaigns = await getCampaigns(integration.ad_account_id, accessToken);

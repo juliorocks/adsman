@@ -1,6 +1,6 @@
 "use client";
 
-import type { ActivityLog } from "@/lib/data/logs";
+import type { ActivityLog } from "@/types/logs";
 import { User, Sparkles, Brain, Bot, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 

@@ -1,18 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
-
-export interface ActivityLog {
-    id: string;
-    user_id: string;
-    action_type: 'PAUSE' | 'ACTIVATE' | 'BUDGET' | 'CREATIVE' | 'OPTIMIZATION' | 'CRITICAL' | 'OTHER';
-    description: string;
-    target_id?: string;
-    target_name?: string;
-    agent: 'AUDITOR' | 'CREATIVE' | 'STRATEGIST' | 'USER' | 'SYSTEM';
-    status: 'SUCCESS' | 'FAILED' | 'PENDING';
-    created_at: string;
-    metadata?: any;
-}
+import type { ActivityLog } from "@/types/logs";
 
 // Helper to get unified user (Supabase or Mock)
 async function getUnifiedUser() {
