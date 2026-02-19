@@ -268,10 +268,10 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
 
                                 {/* AD SETS EXPANSION */}
                                 {expandedCampaigns.has(c.id) && (
-                                    <TableRow className="bg-slate-50/30 dark:bg-slate-900/30 hover:bg-slate-50/30">
+                                    <TableRow className="bg-slate-50/50 dark:bg-slate-950/40 hover:bg-slate-50/50">
                                         <TableCell colSpan={5} className="p-0">
-                                            <div className="pl-12 pr-4 py-4 space-y-2 border-l-2 border-slate-100 dark:border-slate-800 ml-6 my-2">
-                                                <h4 className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
+                                            <div className="pl-4 md:pl-12 pr-4 py-6 space-y-4 border-l-4 border-indigo-500/20 ml-6 my-2">
+                                                <h4 className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest pl-2 mb-2">
                                                     <Layers className="h-3 w-3" /> Conjuntos de Anúncios
                                                 </h4>
 
@@ -283,7 +283,7 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                                     <XCircle className="h-4 w-4" />
                                                                     Erro ao carregar conjuntos:
                                                                 </p>
-                                                                <p className="text-xs text-red-400 font-mono bg-red-50 dark:bg-red-900/10 p-2 rounded">
+                                                                <p className="text-xs text-red-400 font-mono bg-red-50 dark:bg-red-900/10 p-2 rounded break-all">
                                                                     {adSetErrors[c.id]}
                                                                 </p>
                                                                 <Button
@@ -313,29 +313,29 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <div className="border rounded-xl bg-white dark:bg-slate-950 overflow-hidden text-sm">
+                                                    <div className="space-y-3">
                                                         {loadedAdSets[c.id].map(adSet => (
-                                                            <div key={adSet.id} className="border-b last:border-0 border-slate-100 dark:border-slate-800">
+                                                            <div key={adSet.id} className="border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 overflow-hidden shadow-sm transition-all hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700">
                                                                 <div
-                                                                    className="flex items-center p-3 gap-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors cursor-pointer"
+                                                                    className="flex items-center p-4 gap-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group/adset"
                                                                     onClick={() => toggleAdSetExpand(adSet.id)}
                                                                 >
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="icon"
-                                                                        className="h-5 w-5"
+                                                                        className="h-6 w-6 shrink-0 text-slate-400 group-hover/adset:text-indigo-400"
                                                                         onClick={(e) => { e.stopPropagation(); toggleAdSetExpand(adSet.id); }}
                                                                     >
                                                                         {loadingIds.has(`load-${adSet.id}`) ? (
-                                                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                                                            <Loader2 className="h-4 w-4 animate-spin" />
                                                                         ) : expandedAdSets.has(adSet.id) ? (
-                                                                            <ChevronDown className="h-3 w-3" />
+                                                                            <ChevronDown className="h-4 w-4" />
                                                                         ) : (
-                                                                            <ChevronRight className="h-3 w-3" />
+                                                                            <ChevronRight className="h-4 w-4" />
                                                                         )}
                                                                     </Button>
 
-                                                                    <div className="flex items-center gap-2 min-w-[140px]" onClick={(e) => e.stopPropagation()}>
+                                                                    <div className="flex items-center gap-3 min-w-[140px]" onClick={(e) => e.stopPropagation()}>
                                                                         {loadingIds.has(adSet.id) ? (
                                                                             <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
                                                                         ) : (
@@ -348,27 +348,33 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                                         <StatusBadge status={adSet.status} />
                                                                     </div>
 
-                                                                    <span className="font-medium flex-1 truncate">{adSet.name}</span>
+                                                                    <span className="font-semibold text-slate-900 dark:text-slate-100 flex-1 truncate">{adSet.name}</span>
 
-                                                                    <span className="text-xs text-slate-500 font-mono">
+                                                                    <span className="text-xs text-slate-500 font-mono bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
                                                                         {adSet.billing_event}
                                                                     </span>
                                                                 </div>
 
                                                                 {/* ADS EXPANSION */}
                                                                 {expandedAdSets.has(adSet.id) && (
-                                                                    <div className="pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800">
-                                                                        <h5 className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                                                                    <div className="px-4 pb-4 pt-2 bg-slate-50/50 dark:bg-black/20 border-t border-slate-100 dark:border-slate-800">
+                                                                        <h5 className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 mt-2 pl-2">
                                                                             <MousePointerClick className="h-3 w-3" /> Anúncios
                                                                         </h5>
 
                                                                         {!loadedAds[adSet.id] || loadedAds[adSet.id].length === 0 ? (
-                                                                            <p className="text-xs text-slate-400 italic">Nenhum anúncio encontrado.</p>
+                                                                            <div className="text-sm p-4 text-center border dashed border-slate-200 dark:border-slate-800 rounded-lg">
+                                                                                {adErrors[adSet.id] ? (
+                                                                                    <span className="text-red-400 text-xs">{adErrors[adSet.id]}</span>
+                                                                                ) : (
+                                                                                    <p className="text-xs text-slate-400 italic">Nenhum anúncio encontrado.</p>
+                                                                                )}
+                                                                            </div>
                                                                         ) : (
-                                                                            <div className="grid gap-2">
+                                                                            <div className="grid gap-2 pl-2 border-l-2 border-slate-200 dark:border-slate-800 ml-3">
                                                                                 {loadedAds[adSet.id].map(ad => (
-                                                                                    <div key={ad.id} className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-sm">
-                                                                                        <div className="h-10 w-10 bg-slate-100 dark:bg-slate-800 rounded-md overflow-hidden flex-shrink-0 flex items-center justify-center">
+                                                                                    <div key={ad.id} className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60 hover:border-indigo-500/30 transition-all group/ad">
+                                                                                        <div className="h-10 w-10 bg-slate-100 dark:bg-slate-900 rounded-md overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200 dark:border-slate-700">
                                                                                             {ad.creative?.thumbnail_url ? (
                                                                                                 <img src={ad.creative.thumbnail_url} alt="" className="h-full w-full object-cover" />
                                                                                             ) : (
@@ -376,10 +382,11 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                                                             )}
                                                                                         </div>
                                                                                         <div className="flex-1 min-w-0">
-                                                                                            <p className="text-xs font-bold truncate">{ad.name}</p>
-                                                                                            <p className="text-[10px] text-slate-500 truncate">{ad.creative?.title || 'Sem título'}</p>
+                                                                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate group-hover/ad:text-indigo-400 transition-colors">{ad.name}</p>
+                                                                                            <p className="text-[11px] text-slate-500 truncate">{ad.creative?.title || 'Sem título'}</p>
                                                                                         </div>
-                                                                                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                                                        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                                                                                            <StatusBadge status={ad.status} />
                                                                                             {loadingIds.has(ad.id) ? (
                                                                                                 <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
                                                                                             ) : (
