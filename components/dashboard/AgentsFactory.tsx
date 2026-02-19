@@ -202,7 +202,6 @@ const ConnectionBeam = ({ delay, index }: { delay: number, index: number }) => {
             {/* Flare at connection point */}
             <motion.div
                 className="absolute w-4 h-4 bg-primary-400 rounded-full blur-lg"
-                style={{ willChange: "transform, opacity" }}
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{
                     scale: [0, 1.5, 0],
@@ -215,6 +214,7 @@ const ConnectionBeam = ({ delay, index }: { delay: number, index: number }) => {
                     delay: delay + 2.5,
                 }}
                 style={{
+                    willChange: "transform, opacity",
                     left: `${(startX + endX) / 2}%`,
                     top: `${(startY + endY) / 2}%`
                 }}
