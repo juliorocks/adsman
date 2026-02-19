@@ -4,21 +4,26 @@ import type { ActivityLog } from "@/types/logs";
 
 // Helper to get unified user (Supabase or Mock)
 async function getUnifiedUser() {
+    // 1. Try Supabase Auth first
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (user) return user;
     } catch (e) {
-        console.error("Auth error in getUnifiedUser:", e);
+        // Suppress auth errors in build/static context
     }
 
+    // 2. Try Dev Session (Cookies)
     try {
-        const devSession = cookies().get("dev_session");
+        // Check if cookies() is active (it throws in some nextjs contexts)
+        const cookieStore = cookies();
+        const devSession = cookieStore.get("dev_session");
         if (devSession) {
             return { id: "mock_user_id_dev" } as any;
         }
     } catch (e) {
-        // ignore cookies error in some contexts
+        // Cookies not available (likely static generation)
+        return null;
     }
 
     return null;
