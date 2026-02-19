@@ -4,24 +4,49 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getIntegration } from "@/lib/data/settings";
 import { decrypt } from "@/lib/security/vault";
-import { createCampaign, createAdSet, updateObjectStatus } from "@/lib/meta/api";
+import { createCampaign, createAdSet, updateObjectStatus, getAdSetsForCampaign, getAdsForAdSet } from "@/lib/meta/api";
 import { parseTargetingFromGoal } from "@/lib/ai/openai";
 import { createLog } from "@/lib/data/logs";
 
-export async function toggleCampaignStatus(id: string, status: 'ACTIVE' | 'PAUSED', name: string) {
+export async function getCampaignAdSetsAction(campaignId: string) {
     const integration = await getIntegration();
-    if (!integration || !integration.access_token_ref) {
-        throw new Error("No Meta integration found");
-    }
+    if (!integration || !integration.access_token_ref) return { success: false, error: "Não autorizado" };
 
     try {
         const accessToken = decrypt(integration.access_token_ref);
+        const data = await getAdSetsForCampaign(campaignId, accessToken);
+        return { success: true, data };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
 
+export async function getAdSetAdsAction(adSetId: string) {
+    const integration = await getIntegration();
+    if (!integration || !integration.access_token_ref) return { success: false, error: "Não autorizado" };
+
+    try {
+        const accessToken = decrypt(integration.access_token_ref);
+        const data = await getAdsForAdSet(adSetId, accessToken);
+        return { success: true, data };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function toggleStatusAction(id: string, type: 'CAMPAIGN' | 'ADSET' | 'AD', status: 'ACTIVE' | 'PAUSED', name: string) {
+    const integration = await getIntegration();
+    if (!integration || !integration.access_token_ref) throw new Error("No Meta integration found");
+
+    try {
+        const accessToken = decrypt(integration.access_token_ref);
         await updateObjectStatus(id, status, accessToken);
+
+        const typeLabel = type === 'CAMPAIGN' ? 'Campanha' : type === 'ADSET' ? 'Conjunto' : 'Anúncio';
 
         await createLog({
             action_type: status === 'ACTIVE' ? 'ACTIVATE' : 'PAUSE',
-            description: `Campanha "${name}" foi ${status === 'ACTIVE' ? 'ativada' : 'pausada'}.`,
+            description: `${typeLabel} "${name}" foi ${status === 'ACTIVE' ? 'ativado(a)' : 'pausado(a)'}.`,
             target_id: id,
             target_name: name,
             agent: 'USER',
@@ -31,10 +56,13 @@ export async function toggleCampaignStatus(id: string, status: 'ACTIVE' | 'PAUSE
         revalidatePath("/dashboard/campaigns");
         return { success: true };
     } catch (error: any) {
-        console.error("Toggle campaign status error:", error);
+        console.error(`Toggle ${type} status error:`, error);
+
+        const typeLabel = type === 'CAMPAIGN' ? 'Campanha' : type === 'ADSET' ? 'Conjunto' : 'Anúncio';
+
         await createLog({
             action_type: status === 'ACTIVE' ? 'ACTIVATE' : 'PAUSE',
-            description: `Erro ao alterar status da campanha "${name}".`,
+            description: `Erro ao alterar status de ${typeLabel} "${name}".`,
             target_id: id,
             target_name: name,
             agent: 'USER',
@@ -43,6 +71,10 @@ export async function toggleCampaignStatus(id: string, status: 'ACTIVE' | 'PAUSE
         });
         return { success: false, error: error.message };
     }
+}
+
+export async function toggleCampaignStatus(id: string, status: 'ACTIVE' | 'PAUSED', name: string) {
+    return toggleStatusAction(id, 'CAMPAIGN', status, name);
 }
 
 export async function createSmartCampaignAction(formData: { objective: string, goal: string, budget: string }) {

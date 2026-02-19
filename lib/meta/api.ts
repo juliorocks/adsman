@@ -102,6 +102,24 @@ export async function getAds(adAccountId: string, accessToken: string) {
     return data.data || [];
 }
 
+export async function getAdSetsForCampaign(campaignId: string, accessToken: string) {
+    const fields = "id,name,status,billing_event,daily_budget,lifetime_budget,start_time,end_time";
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${campaignId}/adsets?fields=${fields}&access_token=${accessToken}`);
+    const data = await response.json();
+
+    if (data.error) throw new Error(data.error.message);
+    return data.data || [];
+}
+
+export async function getAdsForAdSet(adSetId: string, accessToken: string) {
+    const fields = "id,name,status,creative{id,name,thumbnail_url,title,body}";
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adSetId}/ads?fields=${fields}&access_token=${accessToken}`);
+    const data = await response.json();
+
+    if (data.error) throw new Error(data.error.message);
+    return data.data || [];
+}
+
 export async function getAd(adId: string, accessToken: string) {
     const fields = "id,name,status,adset_id,campaign_id,creative{id,name,thumbnail_url,title,body,object_story_spec,image_hash,image_url}";
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adId}?fields=${fields}&access_token=${accessToken}`);
