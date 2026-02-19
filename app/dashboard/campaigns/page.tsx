@@ -10,9 +10,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export const dynamic = 'force-dynamic';
 
 export default async function CampaignsPage() {
-    const integration = await getIntegration();
+    let integration = null;
     let campaigns: any[] = [];
-    let error = null;
+    let error: string | null = null; // Explicit type for error
+
+    try {
+        integration = await getIntegration();
+    } catch (e) {
+        console.error("Error loading integration:", e);
+        error = "Erro ao carregar configurações de integração.";
+    }
 
     if (integration && integration.access_token_ref) {
         try {
