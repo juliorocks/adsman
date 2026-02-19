@@ -343,38 +343,47 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                             {loadedAds[adSet.id].map(ad => (
                                                                 <div
                                                                     key={ad.id}
-                                                                    className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60 hover:border-indigo-500/40 hover:shadow-sm transition-all group/ad"
+                                                                    className="flex items-center gap-4 p-4 rounded-[24px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-indigo-500/20 hover:shadow-md transition-all group/ad"
                                                                 >
-                                                                    <div className="h-14 w-14 bg-slate-100 dark:bg-slate-900 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm transition-transform group-hover/ad:scale-105">
+                                                                    <div className="h-14 w-14 bg-slate-50 dark:bg-slate-800 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm group-hover/ad:scale-105 transition-transform duration-500">
                                                                         {ad.creative?.thumbnail_url ? (
                                                                             <img src={ad.creative.thumbnail_url} alt="" className="h-full w-full object-cover" />
                                                                         ) : (
-                                                                            <ImageIcon className="h-5 w-5 text-slate-400" />
+                                                                            <ImageIcon className="h-6 w-6 text-slate-300" />
                                                                         )}
                                                                     </div>
+
                                                                     <div className="flex-1 min-w-0">
-                                                                        <div className="flex items-center gap-2 mb-0.5">
-                                                                            <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate group-hover/ad:text-indigo-400 transition-colors">
+                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                            <p className="text-sm font-black text-slate-800 dark:text-slate-100 truncate group-hover/ad:text-indigo-500 transition-colors">
                                                                                 {ad.name}
                                                                             </p>
-                                                                            <StatusBadge status={ad.status} />
+                                                                            <Badge variant="outline" className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border ${ad.status === 'ACTIVE'
+                                                                                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                                                                : 'bg-slate-500/10 text-slate-500 border-slate-500/20'
+                                                                                }`}>
+                                                                                {ad.status === 'ACTIVE' ? 'ATIVO' : 'PAUSADO'}
+                                                                            </Badge>
                                                                         </div>
-                                                                        <p className="text-[11px] text-slate-500 truncate leading-relaxed">
-                                                                            {ad.creative?.title || 'Sem título'}
+                                                                        <p className="text-[11px] text-slate-400 truncate font-medium">
+                                                                            {ad.creative?.title || 'Sem título definido'}
                                                                         </p>
                                                                     </div>
-                                                                    <div className="flex items-center gap-4 ml-auto" onClick={(e) => e.stopPropagation()}>
+
+                                                                    <div className="flex items-center gap-4 pl-4 border-l border-slate-100 dark:border-slate-800 ml-2" onClick={(e) => e.stopPropagation()}>
                                                                         <div className="hidden xl:block text-right">
-                                                                            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">Status</p>
-                                                                            <p className="text-[10px] font-mono text-slate-500 uppercase mt-0.5">{ad.status}</p>
+                                                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none mb-1">Controle</p>
+                                                                            <span className={`text-[8px] font-bold uppercase ${ad.status === 'ACTIVE' ? 'text-emerald-500' : 'text-slate-500'}`}>
+                                                                                {ad.status === 'ACTIVE' ? 'Online' : 'Offline'}
+                                                                            </span>
                                                                         </div>
                                                                         {loadingIds.has(ad.id) ? (
-                                                                            <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                                                                            <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
                                                                         ) : (
                                                                             <Switch
                                                                                 checked={ad.status === 'ACTIVE'}
                                                                                 onCheckedChange={() => toggleStatus(ad.id, 'AD', ad.status, ad.name)}
-                                                                                className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-300 dark:data-[state=unchecked]:bg-slate-600 shadow-sm"
+                                                                                className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-300 dark:data-[state=unchecked]:bg-slate-700 shadow-[0_2px_10px_rgba(0,0,0,0.1)]"
                                                                             />
                                                                         )}
                                                                     </div>
