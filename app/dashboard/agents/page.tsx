@@ -27,30 +27,31 @@ export default async function AgentsPage() {
     }
 
     return (
-        <div className="max-w-6xl mx-auto space-y-10 p-4 md:p-0">
+        <div className="space-y-10 pb-20">
             {/* STATIC HEADER - Renders Immediately */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-primary-500/10 rounded-2xl">
-                            <Sparkles className="h-6 w-6 text-primary-400" />
+            <div className="max-w-6xl mx-auto px-4 md:px-0 pt-6">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-primary-500/10 rounded-2xl">
+                                <Sparkles className="h-6 w-6 text-primary-400" />
+                            </div>
+                            <h2 className="text-4xl font-black text-white tracking-tight">Fábrica de Agentes</h2>
                         </div>
-                        <h2 className="text-4xl font-black text-white tracking-tight">Fábrica de Agentes</h2>
+                        <p className="text-slate-400 text-lg max-w-2xl font-medium">
+                            Sua colmeia de especialistas está analisando dados em tempo real para maximizar seu ROAS.
+                        </p>
                     </div>
-                    <p className="text-slate-400 text-lg max-w-2xl font-medium">
-                        Sua colmeia de especialistas está analisando dados em tempo real para maximizar seu ROAS.
-                    </p>
                 </div>
             </div>
 
-            {/* FACTORY INTERFACE - Renders Immediately */}
-            <div className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-primary-500 to-purple-600 rounded-[42px] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+            {/* FACTORY INTERFACE - Full Width */}
+            <div className="relative w-full border-y border-slate-800/50">
                 <AgentsFactory />
             </div>
 
             {/* DYNAMIC SECTIONS - Suspended and Streamed separately */}
-            <div className="space-y-10">
+            <div className="max-w-6xl mx-auto px-4 md:px-0 space-y-10">
                 <Suspense fallback={<div className="h-64 w-full bg-slate-900/50 rounded-3xl animate-pulse border border-slate-800" />}>
                     <ExpertAnalysisSection adAccountId={integration.ad_account_id} />
                 </Suspense>

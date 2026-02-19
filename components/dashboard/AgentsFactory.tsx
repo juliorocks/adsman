@@ -1,8 +1,7 @@
-
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, Loader2, Play, Box, Zap } from "lucide-react";
+import { Activity, Loader2, Play, Box, Zap, Bot } from "lucide-react";
 import { useState, useEffect } from "react";
 import { runAgentSquadAction } from "@/actions/agents";
 import { useRouter } from "next/navigation";
@@ -58,6 +57,160 @@ const RobotBlink = ({ color }: { color: string }) => {
                     repeat: Infinity,
                     times: [0, 0.9, 0.92, 1],
                     ease: "easeInOut"
+                }}
+            />
+        </div>
+    );
+};
+
+// Background Atmosphere Component
+const BackgroundAtmosphere = () => {
+    return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            {/* Geometric Mesh / Network Grid */}
+            <div className="absolute inset-0 opacity-[0.15]">
+                <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <pattern id="mesh-pattern" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+                            <path d="M 100 0 L 0 0 0 100" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-primary-500/30" />
+                            <circle cx="0" cy="0" r="1.5" className="fill-primary-500/40" />
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#mesh-pattern)" />
+                </svg>
+            </div>
+
+            {/* Pulsing Neural Nodes */}
+            {[...Array(12)].map((_, i) => (
+                <motion.div
+                    key={`node-${i}`}
+                    className="absolute w-1.5 h-1.5 bg-primary-400 rounded-full blur-[1px]"
+                    style={{
+                        left: `${Math.random() * 100}%`,
+                        top: `${Math.random() * 100}%`,
+                    }}
+                    animate={{
+                        opacity: [0.1, 0.8, 0.1],
+                        scale: [1, 1.8, 1],
+                    }}
+                    transition={{
+                        duration: 3 + Math.random() * 4,
+                        repeat: Infinity,
+                        ease: "linear",
+                    }}
+                />
+            ))}
+
+            {/* Working Robots - Tiny Background Workers */}
+            {[...Array(8)].map((_, i) => (
+                <WorkingRobot key={i} delay={i * 2} />
+            ))}
+
+            {/* Twinkling Fairies (Sparkles / Blinking effects) */}
+            {[...Array(25)].map((_, i) => (
+                <motion.div
+                    key={`fairy-${i}`}
+                    className="absolute w-1 h-1 bg-white rounded-full"
+                    style={{
+                        left: `${Math.random() * 100}%`,
+                        top: `${Math.random() * 100}%`,
+                    }}
+                    animate={{
+                        opacity: [0, 1, 0],
+                        boxShadow: ["0 0 0px #fff", "0 0 12px #fff", "0 0 0px #fff"],
+                        scale: [0.5, 1.2, 0.5]
+                    }}
+                    transition={{
+                        duration: 1 + Math.random() * 2,
+                        repeat: Infinity,
+                        delay: Math.random() * 5,
+                    }}
+                />
+            ))}
+
+            {/* Connecting Lines & Flares */}
+            <ConnectionNetwork />
+        </div>
+    );
+};
+
+const WorkingRobot = ({ delay }: { delay: number }) => {
+    const startX = Math.random() * 100;
+    const endX = (startX + 30 + Math.random() * 40) % 100;
+    const top = 15 + Math.random() * 55;
+
+    return (
+        <motion.div
+            className="absolute z-0"
+            style={{ top: `${top}%` }}
+            initial={{ left: `${startX}%`, opacity: 0 }}
+            animate={{
+                left: [`${startX}%`, `${endX}%`, `${startX}%`],
+                opacity: [0, 0.5, 0.5, 0],
+                rotateY: [0, 0, 180, 180, 0]
+            }}
+            transition={{
+                duration: 25,
+                repeat: Infinity,
+                delay: delay,
+                ease: "linear"
+            }}
+        >
+            <Bot className="w-5 h-5 text-primary-400/30 drop-shadow-[0_0_8px_rgba(59,130,246,0.3)]" />
+        </motion.div>
+    );
+};
+
+const ConnectionNetwork = () => {
+    return (
+        <div className="absolute inset-0">
+            {[...Array(6)].map((_, i) => (
+                <ConnectionBeam key={i} delay={i * 2} />
+            ))}
+        </div>
+    );
+};
+
+const ConnectionBeam = ({ delay }: { delay: number }) => {
+    const startPos = { x: Math.random() * 100, y: Math.random() * 100 };
+    const endPos = { x: Math.random() * 100, y: Math.random() * 100 };
+
+    return (
+        <div className="absolute inset-0">
+            <motion.div
+                className="absolute h-px bg-gradient-to-r from-transparent via-primary-400/50 to-transparent blur-[1px]"
+                initial={{ opacity: 0, width: 0 }}
+                animate={{
+                    opacity: [0, 1, 0],
+                    width: ["0%", "40%", "0%"],
+                    left: [`${startPos.x}%`, `${(startPos.x + endPos.x) / 2}%`],
+                    top: [`${startPos.y}%`, `${(startPos.y + endPos.y) / 2}%`],
+                    rotate: Math.random() * 360
+                }}
+                transition={{
+                    duration: 5,
+                    repeat: Infinity,
+                    delay: delay,
+                    ease: "easeInOut"
+                }}
+            />
+            {/* Flare at connection point */}
+            <motion.div
+                className="absolute w-6 h-6 bg-primary-300 rounded-full blur-xl"
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{
+                    scale: [0, 2.5, 0],
+                    opacity: [0, 1, 0],
+                }}
+                transition={{
+                    duration: 0.6,
+                    repeat: Infinity,
+                    repeatDelay: 4.4,
+                    delay: delay + 2.5,
+                }}
+                style={{
+                    left: `${(startPos.x + endPos.x) / 2}%`,
+                    top: `${(startPos.y + endPos.y) / 2}%`
                 }}
             />
         </div>
@@ -188,9 +341,9 @@ export function AgentsFactory() {
     };
 
     return (
-        <div className="relative w-full h-[420px] bg-slate-950 rounded-[40px] overflow-hidden border border-slate-800 shadow-2xl shadow-black/80">
-            {/* Background Grid */}
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(30,41,59,0.4)_1px,transparent_1px),linear-gradient(90deg,rgba(30,41,59,0.4)_1px,transparent_1px)] bg-[size:40px_40px] opacity-10" />
+        <div className="relative w-full h-[460px] bg-slate-950 overflow-hidden shadow-[inset_0_0_100px_rgba(0,0,0,0.8)]">
+            {/* Background Atmosphere */}
+            <BackgroundAtmosphere />
 
             {/* Digital Scanner Overlay */}
             <AnimatePresence>
@@ -212,30 +365,30 @@ export function AgentsFactory() {
             </AnimatePresence>
 
             {/* Header Info */}
-            <div className="absolute top-6 left-8 z-30 pointer-events-none">
-                <div className="flex items-center gap-2 mb-1.5">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_15px_#22c55e]" />
-                    <span className="text-[10px] uppercase font-black text-slate-500 tracking-[0.3em]">LIVE OPERATIONS</span>
+            <div className="absolute top-8 left-1/2 -translate-x-1/2 md:left-12 md:translate-x-0 z-30 pointer-events-none text-center md:text-left">
+                <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_15px_#22c55e]" />
+                    <span className="text-[11px] uppercase font-black text-slate-500 tracking-[0.4em]">LIVE OPERATIONS</span>
                 </div>
-                <h3 className="text-2xl font-black text-white bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-slate-500">
+                <h3 className="text-3xl md:text-4xl font-black text-white bg-clip-text text-transparent bg-gradient-to-r from-white via-primary-100 to-slate-500 leading-tight">
                     Central de Comando Neural
                 </h3>
             </div>
 
             {/* Manual Override Button */}
-            <div className="absolute top-8 right-8 z-40">
+            <div className="absolute top-10 right-1/2 translate-x-1/2 md:right-12 md:translate-x-0 z-40">
                 <button
                     onClick={handleRunSquad}
                     disabled={loading}
-                    className="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-500 disabled:bg-slate-800 text-white text-xs font-bold rounded-2xl transition-all shadow-[0_10px_30px_rgba(37,99,235,0.3)] hover:shadow-[0_15px_40px_rgba(37,99,235,0.4)] active:scale-95 border border-primary-400/20"
+                    className="flex items-center gap-2 px-8 py-4 bg-primary-600 hover:bg-primary-500 disabled:bg-slate-800 text-white text-[14px] font-bold rounded-2xl transition-all shadow-[0_10px_30px_rgba(37,99,235,0.3)] hover:shadow-[0_15px_40px_rgba(37,99,235,0.4)] active:scale-95 border border-primary-400/20"
                 >
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : <Zap className="h-4 w-4 fill-current text-white" />}
-                    {loading ? 'Processando...' : 'Processar Inteligência'}
+                    {loading ? <Loader2 className="h-5 w-5 animate-spin text-white" /> : <Zap className="h-5 w-5 fill-current text-white" />}
+                    {loading ? 'Processando Inteligência...' : 'Processar Inteligência'}
                 </button>
             </div>
 
             {/* Robots Layer (Z-10) */}
-            <div className="relative w-full h-full flex justify-center items-end px-10 pb-6 z-10">
+            <div className="relative w-full h-full flex justify-center items-end px-10 pb-12 z-10 max-w-7xl mx-auto">
                 <AgentStation
                     type="auditor"
                     glowColor="text-orange-500"
@@ -262,45 +415,57 @@ export function AgentsFactory() {
             </div>
 
             {/* Conveyor Belt System - FRONT LAYER (Z-20) */}
-            <div className="absolute bottom-0 w-full h-20 bg-slate-900 border-t border-slate-800 overflow-hidden flex items-center shadow-[0_-20px_50px_rgba(0,0,0,0.9)] z-20">
+            <div className="absolute bottom-0 w-full h-24 bg-slate-900 overflow-hidden flex items-center shadow-[0_-20px_50px_rgba(0,0,0,0.9)] z-20 border-t border-slate-800/50">
                 <motion.div
-                    className="flex w-[200%] h-full opacity-40"
+                    className="flex w-[200%] h-full opacity-30"
                     animate={{ x: ["0%", "-50%"] }}
-                    transition={{ duration: loading ? 3 : 12, repeat: Infinity, ease: "linear" }}
+                    transition={{ duration: loading ? 3 : 18, repeat: Infinity, ease: "linear" }}
                 >
                     {Array.from({ length: 40 }).map((_, i) => (
-                        <div key={i} className="w-[5%] border-r border-slate-700 h-full skew-x-12 bg-gradient-to-b from-slate-800/20 to-transparent" />
+                        <div key={i} className="w-[5%] border-r border-slate-700/50 h-full skew-x-12 bg-gradient-to-b from-slate-800/40 to-transparent" />
                     ))}
                 </motion.div>
 
                 {/* Belt Details */}
-                <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-b from-black to-transparent" />
+                <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-b from-black to-transparent opacity-50" />
                 <div className="absolute top-0 inset-x-0 h-[1px] bg-white/10" />
+
+                {/* Glow under robots */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-1 flex justify-around">
+                    <div className="w-1/4 h-full bg-orange-500/30 blur-xl" />
+                    <div className="w-1/4 h-full bg-blue-500/30 blur-xl" />
+                    <div className="w-1/4 h-full bg-purple-500/30 blur-xl" />
+                </div>
             </div>
 
             {/* Moving Items on Belt - FRONT LAYER (Z-30) */}
-            <div className="absolute bottom-10 left-0 right-0 h-10 pointer-events-none z-30">
+            <div className="absolute bottom-12 left-0 right-0 h-10 pointer-events-none z-30">
                 <AnimatePresence>
-                    {[1, 2, 3, 4].map((i) => (
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                         <motion.div
                             key={i}
                             className="absolute bottom-0"
                             initial={{ left: "-15%" }}
                             animate={{ left: "115%" }}
                             transition={{
-                                duration: loading ? 4 : 10,
+                                duration: loading ? 5 : 14,
                                 repeat: Infinity,
                                 ease: "linear",
-                                delay: i * 2.5
+                                delay: i * 2
                             }}
                         >
-                            <div className="w-8 h-8 bg-slate-800/80 backdrop-blur-sm border border-slate-700/50 rounded-lg flex items-center justify-center shadow-2xl rotate-[15deg]">
-                                <Box className="w-4 h-4 text-slate-500" />
+                            <div className="w-10 h-10 bg-slate-800/60 backdrop-blur-md border border-slate-700/30 rounded-xl flex items-center justify-center shadow-[0_10px_20px_rgba(0,0,0,0.4)] rotate-[15deg] group">
+                                <Box className="w-5 h-5 text-slate-400" />
+                                <div className="absolute -inset-1 bg-primary-500/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
                         </motion.div>
                     ))}
                 </AnimatePresence>
             </div>
+
+            {/* Edge Fades */}
+            <div className="absolute inset-y-0 left-0 w-48 bg-gradient-to-r from-slate-950 to-transparent z-40 pointer-events-none" />
+            <div className="absolute inset-y-0 right-0 w-48 bg-gradient-to-l from-slate-950 to-transparent z-40 pointer-events-none" />
         </div>
     );
 }
