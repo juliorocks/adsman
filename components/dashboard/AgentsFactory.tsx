@@ -68,62 +68,62 @@ const BackgroundAtmosphere = () => {
     return (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
             {/* Geometric Mesh / Network Grid */}
-            <div className="absolute inset-0 opacity-[0.15]">
+            <div className="absolute inset-0 opacity-[0.1]">
                 <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
                     <defs>
-                        <pattern id="mesh-pattern" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
-                            <path d="M 100 0 L 0 0 0 100" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-primary-500/30" />
-                            <circle cx="0" cy="0" r="1.5" className="fill-primary-500/40" />
+                        <pattern id="mesh-pattern" x="0" y="0" width="120" height="120" patternUnits="userSpaceOnUse">
+                            <path d="M 120 0 L 0 0 0 120" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-primary-500/20" />
+                            <circle cx="0" cy="0" r="1" className="fill-primary-500/30" />
                         </pattern>
                     </defs>
                     <rect width="100%" height="100%" fill="url(#mesh-pattern)" />
                 </svg>
             </div>
 
-            {/* Pulsing Neural Nodes */}
-            {[...Array(12)].map((_, i) => (
+            {/* Pulsing Neural Nodes - Reduced Count */}
+            {[...Array(8)].map((_, i) => (
                 <motion.div
                     key={`node-${i}`}
-                    className="absolute w-1.5 h-1.5 bg-primary-400 rounded-full blur-[1px]"
+                    className="absolute w-1 h-1 bg-primary-400 rounded-full blur-[1px]"
                     style={{
-                        left: `${Math.random() * 100}%`,
-                        top: `${Math.random() * 100}%`,
+                        left: `${(i * 17) % 100}%`,
+                        top: `${(i * 23) % 100}%`,
+                        willChange: "opacity, transform"
                     }}
                     animate={{
-                        opacity: [0.1, 0.8, 0.1],
-                        scale: [1, 1.8, 1],
+                        opacity: [0.1, 0.4, 0.1],
+                        scale: [1, 1.3, 1],
                     }}
                     transition={{
-                        duration: 3 + Math.random() * 4,
+                        duration: 4 + i,
                         repeat: Infinity,
                         ease: "linear",
                     }}
                 />
             ))}
 
-            {/* Working Robots - Tiny Background Workers */}
-            {[...Array(8)].map((_, i) => (
-                <WorkingRobot key={i} delay={i * 2} />
+            {/* Working Robots - Reduced Count */}
+            {[...Array(4)].map((_, i) => (
+                <WorkingRobot key={i} delay={i * 4} />
             ))}
 
-            {/* Twinkling Fairies (Sparkles / Blinking effects) */}
-            {[...Array(25)].map((_, i) => (
+            {/* Twinkling Fairies - Reduced Count and simplified */}
+            {[...Array(12)].map((_, i) => (
                 <motion.div
                     key={`fairy-${i}`}
                     className="absolute w-1 h-1 bg-white rounded-full"
                     style={{
-                        left: `${Math.random() * 100}%`,
-                        top: `${Math.random() * 100}%`,
+                        left: `${(i * 31) % 100}%`,
+                        top: `${(i * 19) % 100}%`,
+                        willChange: "opacity"
                     }}
                     animate={{
-                        opacity: [0, 1, 0],
-                        boxShadow: ["0 0 0px #fff", "0 0 12px #fff", "0 0 0px #fff"],
-                        scale: [0.5, 1.2, 0.5]
+                        opacity: [0, 0.7, 0],
                     }}
                     transition={{
-                        duration: 1 + Math.random() * 2,
+                        duration: 2 + (i % 3),
                         repeat: Infinity,
-                        delay: Math.random() * 5,
+                        delay: i * 0.5,
                     }}
                 />
             ))}
@@ -135,28 +135,29 @@ const BackgroundAtmosphere = () => {
 };
 
 const WorkingRobot = ({ delay }: { delay: number }) => {
-    const startX = Math.random() * 100;
-    const endX = (startX + 30 + Math.random() * 40) % 100;
-    const top = 15 + Math.random() * 55;
+    // Stable random values based on delay
+    const startX = (delay * 13) % 100;
+    const endX = (startX + 40) % 100;
+    const top = 20 + ((delay * 7) % 50);
 
     return (
         <motion.div
             className="absolute z-0"
-            style={{ top: `${top}%` }}
+            style={{ top: `${top}%`, willChange: "transform, opacity" }}
             initial={{ left: `${startX}%`, opacity: 0 }}
             animate={{
                 left: [`${startX}%`, `${endX}%`, `${startX}%`],
-                opacity: [0, 0.5, 0.5, 0],
+                opacity: [0, 0.3, 0.3, 0],
                 rotateY: [0, 0, 180, 180, 0]
             }}
             transition={{
-                duration: 25,
+                duration: 30,
                 repeat: Infinity,
                 delay: delay,
                 ease: "linear"
             }}
         >
-            <Bot className="w-5 h-5 text-primary-400/30 drop-shadow-[0_0_8px_rgba(59,130,246,0.3)]" />
+            <Bot className="w-4 h-4 text-primary-400/20" />
         </motion.div>
     );
 };
@@ -164,31 +165,35 @@ const WorkingRobot = ({ delay }: { delay: number }) => {
 const ConnectionNetwork = () => {
     return (
         <div className="absolute inset-0">
-            {[...Array(6)].map((_, i) => (
-                <ConnectionBeam key={i} delay={i * 2} />
+            {[...Array(3)].map((_, i) => (
+                <ConnectionBeam key={i} delay={i * 3} index={i} />
             ))}
         </div>
     );
 };
 
-const ConnectionBeam = ({ delay }: { delay: number }) => {
-    const startPos = { x: Math.random() * 100, y: Math.random() * 100 };
-    const endPos = { x: Math.random() * 100, y: Math.random() * 100 };
+const ConnectionBeam = ({ delay, index }: { delay: number, index: number }) => {
+    // Stable positions
+    const startX = (index * 25) % 100;
+    const startY = (index * 35) % 100;
+    const endX = (startX + 40) % 100;
+    const endY = (startY + 40) % 100;
 
     return (
         <div className="absolute inset-0">
             <motion.div
-                className="absolute h-px bg-gradient-to-r from-transparent via-primary-400/50 to-transparent blur-[1px]"
+                className="absolute h-px bg-gradient-to-r from-transparent via-primary-400/30 to-transparent"
+                style={{ willChange: "transform, opacity, width" }}
                 initial={{ opacity: 0, width: 0 }}
                 animate={{
-                    opacity: [0, 1, 0],
-                    width: ["0%", "40%", "0%"],
-                    left: [`${startPos.x}%`, `${(startPos.x + endPos.x) / 2}%`],
-                    top: [`${startPos.y}%`, `${(startPos.y + endPos.y) / 2}%`],
-                    rotate: Math.random() * 360
+                    opacity: [0, 0.6, 0],
+                    width: ["0%", "30%", "0%"],
+                    left: [`${startX}%`, `${(startX + endX) / 2}%`],
+                    top: [`${startY}%`, `${(startY + endY) / 2}%`],
+                    rotate: index * 45
                 }}
                 transition={{
-                    duration: 5,
+                    duration: 6,
                     repeat: Infinity,
                     delay: delay,
                     ease: "easeInOut"
@@ -196,21 +201,22 @@ const ConnectionBeam = ({ delay }: { delay: number }) => {
             />
             {/* Flare at connection point */}
             <motion.div
-                className="absolute w-6 h-6 bg-primary-300 rounded-full blur-xl"
+                className="absolute w-4 h-4 bg-primary-400 rounded-full blur-lg"
+                style={{ willChange: "transform, opacity" }}
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{
-                    scale: [0, 2.5, 0],
-                    opacity: [0, 1, 0],
+                    scale: [0, 1.5, 0],
+                    opacity: [0, 0.6, 0],
                 }}
                 transition={{
-                    duration: 0.6,
+                    duration: 0.8,
                     repeat: Infinity,
-                    repeatDelay: 4.4,
+                    repeatDelay: 5.2,
                     delay: delay + 2.5,
                 }}
                 style={{
-                    left: `${(startPos.x + endPos.x) / 2}%`,
-                    top: `${(startPos.y + endPos.y) / 2}%`
+                    left: `${(startX + endX) / 2}%`,
+                    top: `${(startY + endY) / 2}%`
                 }}
             />
         </div>
