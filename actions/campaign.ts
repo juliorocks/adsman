@@ -10,6 +10,12 @@ import { createLog } from "@/lib/data/logs";
 
 export async function getCampaignAdSetsAction(campaignId: string) {
     try {
+        // DEBUG: Mock response to test server action connectivity
+        return {
+            success: true,
+            data: [{ id: "debug-123", name: "Conjunto de Teste (DEBUG)", status: "PAUSED", billing_event: "DEBUG_EVENT", daily_budget: 1000 }]
+        };
+
         const integration = await getIntegration();
         if (!integration || !integration.access_token_ref) return { success: false, error: "Integração não encontrada ou sem token" };
 
