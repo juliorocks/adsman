@@ -343,24 +343,24 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                             {loadedAds[adSet.id].map(ad => (
                                                                 <div
                                                                     key={ad.id}
-                                                                    className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-indigo-500/30 hover:shadow-md transition-all group/ad"
+                                                                    className="grid grid-cols-[auto_1fr_auto] gap-4 items-center p-4 rounded-[24px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:border-indigo-500/30 hover:shadow-md transition-all group/ad"
                                                                 >
                                                                     {/* Thumbnail */}
-                                                                    <div className="h-12 w-12 bg-slate-50 dark:bg-slate-800 rounded-xl overflow-hidden flex-shrink-0 border border-slate-100 dark:border-slate-700">
+                                                                    <div className="h-14 w-14 bg-slate-50 dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-700 shadow-sm group-hover/ad:scale-105 transition-transform duration-500">
                                                                         {ad.creative?.thumbnail_url ? (
                                                                             <img src={ad.creative.thumbnail_url} alt="" className="h-full w-full object-cover" />
                                                                         ) : (
-                                                                            <ImageIcon className="h-5 w-5 text-slate-300" />
+                                                                            <ImageIcon className="h-6 w-6 text-slate-300 m-auto mt-4" />
                                                                         )}
                                                                     </div>
 
                                                                     {/* Name and Title */}
-                                                                    <div className="flex-1 min-w-0 overflow-hidden">
-                                                                        <div className="flex items-center gap-2 mb-0.5">
-                                                                            <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
+                                                                    <div className="min-w-0 pr-2">
+                                                                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                                            <p className="text-sm font-black text-slate-800 dark:text-slate-100 truncate max-w-full group-hover/ad:text-indigo-500 transition-colors">
                                                                                 {ad.name}
                                                                             </p>
-                                                                            <Badge variant="outline" className={`flex-shrink-0 text-[9px] font-black uppercase tracking-widest px-2 py-0 border ${ad.status === 'ACTIVE'
+                                                                            <Badge variant="outline" className={`text-[9px] font-black uppercase tracking-widest px-2 py-0 border ${ad.status === 'ACTIVE'
                                                                                 ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
                                                                                 : 'bg-slate-500/10 text-slate-500 border-slate-500/20'
                                                                                 }`}>
@@ -373,17 +373,20 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                                     </div>
 
                                                                     {/* Controls */}
-                                                                    <div className="flex items-center gap-3 flex-shrink-0 ml-2" onClick={(e) => e.stopPropagation()}>
-                                                                        <div className="hidden sm:block text-right">
-                                                                            <p className="text-[10px] font-mono text-slate-400 uppercase leading-none">{ad.status}</p>
+                                                                    <div className="flex items-center gap-4 pl-4 border-l border-slate-100 dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
+                                                                        <div className="hidden xl:block text-right">
+                                                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none mb-1">Controle</p>
+                                                                            <span className={`text-[8px] font-bold uppercase ${ad.status === 'ACTIVE' ? 'text-emerald-500' : 'text-slate-500'}`}>
+                                                                                {ad.status === 'ACTIVE' ? 'Online' : 'Offline'}
+                                                                            </span>
                                                                         </div>
                                                                         {loadingIds.has(ad.id) ? (
-                                                                            <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+                                                                            <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
                                                                         ) : (
                                                                             <Switch
                                                                                 checked={ad.status === 'ACTIVE'}
                                                                                 onCheckedChange={() => toggleStatus(ad.id, 'AD', ad.status, ad.name)}
-                                                                                className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-300 dark:data-[state=unchecked]:bg-slate-700"
+                                                                                className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-300 dark:data-[state=unchecked]:bg-slate-700 shadow-sm scale-110"
                                                                             />
                                                                         )}
                                                                     </div>
