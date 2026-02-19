@@ -92,8 +92,9 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
             } else {
                 toast.error(`Erro: ${res.error}`);
             }
-        } catch (error) {
-            toast.error("Erro de conexão.");
+        } catch (error: any) {
+            console.error(error);
+            toast.error(error.message || "Erro de conexão.");
         } finally {
             setLoadingIds(prev => {
                 const next = new Set(prev);
@@ -223,7 +224,7 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                         <Switch
                                             checked={c.status === 'ACTIVE'}
                                             onCheckedChange={() => toggleStatus(c.id, 'CAMPAIGN', c.status, c.name)}
-                                            className="data-[state=checked]:bg-emerald-500 border-2 border-transparent data-[state=checked]:border-emerald-500/20"
+                                            className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-300 dark:data-[state=unchecked]:bg-slate-700 border-2 border-transparent"
                                         />
                                     )}
                                 </div>
@@ -339,7 +340,7 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                                 <Switch
                                                                     checked={adSet.status === 'ACTIVE'}
                                                                     onCheckedChange={() => toggleStatus(adSet.id, 'ADSET', adSet.status, adSet.name)}
-                                                                    className="data-[state=checked]:bg-emerald-500 scale-75"
+                                                                    className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-300 dark:data-[state=unchecked]:bg-slate-700 scale-90"
                                                                 />
                                                             )}
                                                             <StatusBadge status={adSet.status} />
@@ -398,7 +399,7 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                                                     <Switch
                                                                                         checked={ad.status === 'ACTIVE'}
                                                                                         onCheckedChange={() => toggleStatus(ad.id, 'AD', ad.status, ad.name)}
-                                                                                        className="data-[state=checked]:bg-emerald-500 scale-75"
+                                                                                        className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-300 dark:data-[state=unchecked]:bg-slate-700 scale-75"
                                                                                     />
                                                                                 )}
                                                                             </div>
