@@ -7,9 +7,12 @@ import { CampaignsTable } from "@/components/dashboard/campaigns/CampaignsTable"
 import { ActivityFeed } from "@/components/dashboard/campaigns/ActivityFeed";
 
 
+import { unstable_noStore as noStore } from "next/cache";
+
 export const dynamic = 'force-dynamic';
 
 export default async function CampaignsPage() {
+    noStore();
     let integration = null;
     let campaigns: any[] = [];
     let error: string | null = null; // Explicit type for error

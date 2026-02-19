@@ -5,11 +5,20 @@ import { getAdAccounts, AdAccount } from "@/lib/meta/api";
 import { cookies } from "next/headers";
 
 export async function getIntegration() {
-    const supabase = await createClient();
-    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+    let supabaseUser = null;
+    try {
+        const supabase = await createClient();
+        const { data } = await supabase.auth.getUser();
+        supabaseUser = data?.user;
+    } catch (e) {
+        console.error("Auth error in getIntegration:", e);
+    }
 
     let user = supabaseUser;
-    const devSession = cookies().get("dev_session");
+    let devSession = null;
+    try {
+        devSession = cookies().get("dev_session");
+    } catch (e) { }
 
     if (!user && devSession) {
         user = { id: "mock_user_id_dev" } as any;

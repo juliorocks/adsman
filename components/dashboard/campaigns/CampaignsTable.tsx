@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     ChevronDown,
     ChevronUp,
@@ -48,6 +48,12 @@ interface Campaign {
 }
 
 export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
     const [expandedAdSets, setExpandedAdSets] = useState<Set<string>>(new Set());
 
@@ -150,6 +156,15 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
         </Badge>
     );
 
+    if (!mounted) {
+        return (
+            <div className="p-12 text-center bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+                <Loader2 className="h-8 w-8 animate-spin text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-500 text-sm font-medium">Carregando campanhas...</p>
+            </div>
+        );
+    }
+
     if (!campaigns || campaigns.length === 0) {
         return (
             <div className="p-12 text-center bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
@@ -166,8 +181,8 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                 <div
                     key={c.id}
                     className={`group border transition-all duration-300 rounded-3xl overflow-hidden ${expandedCampaigns.has(c.id)
-                            ? 'border-indigo-500/30 bg-slate-50/30 dark:bg-slate-900/30 shadow-lg'
-                            : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
+                        ? 'border-indigo-500/30 bg-slate-50/30 dark:bg-slate-900/30 shadow-lg'
+                        : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
                         }`}
                 >
                     {/* CAMPAIGN HEADER */}
@@ -256,8 +271,8 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                         <div
                                             key={adSet.id}
                                             className={`rounded-2xl border transition-all ${expandedAdSets.has(adSet.id)
-                                                    ? 'border-indigo-500/20 bg-white dark:bg-slate-900 shadow-sm'
-                                                    : 'border-transparent bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50'
+                                                ? 'border-indigo-500/20 bg-white dark:bg-slate-900 shadow-sm'
+                                                : 'border-transparent bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50'
                                                 }`}
                                         >
                                             <div
