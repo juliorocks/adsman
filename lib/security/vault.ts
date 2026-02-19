@@ -16,6 +16,9 @@ export const encrypt = (text: string) => {
 };
 
 export const decrypt = (text: string) => {
+    if (!text || !text.includes(':')) {
+        return text;
+    }
     const [ivPart, authTagPart, encryptedPart] = text.split(":");
     if (!ivPart || !authTagPart || !encryptedPart) {
         throw new Error("Invalid encrypted text format");
