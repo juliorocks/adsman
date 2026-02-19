@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2, ChevronRight, ChevronDown, Layers, MousePointerClick, Image as ImageIcon } from "lucide-react";
+import { Loader2, ChevronRight, ChevronDown, Layers, MousePointerClick, Image as ImageIcon, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Ad {
@@ -48,6 +48,10 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
     // We store fetched data locally to avoid re-fetching
     const [loadedAdSets, setLoadedAdSets] = useState<Record<string, AdSet[]>>({});
     const [loadedAds, setLoadedAds] = useState<Record<string, Ad[]>>({});
+
+    // Debug errors state
+    const [adSetErrors, setAdSetErrors] = useState<Record<string, string>>({});
+    const [adErrors, setAdErrors] = useState<Record<string, string>>({});
 
     const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
 
@@ -112,11 +116,16 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
             if (!loadedAdSets[campaignId]) {
                 setLoadingIds(prev => new Set(prev).add(`load-${campaignId}`));
                 const res = await getCampaignAdSetsAction(campaignId);
+
                 if (res.success && res.data) {
                     setLoadedAdSets(prev => ({ ...prev, [campaignId]: res.data }));
+                    setAdSetErrors(prev => { const n = { ...prev }; delete n[campaignId]; return n; });
                 } else {
-                    toast.error("Erro ao carregar conjuntos de anúncios.");
+                    const msg = typeof res.error === 'string' ? res.error : JSON.stringify(res.error || "Erro desconhecido");
+                    setAdSetErrors(prev => ({ ...prev, [campaignId]: msg }));
+                    toast.error("Erro: " + msg);
                 }
+
                 setLoadingIds(prev => {
                     const next = new Set(prev);
                     next.delete(`load-${campaignId}`);
@@ -140,11 +149,16 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
             if (!loadedAds[adSetId]) {
                 setLoadingIds(prev => new Set(prev).add(`load-${adSetId}`));
                 const res = await getAdSetAdsAction(adSetId);
+
                 if (res.success && res.data) {
                     setLoadedAds(prev => ({ ...prev, [adSetId]: res.data }));
+                    setAdErrors(prev => { const n = { ...prev }; delete n[adSetId]; return n; });
                 } else {
-                    toast.error("Erro ao carregar anúncios.");
+                    const msg = typeof res.error === 'string' ? res.error : JSON.stringify(res.error || "Erro desconhecido");
+                    setAdErrors(prev => ({ ...prev, [adSetId]: msg }));
+                    toast.error("Erro: " + msg);
                 }
+
                 setLoadingIds(prev => {
                     const next = new Set(prev);
                     next.delete(`load-${adSetId}`);
@@ -247,7 +261,42 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                 </h4>
 
                                                 {!loadedAdSets[c.id] || loadedAdSets[c.id].length === 0 ? (
-                                                    <p className="text-sm text-slate-400 italic">Nenhum conjunto encontrado.</p>
+                                                    <div className="text-sm p-4 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800">
+                                                        {adSetErrors[c.id] ? (
+                                                            <div className="flex flex-col gap-2">
+                                                                <p className="text-red-500 font-medium flex items-center gap-2">
+                                                                    <XCircle className="h-4 w-4" />
+                                                                    Erro ao carregar conjuntos:
+                                                                </p>
+                                                                <p className="text-xs text-red-400 font-mono bg-red-50 dark:bg-red-900/10 p-2 rounded">
+                                                                    {adSetErrors[c.id]}
+                                                                </p>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="w-fit mt-2"
+                                                                    onClick={async (e) => {
+                                                                        e.stopPropagation();
+                                                                        setAdSetErrors(prev => { const n = { ...prev }; delete n[c.id]; return n; });
+                                                                        setLoadingIds(prev => new Set(prev).add(`load-${c.id}`));
+                                                                        const res = await getCampaignAdSetsAction(c.id);
+
+                                                                        if (res.success && res.data) {
+                                                                            setLoadedAdSets(prev => ({ ...prev, [c.id]: res.data }));
+                                                                        } else {
+                                                                            const msg = typeof res.error === 'string' ? res.error : JSON.stringify(res.error || "Erro desconhecido");
+                                                                            setAdSetErrors(prev => ({ ...prev, [c.id]: msg }));
+                                                                        }
+                                                                        setLoadingIds(prev => { const next = new Set(prev); next.delete(`load-${c.id}`); return next; });
+                                                                    }}
+                                                                >
+                                                                    Tentar Novamente
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-slate-400 italic">Nenhum conjunto encontrado nesta campanha.</p>
+                                                        )}
+                                                    </div>
                                                 ) : (
                                                     <div className="border rounded-xl bg-white dark:bg-slate-950 overflow-hidden text-sm">
                                                         {loadedAdSets[c.id].map(adSet => (
