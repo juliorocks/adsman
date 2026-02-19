@@ -1,6 +1,7 @@
 "use client";
 
-import { toggleStatusAction, getCampaignAdSetsAction, getAdSetAdsAction } from "@/actions/campaign";
+import { toggleStatusAction } from "@/actions/campaign";
+import { getCampaignAdSetsQuery, getAdSetAdsQuery } from "@/actions/campaign-queries";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -116,7 +117,7 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
             if (!loadedAdSets[campaignId]) {
                 setLoadingIds(prev => new Set(prev).add(`load-${campaignId}`));
                 try {
-                    const res = await getCampaignAdSetsAction(campaignId);
+                    const res = await getCampaignAdSetsQuery(campaignId);
 
                     if (res?.success) {
                         setLoadedAdSets(prev => ({ ...prev, [campaignId]: res.data || [] }));
@@ -156,7 +157,7 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
             if (!loadedAds[adSetId]) {
                 setLoadingIds(prev => new Set(prev).add(`load-${adSetId}`));
                 try {
-                    const res = await getAdSetAdsAction(adSetId);
+                    const res = await getAdSetAdsQuery(adSetId);
 
                     if (res?.success) {
                         setLoadedAds(prev => ({ ...prev, [adSetId]: res.data || [] }));
@@ -293,7 +294,7 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
                                                                         e.stopPropagation();
                                                                         setAdSetErrors(prev => { const n = { ...prev }; delete n[c.id]; return n; });
                                                                         setLoadingIds(prev => new Set(prev).add(`load-${c.id}`));
-                                                                        const res = await getCampaignAdSetsAction(c.id);
+                                                                        const res = await getCampaignAdSetsQuery(c.id);
 
                                                                         if (res.success && res.data) {
                                                                             setLoadedAdSets(prev => ({ ...prev, [c.id]: res.data }));
