@@ -8,42 +8,30 @@ import { createCampaign, createAdSet, updateObjectStatus, getAdSetsForCampaign, 
 import { parseTargetingFromGoal } from "@/lib/ai/openai";
 import { createLog } from "@/lib/data/logs";
 
-import { logToFile } from "@/lib/debug";
-
 export async function getCampaignAdSetsAction(campaignId: string) {
-    await logToFile(`START getCampaignAdSetsAction for campaignId: ${campaignId}`);
     const integration = await getIntegration();
-    if (!integration || !integration.access_token_ref) {
-        await logToFile(`ERROR: No integration found`);
-        return { success: false, error: "Não autorizado" };
-    }
+    if (!integration || !integration.access_token_ref) return { success: false, error: "Não autorizado" };
 
     try {
         const accessToken = decrypt(integration.access_token_ref);
         const data = await getAdSetsForCampaign(campaignId, accessToken);
-        await logToFile(`SUCCESS: Found ${data.length} adsets for campaign ${campaignId}`);
         return { success: true, data };
     } catch (error: any) {
-        await logToFile(`ERROR in getCampaignAdSetsAction: ${error.message}`);
+        console.error("getCampaignAdSetsAction Error:", error);
         return { success: false, error: error.message };
     }
 }
 
 export async function getAdSetAdsAction(adSetId: string) {
-    await logToFile(`START getAdSetAdsAction for adSetId: ${adSetId}`);
     const integration = await getIntegration();
-    if (!integration || !integration.access_token_ref) {
-        await logToFile(`ERROR: No integration found`);
-        return { success: false, error: "Não autorizado" };
-    }
+    if (!integration || !integration.access_token_ref) return { success: false, error: "Não autorizado" };
 
     try {
         const accessToken = decrypt(integration.access_token_ref);
         const data = await getAdsForAdSet(adSetId, accessToken);
-        await logToFile(`SUCCESS: Found ${data.length} ads for adset ${adSetId}`);
         return { success: true, data };
     } catch (error: any) {
-        await logToFile(`ERROR in getAdSetAdsAction: ${error.message}`);
+        console.error("getAdSetAdsAction Error:", error);
         return { success: false, error: error.message };
     }
 }

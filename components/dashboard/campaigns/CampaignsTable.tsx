@@ -115,22 +115,28 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
 
             if (!loadedAdSets[campaignId]) {
                 setLoadingIds(prev => new Set(prev).add(`load-${campaignId}`));
-                const res = await getCampaignAdSetsAction(campaignId);
+                try {
+                    const res = await getCampaignAdSetsAction(campaignId);
 
-                if (res.success && res.data) {
-                    setLoadedAdSets(prev => ({ ...prev, [campaignId]: res.data }));
-                    setAdSetErrors(prev => { const n = { ...prev }; delete n[campaignId]; return n; });
-                } else {
-                    const msg = typeof res.error === 'string' ? res.error : JSON.stringify(res.error || "Erro desconhecido");
+                    if (res && res.success && res.data) {
+                        setLoadedAdSets(prev => ({ ...prev, [campaignId]: res.data }));
+                        setAdSetErrors(prev => { const n = { ...prev }; delete n[campaignId]; return n; });
+                    } else {
+                        const msg = res?.error ? (typeof res.error === 'string' ? res.error : JSON.stringify(res.error)) : "Erro desconhecido";
+                        setAdSetErrors(prev => ({ ...prev, [campaignId]: msg }));
+                        toast.error("Erro: " + msg);
+                    }
+                } catch (err: any) {
+                    const msg = "Erro de conexão: " + (err.message || "Falha na requisição");
                     setAdSetErrors(prev => ({ ...prev, [campaignId]: msg }));
-                    toast.error("Erro: " + msg);
+                    toast.error(msg);
+                } finally {
+                    setLoadingIds(prev => {
+                        const next = new Set(prev);
+                        next.delete(`load-${campaignId}`);
+                        return next;
+                    });
                 }
-
-                setLoadingIds(prev => {
-                    const next = new Set(prev);
-                    next.delete(`load-${campaignId}`);
-                    return next;
-                });
             }
         }
     };
@@ -148,22 +154,28 @@ export function CampaignsTable({ campaigns }: { campaigns: Campaign[] }) {
 
             if (!loadedAds[adSetId]) {
                 setLoadingIds(prev => new Set(prev).add(`load-${adSetId}`));
-                const res = await getAdSetAdsAction(adSetId);
+                try {
+                    const res = await getAdSetAdsAction(adSetId);
 
-                if (res.success && res.data) {
-                    setLoadedAds(prev => ({ ...prev, [adSetId]: res.data }));
-                    setAdErrors(prev => { const n = { ...prev }; delete n[adSetId]; return n; });
-                } else {
-                    const msg = typeof res.error === 'string' ? res.error : JSON.stringify(res.error || "Erro desconhecido");
+                    if (res && res.success && res.data) {
+                        setLoadedAds(prev => ({ ...prev, [adSetId]: res.data }));
+                        setAdErrors(prev => { const n = { ...prev }; delete n[adSetId]; return n; });
+                    } else {
+                        const msg = res?.error ? (typeof res.error === 'string' ? res.error : JSON.stringify(res.error)) : "Erro desconhecido";
+                        setAdErrors(prev => ({ ...prev, [adSetId]: msg }));
+                        toast.error("Erro: " + msg);
+                    }
+                } catch (err: any) {
+                    const msg = "Erro de conexão: " + (err.message || "Falha na requisição");
                     setAdErrors(prev => ({ ...prev, [adSetId]: msg }));
-                    toast.error("Erro: " + msg);
+                    toast.error(msg);
+                } finally {
+                    setLoadingIds(prev => {
+                        const next = new Set(prev);
+                        next.delete(`load-${adSetId}`);
+                        return next;
+                    });
                 }
-
-                setLoadingIds(prev => {
-                    const next = new Set(prev);
-                    next.delete(`load-${adSetId}`);
-                    return next;
-                });
             }
         }
     };
