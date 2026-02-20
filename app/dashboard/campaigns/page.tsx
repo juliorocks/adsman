@@ -26,8 +26,18 @@ export default async function CampaignsPage() {
 
     if (integration && integration.access_token_ref && integration.ad_account_id) {
         try {
-            const accessToken = decrypt(integration.access_token_ref);
-            campaigns = await getCampaigns(integration.ad_account_id, accessToken);
+            let accessToken: string;
+            try {
+                accessToken = decrypt(integration.access_token_ref);
+            } catch (decryptErr) {
+                console.error("Error decrypting token:", decryptErr);
+                error = "Erro ao descriptografar token. Reconecte sua conta Meta nas configurações.";
+                accessToken = "";
+            }
+
+            if (accessToken) {
+                campaigns = await getCampaigns(integration.ad_account_id, accessToken);
+            }
         } catch (err: any) {
             console.error("Error fetching campaigns:", err);
             error = "Não foi possível carregar as campanhas. Verifique a conexão com a Meta.";

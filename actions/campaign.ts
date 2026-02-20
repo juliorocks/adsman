@@ -43,14 +43,23 @@ export async function getAdSetAdsAction(adSetId: string) {
 }
 
 export async function toggleStatusAction(id: string, type: 'CAMPAIGN' | 'ADSET' | 'AD', status: 'ACTIVE' | 'PAUSED', name: string) {
+    const typeLabel = type === 'CAMPAIGN' ? 'Campanha' : type === 'ADSET' ? 'Conjunto' : 'Anúncio';
+
     try {
         const integration = await getIntegration();
-        if (!integration || !integration.access_token_ref) throw new Error("No Meta integration found");
+        if (!integration || !integration.access_token_ref) {
+            return { success: false, error: "Integração Meta não encontrada. Verifique suas configurações." };
+        }
 
-        const accessToken = decrypt(integration.access_token_ref);
+        let accessToken: string;
+        try {
+            accessToken = decrypt(integration.access_token_ref);
+        } catch (decryptError: any) {
+            console.error("Decrypt error in toggleStatusAction:", decryptError);
+            return { success: false, error: "Erro ao descriptografar token. Reconecte sua conta Meta." };
+        }
+
         await updateObjectStatus(id, status, accessToken);
-
-        const typeLabel = type === 'CAMPAIGN' ? 'Campanha' : type === 'ADSET' ? 'Conjunto' : 'Anúncio';
 
         try {
             await createLog({
@@ -72,7 +81,6 @@ export async function toggleStatusAction(id: string, type: 'CAMPAIGN' | 'ADSET' 
 
         // Attempt to log failure if possible, but don't crash if logging fails
         try {
-            const typeLabel = type === 'CAMPAIGN' ? 'Campanha' : type === 'ADSET' ? 'Conjunto' : 'Anúncio';
             await createLog({
                 action_type: status === 'ACTIVE' ? 'ACTIVATE' : 'PAUSE',
                 description: `Erro ao alterar status de ${typeLabel} "${name}".`,
@@ -84,7 +92,7 @@ export async function toggleStatusAction(id: string, type: 'CAMPAIGN' | 'ADSET' 
             });
         } catch (ignore) { }
 
-        return { success: false, error: error.message };
+        return { success: false, error: error.message || "Erro desconhecido ao alterar status." };
     }
 }
 
