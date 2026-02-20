@@ -5,11 +5,20 @@ import { runPerformanceAudit } from "@/lib/agents/auditor";
 import { runScaleStrategy } from "@/lib/agents/strategist";
 
 export async function HiveSummarySection() {
-    const metrics = await getDashboardMetrics({ datePreset: 'last_30d' });
-    const [audit, scaling] = await Promise.all([
-        runPerformanceAudit(metrics),
-        runScaleStrategy(metrics)
-    ]);
+    let auditScore = 0;
+    let scalingCount = 0;
+
+    try {
+        const metrics = await getDashboardMetrics({ datePreset: 'last_30d' });
+        const [audit, scaling] = await Promise.all([
+            runPerformanceAudit(metrics),
+            runScaleStrategy(metrics)
+        ]);
+        auditScore = audit.score || 0;
+        scalingCount = scaling?.length || 0;
+    } catch (error) {
+        console.error("HiveSummarySection error:", error);
+    }
 
     return (
         <div className="space-y-6">
@@ -21,7 +30,7 @@ export async function HiveSummarySection() {
                     </div>
                     <div>
                         <p className="text-[10px] text-slate-500 uppercase font-black tracking-tighter">Saúde das Campanhas</p>
-                        <p className="text-lg font-bold text-white font-sans">{audit.score}% Estável</p>
+                        <p className="text-lg font-bold text-white font-sans">{auditScore}% Estável</p>
                     </div>
                 </div>
 
@@ -29,13 +38,13 @@ export async function HiveSummarySection() {
                     <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
                         <div
                             className="h-full bg-gradient-to-r from-primary-500 to-blue-400 transition-all duration-1000"
-                            style={{ width: `${audit.score}%` }}
+                            style={{ width: `${auditScore}%` }}
                         />
                     </div>
 
                     <div className="p-4 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-sm">
                         <p className="text-xs leading-relaxed text-slate-400 font-medium">
-                            <span className="font-bold text-slate-200">Insight:</span> A colmeia detectou {scaling.length} oportunidades de escala. O Auditor recomenda focar nos criativos da campanha.
+                            <span className="font-bold text-slate-200">Insight:</span> A colmeia detectou {scalingCount} oportunidades de escala. O Auditor recomenda focar nos criativos da campanha.
                         </p>
                     </div>
                 </div>

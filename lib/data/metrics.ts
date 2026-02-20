@@ -53,7 +53,8 @@ export const getDashboardMetrics = cache(async function (filter?: MetricsFilter)
     }
 
     try {
-        const accessToken = decrypt(integration.access_token_ref);
+        const accessToken = (() => { try { return decrypt(integration.access_token_ref); } catch (e) { console.error('getDashboardMetrics decrypt error:', e); return ''; } })();
+        if (!accessToken) return emptyMetrics;
         const targetId = filter?.campaignId || integration.ad_account_id;
         const datePreset = filter?.datePreset || 'last_30d';
 
@@ -181,7 +182,13 @@ export async function getRecentActivity(): Promise<Campaign[]> {
     }
 
     try {
-        const accessToken = decrypt(integration.access_token_ref);
+        let accessToken: string;
+        try {
+            accessToken = decrypt(integration.access_token_ref);
+        } catch (e) {
+            console.error('getRecentActivity decrypt error:', e);
+            return [];
+        }
         const campaigns = await getCampaigns(integration.ad_account_id, accessToken);
 
         return campaigns.sort((a: any, b: any) =>
@@ -203,7 +210,13 @@ export async function getDailyPerformance(filter?: MetricsFilter) {
     if (!integration || !integration.access_token_ref || !integration.ad_account_id) return [];
 
     try {
-        const accessToken = decrypt(integration.access_token_ref);
+        let accessToken: string;
+        try {
+            accessToken = decrypt(integration.access_token_ref);
+        } catch (e) {
+            console.error('getDailyPerformance decrypt error:', e);
+            return [];
+        }
         const targetId = filter?.campaignId || integration.ad_account_id;
         const datePreset = filter?.datePreset || 'last_30d';
         let timeRange;

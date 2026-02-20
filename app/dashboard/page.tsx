@@ -37,13 +37,23 @@ export default async function DashboardPage({
         until
     };
 
-    const [metrics, recentCampaigns, dailyPerformance, integration, accounts] = await Promise.all([
-        getDashboardMetrics(filter),
-        getRecentActivity(),
-        getDailyPerformance(filter),
-        getIntegration(),
-        getAvailableAdAccounts()
-    ]);
+    let metrics: any = { spend: 0, impressions: 0, clicks: 0, roas: 0, total_revenue: 0, active_campaigns: 0, cpc: 0, cpm: 0, ctr: 0, conversions: 0, leads: 0, conversations: 0, results: 0, cpa: 0, top_gender: "N/A", top_age: "N/A" };
+    let recentCampaigns: any[] = [];
+    let dailyPerformance: any[] = [];
+    let integration: any = null;
+    let accounts: any[] = [];
+
+    try {
+        [metrics, recentCampaigns, dailyPerformance, integration, accounts] = await Promise.all([
+            getDashboardMetrics(filter),
+            getRecentActivity(),
+            getDailyPerformance(filter),
+            getIntegration(),
+            getAvailableAdAccounts()
+        ]);
+    } catch (err) {
+        console.error("DashboardPage data fetch error:", err);
+    }
 
     const title = campaignIds.length === 1
         ? `Campanha: ${recentCampaigns.find((c: any) => c.id === campaignIds[0])?.name || 'Selecionada'}`

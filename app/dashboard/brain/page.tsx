@@ -3,7 +3,12 @@ import { getBusinessContext } from "@/lib/data/brain";
 import { addBusinessFact, removeBusinessFact } from "@/actions/brain";
 
 export default async function BrainPage() {
-    const context = await getBusinessContext();
+    let context: any[] = [];
+    try {
+        context = await getBusinessContext();
+    } catch (e) {
+        console.error("BrainPage: Error loading context:", e);
+    }
 
     const categories = [
         { id: 'brand', label: 'Identidade da Marca' },

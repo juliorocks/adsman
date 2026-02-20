@@ -4,7 +4,12 @@ import { generateCreativeIdeas } from "@/lib/agents/creative";
 import { CreativeCard } from "../CreativeCard";
 
 export async function CreativeStudioSection() {
-    const creativeIdeas = await generateCreativeIdeas();
+    let creativeIdeas: any[] = [];
+    try {
+        creativeIdeas = await generateCreativeIdeas();
+    } catch (error) {
+        console.error("CreativeStudioSection error:", error);
+    }
 
     return (
         <div className="space-y-6">

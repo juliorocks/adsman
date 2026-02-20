@@ -3,8 +3,21 @@ import { getIntegration, getOpenAIKey } from "@/lib/data/settings";
 import { OpenAIKeyForm } from "@/components/settings/OpenAIKeyForm";
 
 export default async function SettingsPage() {
-    const integration = await getIntegration();
-    const openAIKey = await getOpenAIKey();
+    let integration: any = null;
+    let openAIKey: string | null = null;
+
+    try {
+        integration = await getIntegration();
+    } catch (e) {
+        console.error("SettingsPage: Error loading integration:", e);
+    }
+
+    try {
+        openAIKey = await getOpenAIKey();
+    } catch (e) {
+        console.error("SettingsPage: Error loading OpenAI key:", e);
+    }
+
     const isConnected = !!integration && integration.status === "active";
     const hasOpenAI = !!openAIKey;
 

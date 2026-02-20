@@ -8,55 +8,66 @@ import { getIntegration } from "@/lib/data/settings";
 import { decrypt } from "@/lib/security/vault";
 
 export async function ExpertAnalysisSection({ adAccountId }: { adAccountId: string }) {
-    const integration = await getIntegration();
-    if (!integration) return null;
+    try {
+        const integration = await getIntegration();
+        if (!integration || !integration.access_token_ref) return null;
 
-    const accessToken = decrypt(integration.access_token_ref);
+        let accessToken: string;
+        try {
+            accessToken = decrypt(integration.access_token_ref);
+        } catch (decryptErr) {
+            console.error("ExpertAnalysisSection: decrypt error", decryptErr);
+            return null;
+        }
 
-    // Parallel fetch for analysis and creatives
-    const [metrics, creatives] = await Promise.all([
-        getDashboardMetrics({ datePreset: 'last_30d' }),
-        getAdCreatives(adAccountId, accessToken)
-    ]);
+        // Parallel fetch for analysis and creatives
+        const [metrics, creatives] = await Promise.all([
+            getDashboardMetrics({ datePreset: 'last_30d' }),
+            getAdCreatives(adAccountId, accessToken)
+        ]);
 
-    const [audit, scaling] = await Promise.all([
-        runPerformanceAudit(metrics),
-        runScaleStrategy(metrics)
-    ]);
+        const [audit, scaling] = await Promise.all([
+            runPerformanceAudit(metrics),
+            runScaleStrategy(metrics)
+        ]);
 
-    // Concatenate all expert findings: Audit (Ad level) + Scaling (Adset level)
-    const combinedActions = [
-        ...(audit.recommendations || []).map((r: any) => ({
-            id: r.id,
-            type: r.type === 'critical' ? 'pause' : 'optimization',
-            targetName: r.title,
-            targetId: r.targetId,
-            reason: r.description,
-            impact: r.impact,
-            thought: r.thought,
-            adImage: r.adImage,
-            actionLabel: r.actionLabel,
-            suggestedBudget: 0,
-            currentBudget: 0,
-            isAdLevel: true
-        })),
-        ...(scaling || []).map((s: any) => {
-            const adImage = Array.isArray(creatives)
-                ? creatives.find((c: any) => c.name?.includes(s.targetName) || s.targetName?.includes(c.name))?.thumbnail_url
-                : undefined;
-            return {
-                ...s,
-                targetId: s.targetId,
-                adImage
-            };
-        })
-    ];
+        // Concatenate all expert findings: Audit (Ad level) + Scaling (Adset level)
+        const combinedActions = [
+            ...(audit.recommendations || []).map((r: any) => ({
+                id: r.id,
+                type: r.type === 'critical' ? 'pause' : 'optimization',
+                targetName: r.title,
+                targetId: r.targetId,
+                reason: r.description,
+                impact: r.impact,
+                thought: r.thought,
+                adImage: r.adImage,
+                actionLabel: r.actionLabel,
+                suggestedBudget: 0,
+                currentBudget: 0,
+                isAdLevel: true
+            })),
+            ...(scaling || []).map((s: any) => {
+                const adImage = Array.isArray(creatives)
+                    ? creatives.find((c: any) => c.name?.includes(s.targetName) || s.targetName?.includes(c.name))?.thumbnail_url
+                    : undefined;
+                return {
+                    ...s,
+                    targetId: s.targetId,
+                    adImage
+                };
+            })
+        ];
 
-    return (
-        <ExpertActionList
-            recommendations={combinedActions}
-            audit={audit}
-            isAutonomous={integration.is_autonomous}
-        />
-    );
+        return (
+            <ExpertActionList
+                recommendations={combinedActions}
+                audit={audit}
+                isAutonomous={integration.is_autonomous}
+            />
+        );
+    } catch (error) {
+        console.error("ExpertAnalysisSection error:", error);
+        return null;
+    }
 }

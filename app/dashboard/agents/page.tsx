@@ -12,7 +12,12 @@ import { HiveSummarySection } from "@/components/dashboard/sections/HiveSummaryS
 export const dynamic = 'force-dynamic';
 
 export default async function AgentsPage() {
-    const integration = await getIntegration();
+    let integration: any = null;
+    try {
+        integration = await getIntegration();
+    } catch (e) {
+        console.error("AgentsPage: Error loading integration:", e);
+    }
 
     if (!integration?.ad_account_id) {
         return (
