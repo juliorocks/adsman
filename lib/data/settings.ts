@@ -5,58 +5,68 @@ import { getAdAccounts, AdAccount } from "@/lib/meta/api";
 import { cookies } from "next/headers";
 
 export async function getIntegration() {
-    let supabase;
-    let supabaseUser = null;
-
     try {
-        supabase = await createClient();
-        const { data } = await supabase.auth.getUser();
-        supabaseUser = data?.user;
-    } catch (e) {
-        // Suppress errors if createClient fails (e.g. cookies unavailable)
-        // console.error("Auth error in getIntegration:", e);
-    }
+        let supabase;
+        let supabaseUser = null;
 
-    let user = supabaseUser;
-    let devSession = null;
-    try {
-        devSession = cookies().get("dev_session");
-    } catch (e) { }
-
-    if (!user && devSession) {
-        user = { id: "mock_user_id_dev" } as any;
-    }
-
-    if (!user) return null;
-
-    if (user.id === "mock_user_id_dev") {
-        const devToken = cookies().get("dev_meta_token")?.value;
-        const selectedAccountId = cookies().get("dev_ad_account_id")?.value;
-
-        if (devToken) {
-            return {
-                id: "mock_int_real",
-                user_id: "mock_user_id_dev",
-                platform: "meta",
-                status: "active",
-                ad_account_id: selectedAccountId || null,
-                access_token_ref: devToken,
-                updated_at: new Date().toISOString()
-            };
+        try {
+            supabase = await createClient();
+            const { data } = await supabase.auth.getUser();
+            supabaseUser = data?.user;
+        } catch (e) {
+            // Suppress errors if createClient fails (e.g. cookies unavailable)
+            // console.error("Auth error in getIntegration:", e);
         }
+
+        let user = supabaseUser;
+        let devSession = null;
+        try {
+            devSession = cookies().get("dev_session");
+        } catch (e) { }
+
+        if (!user && devSession) {
+            user = { id: "mock_user_id_dev" } as any;
+        }
+
+        if (!user) return null;
+
+        if (user.id === "mock_user_id_dev") {
+            const devToken = cookies().get("dev_meta_token")?.value;
+            const selectedAccountId = cookies().get("dev_ad_account_id")?.value;
+
+            if (devToken) {
+                return {
+                    id: "mock_int_real",
+                    user_id: "mock_user_id_dev",
+                    platform: "meta",
+                    status: "active",
+                    ad_account_id: selectedAccountId || null,
+                    access_token_ref: devToken,
+                    updated_at: new Date().toISOString()
+                };
+            }
+            return null;
+        }
+
+        if (!supabase) return null;
+
+        const { data, error } = await supabase
+            .from("integrations")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("platform", "meta")
+            .single();
+
+        if (error) {
+            console.error("getIntegration query error:", error);
+            return null;
+        }
+
+        return data;
+    } catch (err) {
+        console.error("getIntegration unexpected error:", err);
         return null;
     }
-
-    if (!supabase) return null;
-
-    const { data } = await supabase
-        .from("integrations")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("platform", "meta")
-        .single();
-
-    return data;
 }
 
 export async function getAvailableAdAccounts(): Promise<AdAccount[]> {
@@ -73,66 +83,84 @@ export async function getAvailableAdAccounts(): Promise<AdAccount[]> {
     }
 }
 export async function getOpenAIKey() {
-    const supabase = await createClient();
-    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-
-    let user = supabaseUser;
-    const devSession = cookies().get("dev_session");
-    if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
-    if (!user) return null;
-
-    let encryptedKey: string | null = null;
-
-    if (user.id === "mock_user_id_dev") {
-        encryptedKey = cookies().get("dev_openai_token")?.value || null;
-    } else {
-        const { data } = await supabase
-            .from("integrations")
-            .select("access_token_ref")
-            .eq("user_id", user.id)
-            .eq("platform", "openai")
-            .single();
-
-        encryptedKey = data?.access_token_ref || null;
-    }
-
-    if (!encryptedKey) return process.env.OPENAI_API_KEY || null;
-
     try {
-        return decrypt(encryptedKey);
-    } catch (e) {
-        return null;
+        const supabase = await createClient();
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+        let user = supabaseUser;
+        try {
+            const devSession = cookies().get("dev_session");
+            if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
+        } catch (e) { }
+        if (!user) return process.env.OPENAI_API_KEY || null;
+
+        let encryptedKey: string | null = null;
+
+        if (user.id === "mock_user_id_dev") {
+            try {
+                encryptedKey = cookies().get("dev_openai_token")?.value || null;
+            } catch (e) { }
+        } else {
+            const { data } = await supabase
+                .from("integrations")
+                .select("access_token_ref")
+                .eq("user_id", user.id)
+                .eq("platform", "openai")
+                .single();
+
+            encryptedKey = data?.access_token_ref || null;
+        }
+
+        if (!encryptedKey) return process.env.OPENAI_API_KEY || null;
+
+        try {
+            return decrypt(encryptedKey);
+        } catch (e) {
+            return process.env.OPENAI_API_KEY || null;
+        }
+    } catch (err) {
+        console.error("getOpenAIKey unexpected error:", err);
+        return process.env.OPENAI_API_KEY || null;
     }
 }
 export async function getModalKey() {
-    const supabase = await createClient();
-    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-
-    let user = supabaseUser;
-    const devSession = cookies().get("dev_session");
-    if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
-    if (!user) return null;
-
-    let encryptedKey: string | null = null;
-
-    if (user.id === "mock_user_id_dev") {
-        encryptedKey = cookies().get("dev_modal_token")?.value || null;
-    } else {
-        const { data } = await supabase
-            .from("integrations")
-            .select("access_token_ref")
-            .eq("user_id", user.id)
-            .eq("platform", "modal")
-            .single();
-
-        encryptedKey = data?.access_token_ref || null;
-    }
-
-    if (!encryptedKey) return process.env.MODAL_API_KEY || null;
-
     try {
-        return decrypt(encryptedKey);
-    } catch (e) {
-        return null;
+        const supabase = await createClient();
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+        let user = supabaseUser;
+        try {
+            const devSession = cookies().get("dev_session");
+            if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
+        } catch (e) { }
+        if (!user) return process.env.MODAL_API_KEY || null;
+
+        let encryptedKey: string | null = null;
+
+        if (user.id === "mock_user_id_dev") {
+            try {
+                encryptedKey = cookies().get("dev_modal_token")?.value || null;
+            } catch (e) { }
+        } else {
+            const { data } = await supabase
+                .from("integrations")
+                .select("access_token_ref")
+                .eq("user_id", user.id)
+                .eq("platform", "modal")
+                .single();
+
+            encryptedKey = data?.access_token_ref || null;
+        }
+
+        if (!encryptedKey) return process.env.MODAL_API_KEY || null;
+
+        try {
+            return decrypt(encryptedKey);
+        } catch (e) {
+            return process.env.MODAL_API_KEY || null;
+        }
+    } catch (err) {
+        console.error("getModalKey unexpected error:", err);
+        return process.env.MODAL_API_KEY || null;
     }
 }

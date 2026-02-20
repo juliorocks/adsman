@@ -12,15 +12,21 @@ export interface BusinessContext {
 
 // Helper to get unified user (Supabase or Mock)
 async function getUnifiedUser() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
 
-    if (user) return user;
-
-    const devSession = cookies().get("dev_session");
-    if (devSession) {
-        return { id: "mock_user_id_dev" } as any;
+        if (user) return user;
+    } catch (e) {
+        console.error("getUnifiedUser auth error:", e);
     }
+
+    try {
+        const devSession = cookies().get("dev_session");
+        if (devSession) {
+            return { id: "mock_user_id_dev" } as any;
+        }
+    } catch (e) { }
 
     return null;
 }
