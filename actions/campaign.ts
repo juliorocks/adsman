@@ -131,7 +131,6 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         const aiTargeting = await parseTargetingFromGoal(formData.goal);
 
         // Sanitize optimization goal - Force safe goals if no pixel is defined
-        // OFFSITE_CONVERSIONS requires a promoted_object (pixel), which we don't have yet in this wizard
         let optimization_goal = aiTargeting.optimization_goal || 'REACH';
         if (optimization_goal === 'OFFSITE_CONVERSIONS') {
             optimization_goal = 'LINK_CLICKS';
@@ -145,22 +144,10 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             publisher_platforms: ['facebook', 'instagram'],
         };
 
-        // Only add interests if we have them, and format them correctly
-        // DISABLED FOR DEBUGGING: Many Meta API versions reject {name: "..."} without IDs
-        /*
-        if (aiTargeting.interests && aiTargeting.interests.length > 0) {
-            targeting.flexible_spec = [
-                {
-                    interests: aiTargeting.interests.map((interestName: string) => ({ name: interestName }))
-                }
-            ];
-        }
-        */
-
         const adSetParams = {
             name: `AI Optimized: ${formData.goal.substring(0, 20)}...`,
             billing_event: 'IMPRESSIONS' as const,
-            daily_budget: Math.max(500, parseInt(formData.budget) * 100), // Min 500 cents (R$ 5)
+            daily_budget: Math.max(500, parseInt(formData.budget) * 100),
             targeting,
             optimization_goal: optimization_goal,
         };
@@ -183,6 +170,24 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         console.error("Smart campaign creation error details:", error);
 
         const errorMessage = error.message || "Erro desconhecido";
+        const accessToken = decrypt(integration.access_token_ref);
+        const adAccountId = integration.ad_account_id.startsWith('act_')
+            ? integration.ad_account_id
+            : `act_${integration.ad_account_id}`;
+
+        let safeObjective = formData.objective;
+        if (safeObjective === 'OUTCOME_SALES' || safeObjective === 'OUTCOME_LEADS') {
+            safeObjective = 'OUTCOME_TRAFFIC';
+        }
+
+        // Full debug info
+        const debugInfo = {
+            sentObjective: safeObjective,
+            originalObjective: formData.objective,
+            adAccount: adAccountId,
+            tokenLen: accessToken ? accessToken.length : 0,
+            tokenStart: accessToken ? accessToken.substring(0, 10) + '...' : 'EMPTY',
+        };
 
         await createLog({
             action_type: 'OTHER',
@@ -191,12 +196,12 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             target_name: formData.goal.substring(0, 30),
             agent: 'STRATEGIST',
             status: 'FAILED',
-            metadata: { error: errorMessage, stack: error.stack }
+            metadata: { error: errorMessage, debug: debugInfo }
         });
 
         return {
             success: false,
-            error: `###VER-300### Erro Meta Ads: ${errorMessage} [safeObj=${formData.objective}]`
+            error: `###VER-400### ${errorMessage} | obj=${safeObjective} | acct=${adAccountId} | tkn=${accessToken ? accessToken.length : 0}chars`
         };
     }
 }
