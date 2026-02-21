@@ -196,7 +196,7 @@ export async function createSmartCampaignAction(formData: { objective: string, g
 
         return {
             success: false,
-            error: `###VER-102### Erro Meta Ads: ${errorMessage}`
+            error: `###VER-300### Erro Meta Ads: ${errorMessage} [safeObj=${formData.objective}]`
         };
     }
 }
