@@ -185,17 +185,21 @@ export async function getInsights(
 // CREATION METHODS
 export async function createCampaign(adAccountId: string, name: string, objective: string, accessToken: string) {
     const tryCreate = async (obj: string) => {
-        const cleanName = `AI Campaign ${new Date().getTime()}`; // Ultra safe name for creation
+        const cleanName = `Smart Hero Campaign ${new Date().getTime()}`;
+
+        // Pass access_token in the URL to avoid any JSON parsing issues at Meta's side
+        const url = `${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns?access_token=${accessToken}`;
+
         const body = {
             name: cleanName,
             objective: obj,
             status: 'PAUSED',
             buying_type: 'AUCTION',
-            special_ad_categories: [] as string[],
-            access_token: accessToken
+            // Using ['NONE'] is often more reliable than an empty array [] in some API versions
+            special_ad_categories: ['NONE'],
         };
 
-        const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns`, {
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
@@ -205,29 +209,27 @@ export async function createCampaign(adAccountId: string, name: string, objectiv
 
     let data = await tryCreate(objective);
 
-    // If ODAX objective fails, try common fallbacks
+    // If initial attempt fails with "Invalid parameter" for ODAX accounts
     if (data.error && (data.error.code === 100 || data.error.error_subcode === 4834011)) {
-        console.warn(`[MetaAPI] Objective ${objective} failed, trying fallback 'SALES'...`);
-        data = await tryCreate('SALES');
+        // Only try legacy CONVERSIONS if the account isn't explicitly telling us to use OUTCOME_...
+        // But since the previous error message indicated only OUTCOME_ types are valid, 
+        // we might not even need the fallback. Let's try to fix the parameters instead.
 
-        if (data.error) {
-            console.warn(`[MetaAPI] Fallback 'SALES' failed, trying legacy 'CONVERSIONS'...`);
-            data = await tryCreate('CONVERSIONS');
-        }
+        console.warn(`[MetaAPI] Creation failed with ${objective}. Error: ${data.error.message}`);
     }
 
     if (data.error) {
-        console.error("Meta API createCampaign Final Error:", JSON.stringify(data.error, null, 2));
+        console.error("Meta API createCampaign Error:", JSON.stringify(data.error, null, 2));
         throw new Error(`Meta Campaign Error: ${data.error.message} (Code: ${data.error.code}, Sub: ${data.error.error_subcode || 'N/A'})`);
     }
 
-    // Success! Optional: Update the name to the real one now that it's created
+    // Success! Try to update the name to the user's choice
     try {
-        const finalName = name.replace(/[\n\r]/g, ' ').substring(0, 100);
+        const finalName = name.replace(/[\n\r]/g, ' ').trim().substring(0, 100);
         await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${data.id}?name=${encodeURIComponent(finalName)}&access_token=${accessToken}`, {
             method: 'POST'
         });
-    } catch (e) { /* ignore name update errors */ }
+    } catch (e) { /* ignore cleanup errors */ }
 
     return data;
 }
