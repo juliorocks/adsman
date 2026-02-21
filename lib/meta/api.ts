@@ -1,5 +1,5 @@
 
-const META_API_VERSION = "v19.0";
+const META_API_VERSION = "v21.0";
 const META_GRAPH_URL = "https://graph.facebook.com";
 
 export interface AdAccount {
@@ -183,59 +183,31 @@ export async function getInsights(
 }
 
 // CREATION METHODS
+// Based on official Meta API docs example:
+// POST /v21.0/act_<ID>/campaigns
+// name=My+campaign&objective=OUTCOME_TRAFFIC&status=PAUSED&special_ad_categories=%5B%5D
 export async function createCampaign(adAccountId: string, name: string, objective: string, accessToken: string) {
-    const tryCreate = async (obj: string) => {
-        const cleanName = `Smart Hero ${new Date().getTime()}`;
+    const cleanName = name.replace(/[\n\r]/g, ' ').trim().substring(0, 100) || `Campaign ${Date.now()}`;
 
-        // Using URLSearchParams (form-data) is the most robust way to talk to Meta API
-        const params = new URLSearchParams();
-        params.append('name', cleanName);
-        params.append('objective', obj);
-        params.append('status', 'PAUSED');
-        params.append('buying_type', 'AUCTION');
-        params.append('access_token', accessToken);
+    // Build the request body exactly like the official Meta documentation example
+    // The docs show: name=My+campaign&objective=OUTCOME_TRAFFIC&status=PAUSED&special_ad_categories=%5B%5D
+    const requestBody = `name=${encodeURIComponent(cleanName)}&objective=${encodeURIComponent(objective)}&status=PAUSED&special_ad_categories=%5B%5D&access_token=${encodeURIComponent(accessToken)}`;
 
-        // For special_ad_categories = [], the API expects either a JSON-encoded empty array or multiple empty params.
-        // Usually, sending it as a JSON string works best in form-data.
-        params.append('special_ad_categories', '[]');
+    const url = `${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns`;
 
-        const url = `${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns`;
+    console.log(`[MetaAPI] POST ${url} (objective=${objective})`);
 
-        const response = await fetch(url, {
-            method: 'POST',
-            body: params
-        });
-        return await response.json();
-    };
-
-    let data = await tryCreate(objective);
-
-    // If initial attempt fails with "Invalid parameter" for ODAX accounts
-    if (data.error && (data.error.code === 100 || data.error.error_subcode === 4834011)) {
-        // Only try legacy CONVERSIONS if the account isn't explicitly telling us to use OUTCOME_...
-        // But since the previous error message indicated only OUTCOME_ types are valid, 
-        // we might not even need the fallback. Let's try to fix the parameters instead.
-
-        console.warn(`[MetaAPI] Creation failed with ${objective}. Error: ${data.error.message}`);
-    }
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: requestBody
+    });
+    const data = await response.json();
 
     if (data.error) {
         console.error("Meta API createCampaign Error:", JSON.stringify(data.error, null, 2));
         throw new Error(`Meta Campaign Error: ${data.error.message} (Code: ${data.error.code}, Sub: ${data.error.error_subcode || 'N/A'})`);
     }
-
-    // Success! Update parameters
-    try {
-        const finalName = name.replace(/[\n\r]/g, ' ').trim().substring(0, 100);
-        const updateParams = new URLSearchParams();
-        updateParams.append('name', finalName);
-        updateParams.append('access_token', accessToken);
-
-        await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${data.id}`, {
-            method: 'POST',
-            body: updateParams
-        });
-    } catch (e) { /* ignore cleanup errors */ }
 
     return data;
 }
