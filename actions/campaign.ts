@@ -142,6 +142,7 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             age_max: Math.min(65, aiTargeting.age_max || 65),
             genders: aiTargeting.genders || [1, 2],
             publisher_platforms: ['facebook', 'instagram'],
+            targeting_automation: { advantage_audience: 0 },
         };
 
         // Schedule: start tomorrow, run for 30 days
