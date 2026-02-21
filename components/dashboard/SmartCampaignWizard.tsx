@@ -58,15 +58,19 @@ export function SmartCampaignWizard() {
         setError(null);
 
         try {
-            // Convert images to base64 for server upload
+            // Convert images to base64, but limit size (Next.js server actions have ~1MB payload limit)
             const imageBase64List: string[] = [];
-            for (const img of images) {
+            for (const img of images.slice(0, 1)) { // Only first image for now
+                if (img.size > 4 * 1024 * 1024) {
+                    // Skip images larger than 4MB
+                    console.warn("Image too large, skipping:", img.name, img.size);
+                    continue;
+                }
                 const base64 = await new Promise<string>((resolve) => {
                     const reader = new FileReader();
                     reader.onloadend = () => {
-                        const result = reader.result as string;
-                        // Remove the data:image/...;base64, prefix
-                        resolve(result.split(',')[1] || '');
+                        const dataUrl = reader.result as string;
+                        resolve(dataUrl.split(',')[1] || '');
                     };
                     reader.readAsDataURL(img);
                 });
@@ -80,6 +84,12 @@ export function SmartCampaignWizard() {
                 linkUrl: formData.linkUrl,
                 images: imageBase64List,
             });
+
+            if (!result) {
+                setError("Erro: O servidor não retornou uma resposta. Tente novamente.");
+                return;
+            }
+
             if (result.success) {
                 nextStep();
             } else {
