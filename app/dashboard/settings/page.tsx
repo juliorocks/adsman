@@ -2,6 +2,8 @@ import { ConnectMetaButton } from "@/components/settings/ConnectMetaButton";
 import { getIntegration, getOpenAIKey } from "@/lib/data/settings";
 import { OpenAIKeyForm } from "@/components/settings/OpenAIKeyForm";
 
+export const dynamic = 'force-dynamic';
+
 export default async function SettingsPage() {
     let integration: any = null;
     let openAIKey: string | null = null;

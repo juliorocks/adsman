@@ -4,6 +4,8 @@ import { getManualRevenue } from "@/actions/revenue";
 import { getIntegration } from "@/lib/data/settings";
 import { redirect } from "next/navigation";
 
+export const dynamic = 'force-dynamic';
+
 export default async function RevenuePage() {
     let integration: any = null;
     try {

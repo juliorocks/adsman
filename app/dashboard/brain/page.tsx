@@ -2,6 +2,8 @@
 import { getBusinessContext } from "@/lib/data/brain";
 import { addBusinessFact, removeBusinessFact } from "@/actions/brain";
 
+export const dynamic = 'force-dynamic';
+
 export default async function BrainPage() {
     let context: any[] = [];
     try {
