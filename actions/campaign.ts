@@ -130,10 +130,10 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         // 2. AI-Powered AdSet parameters parsing
         const aiTargeting = await parseTargetingFromGoal(formData.goal);
 
-        // Sanitize optimization goal - Force safe goals if no pixel is defined
-        let optimization_goal = aiTargeting.optimization_goal || 'REACH';
-        if (optimization_goal === 'OFFSITE_CONVERSIONS') {
-            optimization_goal = 'LINK_CLICKS';
+        // Sanitize optimization goal for OUTCOME_TRAFFIC campaigns
+        let optimization_goal = 'LINK_CLICKS'; // Safe default for traffic campaigns
+        if (safeObjective === 'OUTCOME_AWARENESS') {
+            optimization_goal = 'REACH';
         }
 
         const targeting: any = {
@@ -144,12 +144,22 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             publisher_platforms: ['facebook', 'instagram'],
         };
 
+        // Schedule: start tomorrow, run for 30 days
+        const startTime = new Date();
+        startTime.setDate(startTime.getDate() + 1);
+        startTime.setHours(0, 0, 0, 0);
+        const endTime = new Date(startTime);
+        endTime.setDate(endTime.getDate() + 30);
+
         const adSetParams = {
             name: `AI Optimized: ${formData.goal.substring(0, 20)}...`,
             billing_event: 'IMPRESSIONS' as const,
             daily_budget: Math.max(500, parseInt(formData.budget) * 100),
             targeting,
             optimization_goal: optimization_goal,
+            bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+            start_time: startTime.toISOString(),
+            end_time: endTime.toISOString(),
         };
 
         await createAdSet(adAccountId, campaign.id, adSetParams, accessToken);
