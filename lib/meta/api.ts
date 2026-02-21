@@ -183,15 +183,11 @@ export async function getInsights(
 }
 
 // CREATION METHODS
-// Based on official Meta API docs example:
-// POST /v21.0/act_<ID>/campaigns
-// name=My+campaign&objective=OUTCOME_TRAFFIC&status=PAUSED&special_ad_categories=%5B%5D
 export async function createCampaign(adAccountId: string, name: string, objective: string, accessToken: string) {
     const cleanName = name.replace(/[\n\r]/g, ' ').trim().substring(0, 100) || `Campaign ${Date.now()}`;
 
-    // Build the request body exactly like the official Meta documentation example
-    // The docs show: name=My+campaign&objective=OUTCOME_TRAFFIC&status=PAUSED&special_ad_categories=%5B%5D
-    const requestBody = `name=${encodeURIComponent(cleanName)}&objective=${encodeURIComponent(objective)}&status=PAUSED&special_ad_categories=%5B%5D&access_token=${encodeURIComponent(accessToken)}`;
+    // is_adset_budget_sharing_enabled is REQUIRED in v24.0 when not using campaign budget
+    const requestBody = `name=${encodeURIComponent(cleanName)}&objective=${encodeURIComponent(objective)}&status=PAUSED&special_ad_categories=%5B%5D&is_adset_budget_sharing_enabled=0&access_token=${encodeURIComponent(accessToken)}`;
 
     const url = `${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns`;
 
