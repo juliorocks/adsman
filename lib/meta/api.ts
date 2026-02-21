@@ -233,8 +233,18 @@ export async function createAdSet(adAccountId: string, campaignId: string, param
     });
     const data = await response.json();
     if (data.error) {
-        console.error("Meta API createAdSet Error:", JSON.stringify(data.error, null, 2));
-        throw new Error(`Meta AdSet Error: ${data.error.message} (${data.error.error_subcode || 'no subcode'})`);
+        const e = data.error;
+        const fullError = [
+            `msg: ${e.message}`,
+            `type: ${e.type}`,
+            `code: ${e.code}`,
+            `sub: ${e.error_subcode}`,
+            `title: ${e.error_user_title || 'none'}`,
+            `user_msg: ${e.error_user_msg || 'none'}`,
+            `trace: ${e.fbtrace_id || 'none'}`,
+        ].join(' | ');
+        console.error("Meta API createAdSet FULL Error:", JSON.stringify(data.error, null, 2));
+        throw new Error(`AdSet: ${fullError}`);
     }
     return data;
 }
