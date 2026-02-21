@@ -1,5 +1,5 @@
 
-const META_API_VERSION = "v21.0";
+const META_API_VERSION = "v24.0";
 const META_GRAPH_URL = "https://graph.facebook.com";
 
 export interface AdAccount {

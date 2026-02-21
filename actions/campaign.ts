@@ -112,11 +112,18 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             ? integration.ad_account_id
             : `act_${integration.ad_account_id}`;
 
+        // Sanitize objective: OUTCOME_SALES requires a pixel/catalog (promoted_object)
+        // Since we don't have pixel setup in this wizard yet, fallback to OUTCOME_TRAFFIC
+        let safeObjective = formData.objective;
+        if (safeObjective === 'OUTCOME_SALES' || safeObjective === 'OUTCOME_LEADS') {
+            safeObjective = 'OUTCOME_TRAFFIC';
+        }
+
         // 1. Create Campaign
         const campaign = await createCampaign(
             adAccountId,
             `Smart AI: ${formData.goal.substring(0, 30)}...`,
-            formData.objective,
+            safeObjective,
             accessToken
         );
 
