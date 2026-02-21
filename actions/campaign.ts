@@ -166,7 +166,7 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         const adSet = await createAdSet(adAccountId, campaign.id, adSetParams, accessToken);
 
         // 3. Get a Facebook Page to use for the ad creative
-        const pages = await getPages(accessToken);
+        const pages = await getPages(accessToken, adAccountId);
         if (!pages || pages.length === 0) {
             throw new Error('Nenhuma Página do Facebook encontrada. Vincule uma página à sua conta de anúncios no Meta Business Suite.');
         }

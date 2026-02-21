@@ -75,15 +75,36 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
     return Array.from(new Map(accounts.map(acc => [acc.id, acc])).values());
 }
 
-// Fetch Facebook Pages that the user manages (needed for ad creatives)
-export async function getPages(accessToken: string): Promise<{ id: string; name: string }[]> {
-    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/accounts?fields=id,name&access_token=${accessToken}`);
-    const data = await response.json();
-    if (data.error) {
-        console.error("Meta API getPages Error:", JSON.stringify(data.error, null, 2));
-        return [];
+// Fetch Facebook Pages that can be used for ads (tries multiple sources)
+export async function getPages(accessToken: string, adAccountId?: string): Promise<{ id: string; name: string }[]> {
+    // 1. Try ad account's promote_pages (best for ads context)
+    if (adAccountId) {
+        try {
+            const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/promote_pages?fields=id,name&access_token=${accessToken}`);
+            const data = await res.json();
+            if (data.data && data.data.length > 0) return data.data;
+        } catch (e) { /* try next */ }
     }
-    return data.data || [];
+
+    // 2. Try user's own pages
+    try {
+        const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/accounts?fields=id,name&access_token=${accessToken}`);
+        const data = await res.json();
+        if (data.data && data.data.length > 0) return data.data;
+    } catch (e) { /* try next */ }
+
+    // 3. Try business pages
+    try {
+        const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/businesses?fields=owned_pages{id,name}&access_token=${accessToken}`);
+        const data = await res.json();
+        if (data.data) {
+            for (const biz of data.data) {
+                if (biz.owned_pages?.data?.length > 0) return biz.owned_pages.data;
+            }
+        }
+    } catch (e) { /* no pages found */ }
+
+    return [];
 }
 
 export async function getCampaigns(adAccountId: string, accessToken: string) {
