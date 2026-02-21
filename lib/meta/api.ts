@@ -185,24 +185,25 @@ export async function getInsights(
 // CREATION METHODS
 export async function createCampaign(adAccountId: string, name: string, objective: string, accessToken: string) {
     const tryCreate = async (obj: string) => {
-        const cleanName = `Smart Hero Campaign ${new Date().getTime()}`;
+        const cleanName = `Smart Hero ${new Date().getTime()}`;
 
-        // Pass access_token in the URL to avoid any JSON parsing issues at Meta's side
-        const url = `${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns?access_token=${accessToken}`;
+        // Using URLSearchParams (form-data) is the most robust way to talk to Meta API
+        const params = new URLSearchParams();
+        params.append('name', cleanName);
+        params.append('objective', obj);
+        params.append('status', 'PAUSED');
+        params.append('buying_type', 'AUCTION');
+        params.append('access_token', accessToken);
 
-        const body = {
-            name: cleanName,
-            objective: obj,
-            status: 'PAUSED',
-            buying_type: 'AUCTION',
-            // Using ['NONE'] is often more reliable than an empty array [] in some API versions
-            special_ad_categories: ['NONE'],
-        };
+        // For special_ad_categories = [], the API expects either a JSON-encoded empty array or multiple empty params.
+        // Usually, sending it as a JSON string works best in form-data.
+        params.append('special_ad_categories', '[]');
+
+        const url = `${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns`;
 
         const response = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
+            body: params
         });
         return await response.json();
     };
@@ -223,11 +224,16 @@ export async function createCampaign(adAccountId: string, name: string, objectiv
         throw new Error(`Meta Campaign Error: ${data.error.message} (Code: ${data.error.code}, Sub: ${data.error.error_subcode || 'N/A'})`);
     }
 
-    // Success! Try to update the name to the user's choice
+    // Success! Update parameters
     try {
         const finalName = name.replace(/[\n\r]/g, ' ').trim().substring(0, 100);
-        await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${data.id}?name=${encodeURIComponent(finalName)}&access_token=${accessToken}`, {
-            method: 'POST'
+        const updateParams = new URLSearchParams();
+        updateParams.append('name', finalName);
+        updateParams.append('access_token', accessToken);
+
+        await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${data.id}`, {
+            method: 'POST',
+            body: updateParams
         });
     } catch (e) { /* ignore cleanup errors */ }
 
