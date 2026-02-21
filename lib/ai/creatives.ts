@@ -1,9 +1,6 @@
 
 import OpenAI from "openai";
-
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+import { getOpenAIKey } from "@/lib/data/settings";
 
 export interface GeneratedCreatives {
     headlines: string[];
@@ -11,18 +8,41 @@ export interface GeneratedCreatives {
     image_prompts: string[];
 }
 
-export async function generateCreativeIdeas(goal: string): Promise<GeneratedCreatives> {
-    if (!process.env.OPENAI_API_KEY) {
-        return {
-            headlines: ["Oferta Imperdível", "Garanta o seu agora"],
-            primary_texts: ["Confira nossa nova coleção exclusiva.", "Trabalhamos com o melhor para você."],
-            image_prompts: ["A luxury retail store background with soft lighting"]
-        };
+const FALLBACK_CREATIVES: GeneratedCreatives = {
+    headlines: ["Oferta Imperdível", "Garanta o seu agora", "Aproveite hoje"],
+    primary_texts: [
+        "Confira nossa nova coleção exclusiva.",
+        "Trabalhamos com o melhor para você."
+    ],
+    image_prompts: ["A luxury retail store background with soft lighting"]
+};
+
+export async function generateCreativeIdeas(goal: string = "Vendas gerais"): Promise<GeneratedCreatives> {
+    // Try user-saved key from DB first, then fall back to env var
+    let apiKey: string | null = null;
+
+    try {
+        apiKey = await getOpenAIKey();
+    } catch (e) {
+        console.warn("[creatives] Could not fetch user OpenAI key:", e);
+    }
+
+    // Fall back to environment variable if no user key
+    if (!apiKey) {
+        apiKey = process.env.OPENAI_API_KEY || null;
+    }
+
+    if (!apiKey) {
+        console.warn("[creatives] No OpenAI API key available. Returning fallback creatives.");
+        return FALLBACK_CREATIVES;
     }
 
     try {
+        // Lazy instantiation — only when we have a key
+        const openai = new OpenAI({ apiKey });
+
         const response = await openai.chat.completions.create({
-            model: "gpt-4-turbo-preview",
+            model: "gpt-4o-mini",
             messages: [
                 {
                     role: "system",
@@ -45,11 +65,7 @@ export async function generateCreativeIdeas(goal: string): Promise<GeneratedCrea
         const content = response.choices[0].message.content;
         return JSON.parse(content || "{}") as GeneratedCreatives;
     } catch (error) {
-        console.error("Creative generation error:", error);
-        return {
-            headlines: ["Promoção Especial"],
-            primary_texts: ["Aproveite nossas condições por tempo limitado."],
-            image_prompts: ["Product marketing photography"]
-        };
+        console.error("[creatives] generateCreativeIdeas error:", error);
+        return FALLBACK_CREATIVES;
     }
 }

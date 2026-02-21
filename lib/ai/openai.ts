@@ -1,10 +1,6 @@
 
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
-
 export interface AdTargeting {
     interests: string[];
     geo: string[];
@@ -15,12 +11,17 @@ export interface AdTargeting {
 }
 
 export async function parseTargetingFromGoal(goal: string): Promise<AdTargeting> {
-    if (!process.env.OPENAI_API_KEY) {
-        console.warn("OPENAI_API_KEY not found. Using fallback targeting.");
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    if (!apiKey) {
+        console.warn("[openai] OPENAI_API_KEY not set. Using fallback targeting.");
         return getDefaultTargeting();
     }
 
     try {
+        // Lazy instantiation — only create OpenAI client when we have a key
+        const openai = new OpenAI({ apiKey });
+
         const response = await openai.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
@@ -50,7 +51,7 @@ export async function parseTargetingFromGoal(goal: string): Promise<AdTargeting>
 
         return JSON.parse(content) as AdTargeting;
     } catch (error) {
-        console.error("AI Parsing error:", error);
+        console.error("[openai] parseTargetingFromGoal error:", error);
         return getDefaultTargeting();
     }
 }
