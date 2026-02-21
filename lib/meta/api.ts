@@ -75,6 +75,17 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
     return Array.from(new Map(accounts.map(acc => [acc.id, acc])).values());
 }
 
+// Fetch Facebook Pages that the user manages (needed for ad creatives)
+export async function getPages(accessToken: string): Promise<{ id: string; name: string }[]> {
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/accounts?fields=id,name&access_token=${accessToken}`);
+    const data = await response.json();
+    if (data.error) {
+        console.error("Meta API getPages Error:", JSON.stringify(data.error, null, 2));
+        return [];
+    }
+    return data.data || [];
+}
+
 export async function getCampaigns(adAccountId: string, accessToken: string) {
     const fields = "id,name,status,objective,daily_budget,lifetime_budget,created_time";
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns?fields=${fields}&access_token=${accessToken}`);
@@ -261,8 +272,16 @@ export async function createAdCreative(adAccountId: string, name: string, object
     });
     const data = await response.json();
     if (data.error) {
-        console.error("Meta API Error:", JSON.stringify(data.error, null, 2));
-        throw new Error(`Meta API Error: ${data.error.message} (Subcode: ${data.error.error_subcode || 'N/A'}) - Details: ${JSON.stringify(data.error)}`);
+        const e = data.error;
+        const fullError = [
+            `msg: ${e.message}`,
+            `code: ${e.code}`,
+            `sub: ${e.error_subcode}`,
+            `title: ${e.error_user_title || 'none'}`,
+            `user_msg: ${e.error_user_msg || 'none'}`,
+        ].join(' | ');
+        console.error("Meta API createAdCreative FULL Error:", JSON.stringify(data.error, null, 2));
+        throw new Error(`Creative: ${fullError}`);
     }
     return data;
 }
@@ -280,7 +299,18 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
         })
     });
     const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
+    if (data.error) {
+        const e = data.error;
+        const fullError = [
+            `msg: ${e.message}`,
+            `code: ${e.code}`,
+            `sub: ${e.error_subcode}`,
+            `title: ${e.error_user_title || 'none'}`,
+            `user_msg: ${e.error_user_msg || 'none'}`,
+        ].join(' | ');
+        console.error("Meta API createAd FULL Error:", JSON.stringify(data.error, null, 2));
+        throw new Error(`Ad: ${fullError}`);
+    }
     return data;
 }
 

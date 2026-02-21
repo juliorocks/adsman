@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getIntegration } from "@/lib/data/settings";
 import { decrypt } from "@/lib/security/vault";
-import { createCampaign, createAdSet, updateObjectStatus, getAdSetsForCampaign, getAdsForAdSet } from "@/lib/meta/api";
+import { createCampaign, createAdSet, createAdCreative, createAd, getPages, updateObjectStatus, getAdSetsForCampaign, getAdsForAdSet } from "@/lib/meta/api";
 import { parseTargetingFromGoal } from "@/lib/ai/openai";
 import { createLog } from "@/lib/data/logs";
 
@@ -163,16 +163,58 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             end_time: endTime.toISOString(),
         };
 
-        await createAdSet(adAccountId, campaign.id, adSetParams, accessToken);
+        const adSet = await createAdSet(adAccountId, campaign.id, adSetParams, accessToken);
+
+        // 3. Get a Facebook Page to use for the ad creative
+        const pages = await getPages(accessToken);
+        if (!pages || pages.length === 0) {
+            throw new Error('Nenhuma Página do Facebook encontrada. Vincule uma página à sua conta de anúncios no Meta Business Suite.');
+        }
+        const pageId = pages[0].id;
+
+        // 4. Create Ad Creative with AI-generated text
+        const headline = aiTargeting.headline || formData.goal.substring(0, 40);
+        const primaryText = aiTargeting.primary_text || formData.goal.substring(0, 125);
+        const linkUrl = aiTargeting.link_url || 'https://www.facebook.com/';
+
+        const objectStorySpec = {
+            page_id: pageId,
+            link_data: {
+                message: primaryText,
+                link: linkUrl,
+                name: headline,
+                call_to_action: {
+                    type: 'LEARN_MORE',
+                    value: { link: linkUrl }
+                }
+            }
+        };
+
+        const creative = await createAdCreative(
+            adAccountId,
+            `Creative: ${formData.goal.substring(0, 30)}...`,
+            objectStorySpec,
+            accessToken
+        );
+
+        // 5. Create the Ad linking creative to ad set
+        await createAd(
+            adAccountId,
+            adSet.id,
+            creative.id,
+            `Ad: ${formData.goal.substring(0, 40)}...`,
+            accessToken,
+            'PAUSED'
+        );
 
         await createLog({
             action_type: 'OTHER',
-            description: `Campanha "${formData.goal.substring(0, 20)}..." criada com sucesso.`,
+            description: `Campanha "${formData.goal.substring(0, 20)}..." criada com sucesso (com anúncio).`,
             target_id: campaign.id,
             target_name: `Smart AI: ${formData.goal.substring(0, 20)}...`,
             agent: 'STRATEGIST',
             status: 'SUCCESS',
-            metadata: { objective: formData.objective, budget: formData.budget }
+            metadata: { objective: formData.objective, budget: formData.budget, pageId }
         });
 
         revalidatePath("/dashboard");
