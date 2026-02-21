@@ -185,11 +185,20 @@ export async function getInsights(
 // CREATION METHODS
 export async function createCampaign(adAccountId: string, name: string, objective: string, accessToken: string) {
     console.log(`[MetaAPI] Creating campaign: ${name} with objective ${objective} in account ${adAccountId}`);
+
+    // Improved sanitization: remove all newlines and non-standard chars
+    const cleanName = name
+        .replace(/[\n\r]/g, ' ')
+        .replace(/[^\w\s\-\.\!\?]/gi, '')
+        .trim()
+        .substring(0, 100);
+
     const body = {
-        name: name.replace(/[^\w\s-]/gi, '').substring(0, 100), // Very clean name
+        name: cleanName,
         objective,
         status: 'PAUSED',
-        special_ad_categories: ['NONE'],
+        buying_type: 'AUCTION',
+        special_ad_categories: [] as string[], // Standard for most API versions
         access_token: accessToken
     };
 
