@@ -252,16 +252,23 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
 }
 
 export async function updateObjectStatus(id: string, status: 'ACTIVE' | 'PAUSED', accessToken: string) {
-    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            status,
-            access_token: accessToken
-        })
+    console.log(`[MetaAPI] Updating status of ${id} to ${status}...`);
+
+    // Meta sometimes prefers URL params for simple field updates
+    const url = `${META_GRAPH_URL}/${META_API_VERSION}/${id}?status=${status}&access_token=${accessToken}`;
+
+    const response = await fetch(url, {
+        method: 'POST'
     });
+
     const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
+
+    if (data.error) {
+        console.error(`[MetaAPI] Error updating ${id}:`, JSON.stringify(data.error, null, 2));
+        throw new Error(data.error.message || "Meta API Error");
+    }
+
+    console.log(`[MetaAPI] Success updating ${id}:`, JSON.stringify(data));
     return data;
 }
 
