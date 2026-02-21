@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getIntegration } from "@/lib/data/settings";
 import { decrypt } from "@/lib/security/vault";
-import { createCampaign, createAdSet, createAdCreative, createAd, getPages, updateObjectStatus, getAdSetsForCampaign, getAdsForAdSet } from "@/lib/meta/api";
+import { createCampaign, createAdSet, createAdCreative, createAd, getPages, uploadAdImage, updateObjectStatus, getAdSetsForCampaign, getAdsForAdSet } from "@/lib/meta/api";
 import { parseTargetingFromGoal } from "@/lib/ai/openai";
 import { createLog } from "@/lib/data/logs";
 
@@ -100,7 +100,7 @@ export async function toggleCampaignStatus(id: string, status: 'ACTIVE' | 'PAUSE
     return toggleStatusAction(id, 'CAMPAIGN', status, name);
 }
 
-export async function createSmartCampaignAction(formData: { objective: string, goal: string, budget: string }) {
+export async function createSmartCampaignAction(formData: { objective: string, goal: string, budget: string, linkUrl?: string, images?: string[] }) {
     const integration = await getIntegration();
     if (!integration || !integration.access_token_ref || !integration.ad_account_id) {
         throw new Error("No Meta integration found");
@@ -172,22 +172,42 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         }
         const pageId = pages[0].id;
 
-        // 4. Create Ad Creative with AI-generated text
+        // 4. Upload image if provided
+        let imageHash: string | null = null;
+        if (formData.images && formData.images.length > 0 && formData.images[0]) {
+            try {
+                imageHash = await uploadAdImage(adAccountId, formData.images[0], accessToken);
+            } catch (imgErr: any) {
+                console.error("Image upload failed, creating ad without image:", imgErr.message);
+            }
+        }
+
+        // 5. Create Ad Creative
         const headline = aiTargeting.headline || formData.goal.substring(0, 40);
         const primaryText = aiTargeting.primary_text || formData.goal.substring(0, 125);
-        const linkUrl = aiTargeting.link_url || 'https://www.facebook.com/';
+        // User's LP URL takes priority over AI suggestion
+        const linkUrl = formData.linkUrl && formData.linkUrl.trim()
+            ? formData.linkUrl.trim()
+            : (aiTargeting.link_url || 'https://www.facebook.com/');
+
+        const linkData: any = {
+            message: primaryText,
+            link: linkUrl,
+            name: headline,
+            call_to_action: {
+                type: 'LEARN_MORE',
+                value: { link: linkUrl }
+            }
+        };
+
+        // Add image hash to the creative if we uploaded one
+        if (imageHash) {
+            linkData.image_hash = imageHash;
+        }
 
         const objectStorySpec = {
             page_id: pageId,
-            link_data: {
-                message: primaryText,
-                link: linkUrl,
-                name: headline,
-                call_to_action: {
-                    type: 'LEARN_MORE',
-                    value: { link: linkUrl }
-                }
-            }
+            link_data: linkData,
         };
 
         const creative = await createAdCreative(
@@ -197,7 +217,7 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             accessToken
         );
 
-        // 5. Create the Ad linking creative to ad set
+        // 6. Create the Ad linking creative to ad set
         await createAd(
             adAccountId,
             adSet.id,

@@ -24,6 +24,7 @@ export function SmartCampaignWizard() {
         objective: '',
         goal: '',
         budget: '50',
+        linkUrl: '',
     });
     const [images, setImages] = useState<File[]>([]);
     const [aiSuggestions, setAiSuggestions] = useState<{
@@ -57,9 +58,30 @@ export function SmartCampaignWizard() {
         setError(null);
 
         try {
-            const result = await createSmartCampaignAction(formData);
+            // Convert images to base64 for server upload
+            const imageBase64List: string[] = [];
+            for (const img of images) {
+                const base64 = await new Promise<string>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const result = reader.result as string;
+                        // Remove the data:image/...;base64, prefix
+                        resolve(result.split(',')[1] || '');
+                    };
+                    reader.readAsDataURL(img);
+                });
+                imageBase64List.push(base64);
+            }
+
+            const result = await createSmartCampaignAction({
+                objective: formData.objective,
+                goal: formData.goal,
+                budget: formData.budget,
+                linkUrl: formData.linkUrl,
+                images: imageBase64List,
+            });
             if (result.success) {
-                nextStep(); // Go to success step
+                nextStep();
             } else {
                 setError(`###UI-VER-201###: ${result.error || "Ocorreu um erro ao criar a campanha."} (Data: ${JSON.stringify(formData)})`);
             }
@@ -167,6 +189,18 @@ export function SmartCampaignWizard() {
                                     <Bot className="h-3 w-3" />
                                     Nossa IA usará isso para definir segmentação e interesses automaticamente.
                                 </p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">URL de Destino (sua Landing Page)</label>
+                                <input
+                                    type="url"
+                                    placeholder="https://suapagina.com.br"
+                                    className="w-full p-3 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary-500 focus:outline-none bg-slate-50 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500"
+                                    value={formData.linkUrl}
+                                    onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
+                                />
+                                <p className="text-xs text-slate-400 dark:text-slate-500 italic">Para onde as pessoas serão direcionadas ao clicar no anúncio.</p>
                             </div>
 
                             <div className="space-y-2">
