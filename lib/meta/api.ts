@@ -184,34 +184,51 @@ export async function getInsights(
 
 // CREATION METHODS
 export async function createCampaign(adAccountId: string, name: string, objective: string, accessToken: string) {
-    console.log(`[MetaAPI] Creating campaign: ${name} with objective ${objective} in account ${adAccountId}`);
+    const tryCreate = async (obj: string) => {
+        const cleanName = `AI Campaign ${new Date().getTime()}`; // Ultra safe name for creation
+        const body = {
+            name: cleanName,
+            objective: obj,
+            status: 'PAUSED',
+            buying_type: 'AUCTION',
+            special_ad_categories: [] as string[],
+            access_token: accessToken
+        };
 
-    // Improved sanitization: remove all newlines and non-standard chars
-    const cleanName = name
-        .replace(/[\n\r]/g, ' ')
-        .replace(/[^\w\s\-\.\!\?]/gi, '')
-        .trim()
-        .substring(0, 100);
-
-    const body = {
-        name: cleanName,
-        objective,
-        status: 'PAUSED',
-        buying_type: 'AUCTION',
-        special_ad_categories: [] as string[], // Standard for most API versions
-        access_token: accessToken
+        const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        return await response.json();
     };
 
-    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    });
-    const data = await response.json();
-    if (data.error) {
-        console.error("Meta API createCampaign Error:", JSON.stringify(data.error, null, 2));
-        throw new Error(`Meta Campaign Error: ${data.error.message} (${data.error.error_subcode || 'no subcode'})`);
+    let data = await tryCreate(objective);
+
+    // If ODAX objective fails, try common fallbacks
+    if (data.error && (data.error.code === 100 || data.error.error_subcode === 4834011)) {
+        console.warn(`[MetaAPI] Objective ${objective} failed, trying fallback 'SALES'...`);
+        data = await tryCreate('SALES');
+
+        if (data.error) {
+            console.warn(`[MetaAPI] Fallback 'SALES' failed, trying legacy 'CONVERSIONS'...`);
+            data = await tryCreate('CONVERSIONS');
+        }
     }
+
+    if (data.error) {
+        console.error("Meta API createCampaign Final Error:", JSON.stringify(data.error, null, 2));
+        throw new Error(`Meta Campaign Error: ${data.error.message} (Code: ${data.error.code}, Sub: ${data.error.error_subcode || 'N/A'})`);
+    }
+
+    // Success! Optional: Update the name to the real one now that it's created
+    try {
+        const finalName = name.replace(/[\n\r]/g, ' ').substring(0, 100);
+        await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${data.id}?name=${encodeURIComponent(finalName)}&access_token=${accessToken}`, {
+            method: 'POST'
+        });
+    } catch (e) { /* ignore name update errors */ }
+
     return data;
 }
 
