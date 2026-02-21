@@ -174,11 +174,17 @@ export async function createSmartCampaignAction(formData: { objective: string, g
 
         // 4. Upload image if provided
         let imageHash: string | null = null;
+        let imageDebug = 'no_images_provided';
         if (formData.images && formData.images.length > 0 && formData.images[0]) {
+            const imgData = formData.images[0];
+            imageDebug = `received_${imgData.length}_chars`;
             try {
-                imageHash = await uploadAdImage(adAccountId, formData.images[0], accessToken);
+                imageHash = await uploadAdImage(adAccountId, imgData, accessToken);
+                imageDebug = `uploaded_hash=${imageHash}`;
             } catch (imgErr: any) {
-                console.error("Image upload failed, creating ad without image:", imgErr.message);
+                imageDebug = `upload_failed: ${imgErr.message}`;
+                console.error("Image upload failed:", imgErr.message);
+                // Don't fail the whole campaign - continue without image
             }
         }
 
@@ -234,11 +240,11 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             target_name: `Smart AI: ${formData.goal.substring(0, 20)}...`,
             agent: 'STRATEGIST',
             status: 'SUCCESS',
-            metadata: { objective: formData.objective, budget: formData.budget, pageId }
+            metadata: { objective: formData.objective, budget: formData.budget, pageId, imageDebug }
         });
 
         revalidatePath("/dashboard");
-        return { success: true, campaignId: campaign.id };
+        return { success: true, campaignId: campaign.id, imageDebug };
     } catch (error: any) {
         console.error("Smart campaign creation error details:", error);
 
