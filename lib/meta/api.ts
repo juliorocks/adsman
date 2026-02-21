@@ -205,8 +205,20 @@ export async function createCampaign(adAccountId: string, name: string, objectiv
     const data = await response.json();
 
     if (data.error) {
-        console.error("Meta API createCampaign Error:", JSON.stringify(data.error, null, 2));
-        throw new Error(`Meta Campaign Error: ${data.error.message} (Code: ${data.error.code}, Sub: ${data.error.error_subcode || 'N/A'})`);
+        const e = data.error;
+        // Capture EVERY field Meta returns - we need to find which parameter is invalid
+        const fullError = [
+            `msg: ${e.message}`,
+            `type: ${e.type}`,
+            `code: ${e.code}`,
+            `sub: ${e.error_subcode}`,
+            `title: ${e.error_user_title || 'none'}`,
+            `user_msg: ${e.error_user_msg || 'none'}`,
+            `trace: ${e.fbtrace_id || 'none'}`,
+        ].join(' | ');
+
+        console.error("Meta API FULL Error:", JSON.stringify(data.error, null, 2));
+        throw new Error(fullError);
     }
 
     return data;
