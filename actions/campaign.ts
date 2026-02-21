@@ -92,7 +92,7 @@ export async function toggleStatusAction(id: string, type: 'CAMPAIGN' | 'ADSET' 
             });
         } catch (ignore) { }
 
-        return { success: false, error: error.message || "Erro desconhecido ao alterar status." };
+        return { success: false, error: `###VER-107### ${error.message || "Erro desconhecido ao alterar status."}` };
     }
 }
 
@@ -108,10 +108,13 @@ export async function createSmartCampaignAction(formData: { objective: string, g
 
     try {
         const accessToken = decrypt(integration.access_token_ref);
+        const adAccountId = integration.ad_account_id.startsWith('act_')
+            ? integration.ad_account_id
+            : `act_${integration.ad_account_id}`;
 
         // 1. Create Campaign
         const campaign = await createCampaign(
-            integration.ad_account_id,
+            adAccountId,
             `Smart AI: ${formData.goal.substring(0, 30)}...`,
             formData.objective,
             accessToken
@@ -120,31 +123,73 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         // 2. AI-Powered AdSet parameters parsing
         const aiTargeting = await parseTargetingFromGoal(formData.goal);
 
+        // Sanitize optimization goal - Force safe goals if no pixel is defined
+        // OFFSITE_CONVERSIONS requires a promoted_object (pixel), which we don't have yet in this wizard
+        let optimization_goal = aiTargeting.optimization_goal || 'REACH';
+        if (optimization_goal === 'OFFSITE_CONVERSIONS') {
+            optimization_goal = 'LINK_CLICKS';
+        }
+
+        const targeting: any = {
+            geo_locations: { countries: ['BR'] },
+            age_min: Math.max(18, aiTargeting.age_min || 18),
+            age_max: Math.min(65, aiTargeting.age_max || 65),
+            genders: aiTargeting.genders || [1, 2],
+            publisher_platforms: ['facebook', 'instagram'],
+        };
+
+        // Only add interests if we have them, and format them correctly
+        // DISABLED FOR DEBUGGING: Many Meta API versions reject {name: "..."} without IDs
+        /*
+        if (aiTargeting.interests && aiTargeting.interests.length > 0) {
+            targeting.flexible_spec = [
+                {
+                    interests: aiTargeting.interests.map((interestName: string) => ({ name: interestName }))
+                }
+            ];
+        }
+        */
+
         const adSetParams = {
             name: `AI Optimized: ${formData.goal.substring(0, 20)}...`,
             billing_event: 'IMPRESSIONS' as const,
-            bid_strategy: 'LOWEST_COST_WITHOUT_CAP' as const,
-            daily_budget: parseInt(formData.budget) * 100, // In cents
-            targeting: {
-                geo_locations: { countries: ['BR'] },
-                age_min: aiTargeting.age_min,
-                age_max: aiTargeting.age_max,
-                publisher_platforms: ['facebook', 'instagram'],
-                flexible_spec: [
-                    {
-                        interests: aiTargeting.interests.map((interestName: string) => ({ id: null, name: interestName }))
-                    }
-                ]
-            },
-            optimization_goal: aiTargeting.optimization_goal || 'REACH',
+            daily_budget: Math.max(500, parseInt(formData.budget) * 100), // Min 500 cents (R$ 5)
+            targeting,
+            optimization_goal: optimization_goal,
         };
 
-        await createAdSet(integration.ad_account_id, campaign.id, adSetParams, accessToken);
+        await createAdSet(adAccountId, campaign.id, adSetParams, accessToken);
+
+        await createLog({
+            action_type: 'OTHER',
+            description: `Campanha "${formData.goal.substring(0, 20)}..." criada com sucesso.`,
+            target_id: campaign.id,
+            target_name: `Smart AI: ${formData.goal.substring(0, 20)}...`,
+            agent: 'STRATEGIST',
+            status: 'SUCCESS',
+            metadata: { objective: formData.objective, budget: formData.budget }
+        });
 
         revalidatePath("/dashboard");
         return { success: true, campaignId: campaign.id };
     } catch (error: any) {
-        console.error("Smart campaign creation error:", error);
-        return { success: false, error: error.message };
+        console.error("Smart campaign creation error details:", error);
+
+        const errorMessage = error.message || "Erro desconhecido";
+
+        await createLog({
+            action_type: 'OTHER',
+            description: `Falha ao criar campanha inteligente.`,
+            target_id: 'NEW_CAMPAIGN',
+            target_name: formData.goal.substring(0, 30),
+            agent: 'STRATEGIST',
+            status: 'FAILED',
+            metadata: { error: errorMessage, stack: error.stack }
+        });
+
+        return {
+            success: false,
+            error: `###VER-102### Erro Meta Ads: ${errorMessage}`
+        };
     }
 }

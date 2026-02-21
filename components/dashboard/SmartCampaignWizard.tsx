@@ -61,10 +61,10 @@ export function SmartCampaignWizard() {
             if (result.success) {
                 nextStep(); // Go to success step
             } else {
-                setError(result.error || "Ocorreu um erro ao criar a campanha.");
+                setError(`###UI-VER-201###: ${result.error || "Ocorreu um erro ao criar a campanha."} (Data: ${JSON.stringify(formData)})`);
             }
         } catch (err: any) {
-            setError(err.message || "Erro de conexão com o servidor.");
+            setError(`###UI-CATCH-201###: ${err.message || "Erro de conexão com o servidor."} (Data: ${JSON.stringify(formData)})`);
         } finally {
             setLoading(false);
         }

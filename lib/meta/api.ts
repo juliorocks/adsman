@@ -184,19 +184,25 @@ export async function getInsights(
 
 // CREATION METHODS
 export async function createCampaign(adAccountId: string, name: string, objective: string, accessToken: string) {
+    console.log(`[MetaAPI] Creating campaign: ${name} with objective ${objective} in account ${adAccountId}`);
+    const body = {
+        name: name.replace(/[^\w\s-]/gi, '').substring(0, 100), // Very clean name
+        objective,
+        status: 'PAUSED',
+        special_ad_categories: ['NONE'],
+        access_token: accessToken
+    };
+
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            name,
-            objective,
-            status: 'PAUSED', // Safety first
-            special_ad_categories: ['NONE'],
-            access_token: accessToken
-        })
+        body: JSON.stringify(body)
     });
     const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
+    if (data.error) {
+        console.error("Meta API createCampaign Error:", JSON.stringify(data.error, null, 2));
+        throw new Error(`Meta Campaign Error: ${data.error.message} (${data.error.error_subcode || 'no subcode'})`);
+    }
     return data;
 }
 
@@ -212,7 +218,10 @@ export async function createAdSet(adAccountId: string, campaignId: string, param
         })
     });
     const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
+    if (data.error) {
+        console.error("Meta API createAdSet Error:", JSON.stringify(data.error, null, 2));
+        throw new Error(`Meta AdSet Error: ${data.error.message} (${data.error.error_subcode || 'no subcode'})`);
+    }
     return data;
 }
 
