@@ -12,15 +12,22 @@ import { revalidatePath } from "next/cache";
 export async function getGoogleAuthUrlAction() {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Não autenticado para gerar link");
+
+        // Try to get user from session (more resilient in some server environments)
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+
+        if (!user) {
+            console.error("[getGoogleAuthUrlAction] No session/user found in Server Action");
+            throw new Error("Sessão expirada ou não encontrada. Por favor, atualize a página e tente novamente.");
+        }
 
         const client = getOAuth2Client();
         const url = client.generateAuthUrl({
             access_type: 'offline',
             scope: GOOGLE_SCOPES,
             prompt: 'consent',
-            state: user.id // Pass user ID as state to recover it in callback
+            state: user.id
         });
         return { success: true, url };
     } catch (error: any) {
