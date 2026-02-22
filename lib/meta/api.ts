@@ -175,13 +175,28 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
             // 2. Discover/Validate the IG for this page in this account's context
             let pageIgId = p.connected_instagram_account?.id;
 
-            // CRITICAL FIX: If the page has NO valid authorized IG yet, and we have EXACTLY ONE authorized IG in this account,
-            // we "help" Meta and link them, because that's the only legitimate identity for this client.
-            if ((!pageIgId || !authorizedIgIds.has(pageIgId)) && authorizedIgs.length === 1) {
-                p.connected_instagram_account = { id: authorizedIgs[0].id };
-                debugInfo += `_autoMappedIg_${authorizedIgs[0].id}_`;
-            } else if (pageIgId && !authorizedIgIds.has(pageIgId)) {
-                debugInfo += `_igMismatch_${p.name}_`;
+            // SECURITY RULE: If a page HAS an IG link, it MUST be in the authorized list for this Ad Account.
+            // If it's not, it's a cross-client leak, and we reject the page entirely.
+            if (pageIgId && !authorizedIgIds.has(pageIgId)) {
+                debugInfo += `_rejectLeak_${p.name}_`;
+                return false;
+            }
+
+            // SMART MAPPING: If the page has NO IG link reported by Meta, we only "help" if the names match.
+            // This prevents mapping Carolina's IG to the Faculdade page.
+            if (!pageIgId && authorizedIgs.length > 0) {
+                const cleanAcc = (debugInfo.match(/_acc_(.*?)_/) || [])[1]?.toLowerCase().replace(/\[.*?\]/g, '').trim() || "";
+                const pn = p.name.toLowerCase();
+                const isMatch = cleanAcc && cleanAcc.split(' ').some((part: string) => part.length > 3 && pn.includes(part));
+
+                if (isMatch && authorizedIgs.length === 1) {
+                    p.connected_instagram_account = { id: authorizedIgs[0].id };
+                    debugInfo += `_safeMapped_${p.name}_`;
+                } else if (!isMatch) {
+                    // Page from promote_pages with no IG link and no name match is likely a different client context
+                    debugInfo += `_rejectIncongruent_${p.name}_`;
+                    return false;
+                }
             }
 
             return true;
