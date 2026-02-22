@@ -512,7 +512,10 @@ export async function createAdCreative(adAccountId: string, name: string, object
                 body.object_story_spec.link_data.instagram_actor_id = currentIgId;
             }
 
-            console.log(`GAGE: [Attempt ${index}] Universal Identity Mirroring with IG: ${currentIgId}`);
+            // EXTRA UI SHOTGUN: Add explicitly to spec root
+            body.object_story_spec.instagram_business_account = currentIgId;
+
+            console.log(`GAGE: [Attempt ${index}] Absolute Identity Shotgun with IG: ${currentIgId}`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -545,52 +548,9 @@ export async function createAdCreative(adAccountId: string, name: string, object
             console.warn(`GAGE_ERROR: Attempt ${index} (${currentIgId || 'FB-ONLY'}) failed: ${e.message} (Code: ${code}, Sub: ${sub}, Blame: ${blame})`);
 
             if (currentIgId && isPotentialIgError) {
-                // FALLBACK 1: Try legacy 'instagram_actor_id' field name at root
-                console.log("GAGE_RETRY: Trying alternative 'instagram_actor_id' root field...");
-                const altBody = JSON.parse(JSON.stringify(body));
-                delete altBody.instagram_user_id;
-                altBody.instagram_actor_id = currentIgId;
-
-                const altRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(altBody)
-                });
-                const altData = await altRes.json();
-                if (!altData.error) return { ...altData, ig_linked: true, method: 'actor_id_root' };
-
-                // FALLBACK 2: Try legacy 'instagram_user_id' placement inside object_story_spec
-                console.log("GAGE_RETRY: Trying spec.instagram_user_id fallback...");
-                const specUserBody = JSON.parse(JSON.stringify(body));
-                specUserBody.object_story_spec.instagram_user_id = currentIgId;
-                delete specUserBody.instagram_user_id;
-
-                const specUserRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(specUserBody)
-                });
-                const specUserData = await specUserRes.json();
-                if (!specUserData.error) return { ...specUserData, ig_linked: true, method: 'spec_user_id' };
-
-                // FALLBACK 3: Try legacy 'instagram_actor_id' placement inside object_story_spec
-                console.log("GAGE_RETRY: Trying spec.instagram_actor_id fallback...");
-                const specActorBody = JSON.parse(JSON.stringify(body));
-                specActorBody.object_story_spec.instagram_actor_id = currentIgId;
-                delete specActorBody.instagram_user_id;
-
-                const specActorRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(specActorBody)
-                });
-                const specActorData = await specActorRes.json();
-                if (!specActorData.error) return { ...specActorData, ig_linked: true, method: 'spec_actor_id' };
-
-
-                // Rotate to next available Instagram ID if any
+                // ROTATE OR FALLBACK
                 if (!isLastIg) {
-                    console.warn(`GAGE_RETRY: Rotating to next available Instagram ID...`);
+                    console.warn(`GAGE_RETRY: Identity error. Rotating to next available ID...`);
                     return executeAttempt(index + 1);
                 }
 
@@ -625,23 +585,29 @@ export async function createAdCreative(adAccountId: string, name: string, object
             // Not an IG error, OR no more fallback options, return the actual error
             throw new Error(`Meta V21.0 Error: ${e.message} (Code: ${code}, Sub: ${sub}, Blame: ${blame})`);
         }
-        return { ...data, ig_linked: !!currentIgId };
+        return { ...data, ig_linked: !!currentIgId, ig_id: currentIgId };
     };
 
     return executeAttempt(0);
 }
 
-export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED') {
+export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED', instagramActorId?: string) {
+    const body: any = {
+        name,
+        adset_id: adSetId,
+        creative: { creative_id: creativeId },
+        status: status,
+        access_token: accessToken
+    };
+
+    if (instagramActorId) {
+        body.instagram_actor_id = instagramActorId;
+    }
+
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/ads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            name,
-            adset_id: adSetId,
-            creative: { creative_id: creativeId },
-            status: status,
-            access_token: accessToken
-        })
+        body: JSON.stringify(body)
     });
     const data = await response.json();
     if (data.error) {

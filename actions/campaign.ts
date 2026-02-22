@@ -286,8 +286,13 @@ export async function createSmartCampaignAction(formData: {
             if (!pages || pages.length === 0) throw new Error("Nenhuma Página do Facebook encontrada.");
             bestPage = pages[0];
             pageId = bestPage.id;
-            instagramId = (bestPage as any).connected_instagram_account?.id;
-            console.warn("WARNING: No identity selected or found, falling back to first page:", bestPage.name);
+            console.warn("WARNING: Falling back to first available page context:", bestPage.name);
+        }
+
+        // SYNC IDENTITY: If instagramId is missing but bestPage has one (likely auto-mapped), use it!
+        if (!instagramId && bestPage.connected_instagram_account?.id) {
+            instagramId = bestPage.connected_instagram_account.id;
+            console.log(`GAGE: Identity Sync - Using Instagram ${instagramId} from Page ${bestPage.name}`);
         }
 
         let safeObjective = formData.objective;
@@ -428,7 +433,8 @@ export async function createSmartCampaignAction(formData: {
                     creativeResult.id,
                     `Ad ${formData.goal.substring(0, 20)}${suffix}`,
                     accessToken,
-                    'PAUSED'
+                    'PAUSED',
+                    creativeResult.ig_id // Universal Identity injection at Ad level
                 );
                 creativeResults.push(creativeResult);
 
