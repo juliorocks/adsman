@@ -96,19 +96,21 @@ export async function handleGoogleCallbackAction(code: string, state?: string) {
     }
 }
 
+import { getCurrentUserId } from "@/lib/data/settings";
+
 /**
  * Fetches Google Drive files for the current user
  */
 export async function getGoogleDriveFilesAction() {
     try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Não autenticado");
+        const userId = await getCurrentUserId();
+        if (!userId) throw new Error("Identificação de usuário não encontrada");
 
-        const { data: integration, error: dbError } = await supabase
+        const adminClient = createAdminClient();
+        const { data: integration, error: dbError } = await adminClient
             .from("integrations")
             .select("*")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .eq("platform", "google")
             .single();
 
@@ -135,7 +137,7 @@ export async function getGoogleDriveFilesAction() {
                 const encryptedAccessToken = encrypt(accessToken);
                 const expiresAt = credentials.expiry_date ? new Date(credentials.expiry_date).toISOString() : undefined;
 
-                await supabase
+                await adminClient
                     .from("integrations")
                     .update({
                         access_token_ref: encryptedAccessToken,
