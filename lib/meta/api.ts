@@ -129,39 +129,46 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
     });
     rawPages = Array.from(uniqueMap.values());
 
-    // Aggressive Discovery: Find the "Holy Grail" ID (Linked to both Page and Ad Account)
+    // Aggressive Discovery: Find the "Holy Grail" ID (Actor, Business, or Page-Backed)
     let pages = await Promise.all(rawPages.map(async (p) => {
         let pageLinkedIgs: string[] = [];
 
-        // 1. Get IDs from Page endpoint (Actor IDs)
+        // Path A: Standard Actor Accounts endpoint
         try {
-            const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id&access_token=${accessToken}`);
-            const igData = await igRes.json();
-            if (igData.data) pageLinkedIgs = igData.data.map((ig: any) => String(ig.id));
+            const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id&access_token=${accessToken}`);
+            const data = await res.json();
+            if (data.data) data.data.forEach((ig: any) => pageLinkedIgs.push(String(ig.id)));
         } catch (e) { }
 
-        // 2. Get IDs from Page fields (Business/Legacy IDs)
+        // Path B: Page-Backed Instagram Accounts (Modern "New Page Experience" source)
+        try {
+            const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/page_backed_instagram_accounts?fields=id&access_token=${accessToken}`);
+            const data = await res.json();
+            if (data.data) data.data.forEach((ig: any) => pageLinkedIgs.push(String(ig.id)));
+        } catch (e) { }
+
+        // Path C: Native Fields (Connected/Business)
         if (p.instagram_business_account?.id) pageLinkedIgs.push(String(p.instagram_business_account.id));
         if (p.connected_instagram_account?.id) pageLinkedIgs.push(String(p.connected_instagram_account.id));
 
         pageLinkedIgs = Array.from(new Set(pageLinkedIgs));
 
-        // 3. CROSS-VALIDATION: Find the ID that the Ad Account ALSO recognizes
+        // CROSS-VALIDATION: Find the ID that is both linked to the Page AND authorized for the Ad Account
         const authorizedIgIds = new Set(authorizedIgs.map(ig => String(ig.id)));
         let igId = pageLinkedIgs.find(id => authorizedIgIds.has(id));
-        let source = igId ? "cross_validated" : "none";
+        let source = igId ? "triple_path_verified" : "none";
 
-        // Fallback to first available page-linked ID if no cross-validation matches
+        // Emergency fallback: If no cross-validation but page has one IG, use it (could be unshared yet)
         if (!igId && pageLinkedIgs.length > 0) {
             igId = pageLinkedIgs[0];
-            source = "page_only";
+            source = "page_only_fallback";
         }
 
         return {
             id: p.id,
             name: p.name,
             connected_instagram_account: igId ? { id: igId } : undefined,
-            alternative_instagram_ids: authorizedIgs, // Keep all authorized for rotation fallbacks
+            alternative_instagram_ids: authorizedIgs,
             ig_source: source
         };
     }));
@@ -508,25 +515,25 @@ export async function createAdCreative(adAccountId: string, name: string, object
         if (currentIgId) {
             const igIdStr = String(currentIgId);
 
-            // AGGRESSIVE IDENTITY ANCHOR (Aios-Master Force)
-            // We set the fields that Ads Manager UI uses to verify the 'Identity' state.
+            // ORION IDENTITY SHADOWING (V21.0 Gold Standard)
+            // Mirroring the ID across the validated actor fields to force UI synchronization.
             body.instagram_actor_id = igIdStr;
             body.instagram_user_id = igIdStr;
-            body.instagram_business_account_id = igIdStr;
 
-            // Spec Anchor: instagram_business_account is the modern anchor for ID selection
+            // Spec Anchor: the 'instagram_actor_id' inside story_spec is the main asset link
             body.object_story_spec.instagram_actor_id = igIdStr;
-            body.object_story_spec.instagram_user_id = igIdStr;
+
+            // Modern UI Anchor: instagram_business_account triggers the Ads Manager identity check
             body.object_story_spec.instagram_business_account = igIdStr;
 
-            // Media-level redundancy
+            // Deep Injection for Link/Video placement visibility
             if (body.object_story_spec.video_data) {
                 body.object_story_spec.video_data.instagram_actor_id = igIdStr;
             } else if (body.object_story_spec.link_data) {
                 body.object_story_spec.link_data.instagram_actor_id = igIdStr;
             }
 
-            console.log(`GAGE: [Aios-Master] Absolute Identity Anchor (IG: ${igIdStr})`);
+            console.log(`GAGE: [Orion Mode] Identity Shadowing (IG: ${igIdStr})`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -641,7 +648,8 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
     if (instagramActorId) {
         const igIdStr = String(instagramActorId);
         body.instagram_actor_id = igIdStr;
-        // Note: Removed 'instagram_id' from Ad level to avoid V21.0 validation conflicts
+        // Inject at ad-level to assist UI auto-selection
+        (body as any).instagram_id = igIdStr;
     }
 
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/ads`, {
