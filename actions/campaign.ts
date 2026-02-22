@@ -172,40 +172,50 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         }
         const pageId = pages[0].id;
 
-        // 4. Upload all images
-        const uploadedImages: { hash: string; index: number }[] = [];
+        // 4. Upload all images in parallel
         let imageDebug = 'no_images_provided';
+        const uploadedImages: { hash: string; index: number }[] = [];
+
         if (formData.images && formData.images.length > 0) {
             imageDebug = `received_${formData.images.length}_images`;
-            for (let i = 0; i < formData.images.length; i++) {
-                const imgData = formData.images[i];
-                if (!imgData || imgData.length === 0) continue;
+            const uploadPromises = formData.images.map(async (imgData, i) => {
+                if (!imgData || imgData.length === 0) return null;
                 try {
-                    const uploadResult = await uploadAdImage(adAccountId, imgData, accessToken);
-                    uploadedImages.push({ hash: uploadResult.hash, index: i });
-                } catch (imgErr: any) {
-                    console.error(`Image ${i} upload failed:`, imgErr.message);
+                    const result = await uploadAdImage(adAccountId, imgData, accessToken);
+                    return { hash: result.hash, index: i };
+                } catch (err: any) {
+                    console.error(`Upload error image ${i}:`, err.message);
+                    return null;
                 }
-            }
+            });
+
+            const results = await Promise.all(uploadPromises);
+            results.forEach(r => { if (r) uploadedImages.push(r); });
             imageDebug = `uploaded_${uploadedImages.length}_of_${formData.images.length}`;
         }
 
         // 5. Create Ad Creatives + Ads
-        // Sanitize text: remove chars that could break Meta API
-        const sanitize = (s: string) => s.replace(/[\x00-\x1F]/g, ' ').trim();
-        const headline = sanitize(aiTargeting.headline || formData.goal.substring(0, 40));
-        const primaryText = sanitize(aiTargeting.primary_text || formData.goal.substring(0, 125));
-        // User's LP URL takes priority over AI suggestion
-        const linkUrl = formData.linkUrl && formData.linkUrl.trim()
-            ? formData.linkUrl.trim()
-            : (aiTargeting.link_url || 'https://www.facebook.com/');
+        // Robust sanitization for titles and text
+        const sanitize = (text: string, limit: number) => {
+            return text
+                .replace(/[^\w\sÀ-ÿ,.!?-]/gi, '') // Keep only letters, numbers, basic punctuation
+                .replace(/\s+/g, ' ')
+                .trim()
+                .substring(0, limit);
+        };
 
-        // Create one creative+ad per image, or one without image if no images
+        const headline = sanitize(aiTargeting.headline || formData.goal, 40);
+        const primaryText = formData.goal.substring(0, 1000); // More lenient for body text
+        const linkUrl = formData.linkUrl?.trim() || aiTargeting.link_url || 'https://www.facebook.com/';
+
         const adsToCreate = uploadedImages.length > 0
             ? uploadedImages.map((img, idx) => ({ imageHash: img.hash, label: idx + 1 }))
             : [{ imageHash: null as string | null, label: 0 }];
 
-        for (const adVariation of adsToCreate) {
+        // Process ad variations in parallel
+        await Promise.all(adsToCreate.map(async (adVariation) => {
+            const suffix = adVariation.label > 0 ? ` v${adVariation.label}` : '';
+
             const linkData: any = {
                 message: primaryText,
                 link: linkUrl,
@@ -220,33 +230,26 @@ export async function createSmartCampaignAction(formData: { objective: string, g
                 linkData.image_hash = adVariation.imageHash;
             }
 
-            const objectStorySpec = {
-                page_id: pageId,
-                link_data: linkData,
-            };
-
-            const suffix = adVariation.label > 0 ? ` v${adVariation.label}` : '';
-
             const creative = await createAdCreative(
                 adAccountId,
-                sanitize(`Creative: ${formData.goal.substring(0, 25)}...${suffix}`),
-                objectStorySpec,
+                sanitize(`Creative ${formData.goal.substring(0, 15)}${suffix}`, 60),
+                { page_id: pageId, link_data: linkData },
                 accessToken
             );
 
-            await createAd(
+            return createAd(
                 adAccountId,
                 adSet.id,
                 creative.id,
-                sanitize(`Ad: ${formData.goal.substring(0, 35)}...${suffix}`),
+                sanitize(`Ad ${formData.goal.substring(0, 20)}${suffix}`, 60),
                 accessToken,
                 'PAUSED'
             );
-        }
+        }));
 
         await createLog({
             action_type: 'OTHER',
-            description: `Campanha "${formData.goal.substring(0, 20)}..." criada com sucesso (com anúncio).`,
+            description: `Campanha "${formData.goal.substring(0, 20)}..." criada com sucesso (${adsToCreate.length} variações).`,
             target_id: campaign.id,
             target_name: `Smart AI: ${formData.goal.substring(0, 20)}...`,
             agent: 'STRATEGIST',
