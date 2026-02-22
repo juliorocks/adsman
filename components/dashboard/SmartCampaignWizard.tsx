@@ -4,7 +4,7 @@
 import { useRef, useState } from "react";
 import { Bot, Sparkles, Target, DollarSign, Image as ImageIcon, CheckCircle2, ChevronRight, Loader2, AlertCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createSmartCampaignAction } from "@/actions/campaign";
+import { createSmartCampaignAction, uploadMediaAction } from "@/actions/campaign";
 import { generateCreativeIdeasAction } from "@/actions/creatives";
 
 const OBJECTIVES = [
@@ -58,23 +58,27 @@ export function SmartCampaignWizard() {
         setError(null);
 
         try {
-            const mediaList: { type: 'IMAGE' | 'VIDEO', data: string }[] = [];
             const targetedFiles = images.slice(0, 10);
+            const mediaReferences: { type: 'IMAGE' | 'VIDEO', ref: string }[] = [];
 
-            for (const file of targetedFiles) {
+            for (let i = 0; i < targetedFiles.length; i++) {
+                const file = targetedFiles[i];
+                const isVideo = file.type.startsWith('video/');
+
+                // Show status update
+                setError(`Enviando ${isVideo ? 'vídeo' : 'imagem'} ${i + 1} de ${targetedFiles.length}...`);
+
                 try {
-                    const isVideo = file.type.startsWith('video/');
-
+                    let base64 = "";
                     if (isVideo) {
-                        const base64 = await new Promise<string>((resolve, reject) => {
+                        base64 = await new Promise<string>((resolve, reject) => {
                             const reader = new FileReader();
                             reader.onload = (e) => resolve((e.target?.result as string).split(',')[1] || '');
                             reader.onerror = () => reject(new Error('Failed to read video file'));
                             reader.readAsDataURL(file);
                         });
-                        mediaList.push({ type: 'VIDEO', data: base64 });
                     } else {
-                        const base64 = await new Promise<string>((resolve, reject) => {
+                        base64 = await new Promise<string>((resolve, reject) => {
                             const reader = new FileReader();
                             reader.onload = (e) => {
                                 const imgElement = new Image();
@@ -107,19 +111,32 @@ export function SmartCampaignWizard() {
                             reader.onerror = () => reject(new Error('Failed to read file'));
                             reader.readAsDataURL(file);
                         });
-                        mediaList.push({ type: 'IMAGE', data: base64 });
+                    }
+
+                    // Individual upload per file to avoid 413 error
+                    const uploadResult = await uploadMediaAction({
+                        type: isVideo ? 'VIDEO' : 'IMAGE',
+                        data: base64
+                    });
+
+                    if (uploadResult.success && uploadResult.ref) {
+                        mediaReferences.push({ type: uploadResult.type as any, ref: uploadResult.ref });
+                    } else {
+                        console.error(`Upload failed for ${file.name}:`, uploadResult.error);
                     }
                 } catch (err) {
-                    console.error("Media processing failed:", file.name, err);
+                    console.error("Media processing/upload failed:", file.name, err);
                 }
             }
+
+            setError(null);
 
             const result = await createSmartCampaignAction({
                 objective: formData.objective,
                 goal: formData.goal,
                 budget: formData.budget,
                 linkUrl: formData.linkUrl,
-                media: mediaList,
+                mediaReferences,
             });
 
             if (!result) {

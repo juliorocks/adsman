@@ -100,7 +100,32 @@ export async function toggleCampaignStatus(id: string, status: 'ACTIVE' | 'PAUSE
     return toggleStatusAction(id, 'CAMPAIGN', status, name);
 }
 
-export async function createSmartCampaignAction(formData: { objective: string, goal: string, budget: string, linkUrl?: string, media?: { type: 'IMAGE' | 'VIDEO', data: string }[] }) {
+export async function uploadMediaAction(item: { type: 'IMAGE' | 'VIDEO', data: string }) {
+    const integration = await getIntegration();
+    if (!integration || !integration.access_token_ref || !integration.ad_account_id) {
+        throw new Error("No Meta integration found");
+    }
+
+    try {
+        const accessToken = decrypt(integration.access_token_ref);
+        const adAccountId = integration.ad_account_id.startsWith('act_')
+            ? integration.ad_account_id
+            : `act_${integration.ad_account_id}`;
+
+        if (item.type === 'VIDEO') {
+            const result = await uploadAdVideo(adAccountId, item.data, accessToken);
+            return { success: true, ref: result.id, type: 'VIDEO' };
+        } else {
+            const result = await uploadAdImage(adAccountId, item.data, accessToken);
+            return { success: true, ref: result.hash, type: 'IMAGE' };
+        }
+    } catch (error: any) {
+        console.error("Upload Media Action error:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function createSmartCampaignAction(formData: { objective: string, goal: string, budget: string, linkUrl?: string, mediaReferences?: { type: 'IMAGE' | 'VIDEO', ref: string }[] }) {
     const integration = await getIntegration();
     if (!integration || !integration.access_token_ref || !integration.ad_account_id) {
         throw new Error("No Meta integration found");
@@ -171,28 +196,8 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         const pageId = bestPage.id;
         const instagramId = (bestPage as any).connected_instagram_account?.id;
 
-        // 4. Parallel Uploads (Images and Videos)
-        const uploadedMedia: { hash?: string; id?: string; type: 'IMAGE' | 'VIDEO'; index: number }[] = [];
-
-        if (formData.media && formData.media.length > 0) {
-            const uploadPromises = formData.media.map(async (item, i) => {
-                try {
-                    if (item.type === 'VIDEO') {
-                        const result = await uploadAdVideo(adAccountId, item.data, accessToken);
-                        return { id: result.id, type: 'VIDEO' as const, index: i };
-                    } else {
-                        const result = await uploadAdImage(adAccountId, item.data, accessToken);
-                        return { hash: result.hash, type: 'IMAGE' as const, index: i };
-                    }
-                } catch (err: any) {
-                    console.error(`Upload error media ${i}:`, err.message);
-                    return null;
-                }
-            });
-
-            const results = await Promise.all(uploadPromises);
-            results.forEach(r => { if (r) uploadedMedia.push(r); });
-        }
+        // 4. Media references are now passed pre-uploaded
+        const uploadedMedia = formData.mediaReferences || [];
 
         // 5. Create Ad Creatives + Ads
         const headline = (aiTargeting.headline || formData.goal).substring(0, 40);
@@ -201,15 +206,15 @@ export async function createSmartCampaignAction(formData: { objective: string, g
 
         const adsToCreate = uploadedMedia.length > 0
             ? uploadedMedia
-            : [{ hash: null, type: 'IMAGE' as const, index: 0 }];
+            : [{ ref: null, type: 'IMAGE' as const }];
 
-        const adResults = await Promise.all(adsToCreate.map(async (mediaItem) => {
-            const suffix = mediaItem.index > 0 ? ` v${mediaItem.index + 1}` : '';
+        const adResults = await Promise.all(adsToCreate.map(async (mediaItem, idx) => {
+            const suffix = idx > 0 ? ` v${idx + 1}` : '';
             let objectStorySpec: any = { page_id: pageId };
 
-            if (mediaItem.type === 'VIDEO' && mediaItem.id) {
+            if (mediaItem.type === 'VIDEO' && mediaItem.ref) {
                 objectStorySpec.video_data = {
-                    video_id: mediaItem.id,
+                    video_id: mediaItem.ref,
                     message: primaryText,
                     call_to_action: {
                         type: 'LEARN_MORE',
@@ -226,7 +231,7 @@ export async function createSmartCampaignAction(formData: { objective: string, g
                         value: { link: linkUrl }
                     }
                 };
-                if (mediaItem.hash) linkData.image_hash = mediaItem.hash;
+                if (mediaItem.ref) linkData.image_hash = mediaItem.ref;
                 objectStorySpec.link_data = linkData;
             }
 
