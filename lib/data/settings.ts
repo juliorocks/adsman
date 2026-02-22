@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/security/vault";
 import { getAdAccounts, AdAccount } from "@/lib/meta/api";
 
+const MOCK_USER_ID = "de70c0de-ad00-4000-8000-000000000000";
+
 export async function getCurrentUserId(): Promise<string | null> {
     try {
         const supabase = await createClient();
@@ -12,7 +14,7 @@ export async function getCurrentUserId(): Promise<string | null> {
 
     try {
         const devSession = cookies().get("dev_session");
-        if (devSession) return "mock_user_id_dev";
+        if (devSession) return MOCK_USER_ID;
     } catch (e) { }
 
     return null;
@@ -39,19 +41,19 @@ export async function getIntegration() {
         } catch (e) { }
 
         if (!user && devSession) {
-            user = { id: "mock_user_id_dev" } as any;
+            user = { id: MOCK_USER_ID } as any;
         }
 
         if (!user) return null;
 
-        if (user.id === "mock_user_id_dev") {
+        if (user.id === MOCK_USER_ID) {
             const devToken = cookies().get("dev_meta_token")?.value;
             const selectedAccountId = cookies().get("dev_ad_account_id")?.value;
 
             if (devToken) {
                 return {
                     id: "mock_int_real",
-                    user_id: "mock_user_id_dev",
+                    user_id: MOCK_USER_ID,
                     platform: "meta",
                     status: "active",
                     ad_account_id: selectedAccountId || null,
