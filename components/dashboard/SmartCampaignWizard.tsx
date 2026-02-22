@@ -58,23 +58,27 @@ export function SmartCampaignWizard() {
         setError(null);
 
         try {
-            // Convert images to base64, but limit size (Next.js server actions have ~1MB payload limit)
+            // Convert images to base64 (up to 3 images, each up to 4MB)
             const imageBase64List: string[] = [];
-            for (const img of images.slice(0, 1)) { // Only first image for now
+            for (const img of images.slice(0, 3)) {
                 if (img.size > 4 * 1024 * 1024) {
-                    // Skip images larger than 4MB
                     console.warn("Image too large, skipping:", img.name, img.size);
                     continue;
                 }
-                const base64 = await new Promise<string>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                        const dataUrl = reader.result as string;
-                        resolve(dataUrl.split(',')[1] || '');
-                    };
-                    reader.readAsDataURL(img);
-                });
-                imageBase64List.push(base64);
+                try {
+                    const base64 = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            const dataUrl = reader.result as string;
+                            resolve(dataUrl.split(',')[1] || '');
+                        };
+                        reader.onerror = () => reject(new Error('Failed to read image'));
+                        reader.readAsDataURL(img);
+                    });
+                    if (base64) imageBase64List.push(base64);
+                } catch (readErr) {
+                    console.warn("Failed to read image, skipping:", img.name);
+                }
             }
 
             const result = await createSmartCampaignAction({

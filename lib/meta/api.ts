@@ -214,8 +214,8 @@ export async function getInsights(
     return data.data || [];
 }
 
-// Upload an image to the ad account and return the image hash
-export async function uploadAdImage(adAccountId: string, imageBase64: string, accessToken: string): Promise<string> {
+// Upload an image to the ad account and return the image hash + url
+export async function uploadAdImage(adAccountId: string, imageBase64: string, accessToken: string): Promise<{ hash: string; url: string }> {
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adimages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -230,11 +230,13 @@ export async function uploadAdImage(adAccountId: string, imageBase64: string, ac
         console.error("Meta API uploadAdImage Error:", JSON.stringify(e, null, 2));
         throw new Error(`ImageUpload: ${e.message} | ${e.error_user_msg || 'none'}`);
     }
-    // Response format: { images: { bytes: { hash: "abc123", ... } } }
+    console.log("Meta uploadAdImage full response:", JSON.stringify(data));
+    // Response format: { images: { bytes: { hash: "abc123", url: "https://..." } } }
     const images = data.images;
     if (images) {
         const firstKey = Object.keys(images)[0];
-        return images[firstKey].hash;
+        const imgData = images[firstKey];
+        return { hash: imgData.hash, url: imgData.url || '' };
     }
     throw new Error('ImageUpload: No hash returned from Meta');
 }

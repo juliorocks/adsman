@@ -172,66 +172,77 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         }
         const pageId = pages[0].id;
 
-        // 4. Upload image if provided
-        let imageHash: string | null = null;
+        // 4. Upload all images
+        const uploadedImages: { hash: string; index: number }[] = [];
         let imageDebug = 'no_images_provided';
-        if (formData.images && formData.images.length > 0 && formData.images[0]) {
-            const imgData = formData.images[0];
-            imageDebug = `received_${imgData.length}_chars`;
-            try {
-                imageHash = await uploadAdImage(adAccountId, imgData, accessToken);
-                imageDebug = `uploaded_hash=${imageHash}`;
-            } catch (imgErr: any) {
-                imageDebug = `upload_failed: ${imgErr.message}`;
-                console.error("Image upload failed:", imgErr.message);
-                // Don't fail the whole campaign - continue without image
+        if (formData.images && formData.images.length > 0) {
+            imageDebug = `received_${formData.images.length}_images`;
+            for (let i = 0; i < formData.images.length; i++) {
+                const imgData = formData.images[i];
+                if (!imgData || imgData.length === 0) continue;
+                try {
+                    const uploadResult = await uploadAdImage(adAccountId, imgData, accessToken);
+                    uploadedImages.push({ hash: uploadResult.hash, index: i });
+                } catch (imgErr: any) {
+                    console.error(`Image ${i} upload failed:`, imgErr.message);
+                }
             }
+            imageDebug = `uploaded_${uploadedImages.length}_of_${formData.images.length}`;
         }
 
-        // 5. Create Ad Creative
-        const headline = aiTargeting.headline || formData.goal.substring(0, 40);
-        const primaryText = aiTargeting.primary_text || formData.goal.substring(0, 125);
+        // 5. Create Ad Creatives + Ads
+        // Sanitize text: remove chars that could break Meta API
+        const sanitize = (s: string) => s.replace(/[\x00-\x1F]/g, ' ').trim();
+        const headline = sanitize(aiTargeting.headline || formData.goal.substring(0, 40));
+        const primaryText = sanitize(aiTargeting.primary_text || formData.goal.substring(0, 125));
         // User's LP URL takes priority over AI suggestion
         const linkUrl = formData.linkUrl && formData.linkUrl.trim()
             ? formData.linkUrl.trim()
             : (aiTargeting.link_url || 'https://www.facebook.com/');
 
-        const linkData: any = {
-            message: primaryText,
-            link: linkUrl,
-            name: headline,
-            call_to_action: {
-                type: 'LEARN_MORE',
-                value: { link: linkUrl }
+        // Create one creative+ad per image, or one without image if no images
+        const adsToCreate = uploadedImages.length > 0
+            ? uploadedImages.map((img, idx) => ({ imageHash: img.hash, label: idx + 1 }))
+            : [{ imageHash: null as string | null, label: 0 }];
+
+        for (const adVariation of adsToCreate) {
+            const linkData: any = {
+                message: primaryText,
+                link: linkUrl,
+                name: headline,
+                call_to_action: {
+                    type: 'LEARN_MORE',
+                    value: { link: linkUrl }
+                }
+            };
+
+            if (adVariation.imageHash) {
+                linkData.image_hash = adVariation.imageHash;
             }
-        };
 
-        // Add image hash to the creative if we uploaded one
-        if (imageHash) {
-            linkData.image_hash = imageHash;
+            const objectStorySpec = {
+                page_id: pageId,
+                link_data: linkData,
+            };
+
+            const suffix = adVariation.label > 0 ? ` v${adVariation.label}` : '';
+
+            const creative = await createAdCreative(
+                adAccountId,
+                sanitize(`Creative: ${formData.goal.substring(0, 25)}...${suffix}`),
+                objectStorySpec,
+                accessToken
+            );
+
+            await createAd(
+                adAccountId,
+                adSet.id,
+                creative.id,
+                sanitize(`Ad: ${formData.goal.substring(0, 35)}...${suffix}`),
+                accessToken,
+                'PAUSED'
+            );
         }
-
-        const objectStorySpec = {
-            page_id: pageId,
-            link_data: linkData,
-        };
-
-        const creative = await createAdCreative(
-            adAccountId,
-            `Creative: ${formData.goal.substring(0, 30)}...`,
-            objectStorySpec,
-            accessToken
-        );
-
-        // 6. Create the Ad linking creative to ad set
-        await createAd(
-            adAccountId,
-            adSet.id,
-            creative.id,
-            `Ad: ${formData.goal.substring(0, 40)}...`,
-            accessToken,
-            'PAUSED'
-        );
 
         await createLog({
             action_type: 'OTHER',
