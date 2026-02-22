@@ -503,23 +503,28 @@ export async function createAdCreative(adAccountId: string, name: string, object
         if (currentIgId) {
             const igIdStr = String(currentIgId);
 
-            // 1. ROOT LEVEL MIRROR (Covers modern and legacy fields)
-            body.instagram_user_id = igIdStr;
+            // OMEGA IDENTITY MIRRORING (Vercel/Meta UI Recognition Force)
+            // We set EVERY field Meta uses to ensure the UI 'sticks' the selection.
+
+            // 1. Root Level (Modern & Legacy)
             body.instagram_actor_id = igIdStr;
+            body.instagram_id = igIdStr; // Some legacy UI versions use this
+            body.instagram_user_id = igIdStr;
             body.instagram_business_account_id = igIdStr;
 
-            // 2. SPEC LEVEL MIRROR (Crucial for Ads Manager UI to 'stick')
+            // 2. Spec Level (Crucial for the 'Identity' section in Ads Manager)
             body.object_story_spec.instagram_actor_id = igIdStr;
             body.object_story_spec.instagram_user_id = igIdStr;
+            body.object_story_spec.instagram_business_account = igIdStr;
 
-            // 3. TECHNICAL DATA MIRROR (Inside message blocks)
+            // 3. Data-Block Mirroring (Inside message blocks)
             if (body.object_story_spec.video_data) {
                 body.object_story_spec.video_data.instagram_actor_id = igIdStr;
             } else if (body.object_story_spec.link_data) {
                 body.object_story_spec.link_data.instagram_actor_id = igIdStr;
             }
 
-            console.log(`GAGE: [Attempt ${index}] Total Identity Mirroring with IG: ${igIdStr}`);
+            console.log(`GAGE: [Attempt ${index}] OMEGA Identity Mirroring (IG: ${igIdStr})`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -632,7 +637,9 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
     };
 
     if (instagramActorId) {
-        body.instagram_actor_id = String(instagramActorId);
+        const igIdStr = String(instagramActorId);
+        body.instagram_actor_id = igIdStr;
+        body.instagram_id = igIdStr; // Extra mirror at Ad level
     }
 
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/ads`, {
