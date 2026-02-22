@@ -198,22 +198,36 @@ export function SmartCampaignWizard() {
                     setActiveAccount({ id: result.accountId, name: result.accountName });
                 }
 
-                // 1. Priority: Use preferred IDs from DB
+                // Auto-selection Strategy
+                let newPageId = '';
+                let newIgId = '';
+
+                // 1. Priority: Use preferred IDs from DB (if valid)
                 if (result.preferredPageId) {
-                    setFormData(prev => ({
-                        ...prev,
-                        pageId: result.preferredPageId,
-                        instagramId: result.preferredInstagramId || ''
-                    }));
-                    console.log(`GAGE: Auto-selected preferred identity: ${result.preferredPageId}`);
+                    newPageId = result.preferredPageId;
+                    newIgId = result.preferredInstagramId || '';
+                    console.log(`GAGE: Using preferred identity: ${newPageId}`);
                 }
-                // 2. Fallback: Auto-select first if only one page exists
-                else if (result.data.length === 1 && !formData.pageId) {
+                // 2. Fallback: If only one page exists, auto-select it
+                else if (result.data.length === 1) {
+                    newPageId = result.data[0].id;
+                    newIgId = result.data[0].connected_instagram_account?.id || '';
+                    console.log(`GAGE: Auto-selecting only available page: ${newPageId}`);
+                }
+
+                if (newPageId) {
                     setFormData(prev => ({
                         ...prev,
-                        pageId: result.data[0].id,
-                        instagramId: result.data[0].connected_instagram_account?.id || ''
+                        pageId: newPageId,
+                        instagramId: newIgId
                     }));
+                } else {
+                    // Reset if current selection is invalid for new list
+                    setFormData(prev => {
+                        const isValid = result.data.some((p: any) => p.id === prev.pageId);
+                        if (!isValid) return { ...prev, pageId: '', instagramId: '' };
+                        return prev;
+                    });
                 }
             }
         } catch (err) {

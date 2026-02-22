@@ -154,23 +154,15 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         };
     }));
 
-    // SECURITY FILTER: Only keep pages belonging to this Ad Account's context
-    // This prevents "Client A" pages from appearing when managing "Client B" ad account
+    // SECURITY FILTER: Absolute Privacy Wall
+    // When an ad account is specified, we ONLY show pages explicitly returned by promote_pages.
     if (adAccountId) {
-        const authorizedIgIds = new Set(authorizedIgs.map(ig => ig.id));
         const promotePageIds = new Set(rawPages.filter(p => p._from_promote).map(p => p.id));
 
         const originalCount = pages.length;
         pages = pages.filter(p => {
-            // 1. If it was explicitly in promote_pages, it is authorized
-            if (promotePageIds.has(p.id)) return true;
-
-            // 2. If it has an IG, it MUST be in the authorized list for this account
-            const pageIgId = p.connected_instagram_account?.id;
-            if (pageIgId && authorizedIgIds.has(pageIgId)) return true;
-
-            // 3. Otherwise, it's likely from another client's context
-            return false;
+            // 1. Authority Check: Must be in promote_pages for this account
+            return promotePageIds.has(p.id);
         });
         debugInfo += `_filtered_${originalCount - pages.length}_out_`;
     }

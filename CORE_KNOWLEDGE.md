@@ -47,9 +47,9 @@ Permitir o upload de arquivos pesados (como vídeos em 4K) diretamente do Google
 10. **Smart Identity Persistence**:
     - *Contexto*: O usuário não queria ter que escolher a Página/Instagram toda vez se já estivesse em uma conta específica.
     - *Solução*: O `SmartCampaignWizard` agora consome as `preferred_page_id` e `preferred_instagram_id` da tabela `integrations`. Ao carregar o passo de Identidade, ele pré-seleciona automaticamente os ativos salvos, mantendo a consistência com o que foi definido anteriormente.
-11. **Cross-Client Privacy Wall**:
-    - *Problema*: O Meta Ads às vezes retorna todas as páginas do usuário na API, o que fazia com que ativos de um Cliente B aparecessem na conta do Cliente A.
-    - *Solução*: Implementado um filtro rigoroso em `getPages`. Agora, o sistema primeiro busca quais Contas do Instagram estão autorizadas especificamente naquele Ad Account ID. Em seguida, remove da lista qualquer Página que não esteja vinculada a esses IGs autorizados. Além disso, as preferências salvas (Preferred IDs) são validadas em tempo real e descartadas se não pertencerem à conta ativa.
+11. **Strict Privacy Wall (Final Version)**:
+    - *Problema*: O Meta às vezes retorna todos os ativos do usuário (todas as páginas de todos os clientes) na API geral, o que causava vazamento de dados entre contas de clientes diferentes.
+    - *Solução*: O sistema agora ignora a descoberta geral (`me/accounts`) para fins de exibição e utiliza **exclusivamente** o endpoint `promote_pages` da Ad Account ativa como fonte de autoridade. Se uma página não estiver explicitamente vinculada àquela conta de anúncios no Meta, ela é sumariamente removida da lista. Isso garante isolamento total entre clientes e permite que a auto-seleção funcione corretamente ao reduzir a lista apenas aos ativos legítimos da conta.
 
 ---
 
