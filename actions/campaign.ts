@@ -175,18 +175,23 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         }
 
         // Prioritize pages that match the Ad Account Name (to avoid client leak)
-        const adAccountNameMatch = pageDebug.match(/_account_(.*?)_/);
+        // Extract name using both suffixes (_acc_ or _account_)
+        const adAccountNameMatch = pageDebug.match(/_(?:acc|account)_(.*?)_/);
         const adAccountName = adAccountNameMatch ? adAccountNameMatch[1] : "";
         const cleanAccName = adAccountName.replace(/\[.*?\]/g, '').trim().toLowerCase();
 
-        // Clean keywords (>3 chars) to avoid matches with "the", "for", etc.
-        const keywords = cleanAccName.split(' ').filter(k => k.length > 3);
+        // Clean keywords (>2 chars to include "CM" etc if needed, but here >3 is safer)
+        const keywords = cleanAccName.split(' ').filter(k => k.length > 2);
+
+        console.log(`Matching Logic: AccName: "${adAccountName}", Clean: "${cleanAccName}", Keywords: [${keywords.join(', ')}]`);
 
         let bestPage = pages.find(p => {
             const pName = p.name.toLowerCase();
-            return (keywords.length > 0 && keywords.some(k => pName.includes(k))) ||
-                pName.includes(cleanAccName) ||
-                cleanAccName.includes(pName);
+            // High confidence: Exact phrase match
+            if (pName.includes(cleanAccName) || cleanAccName.includes(pName)) return true;
+            // Medium confidence: Multiple keywords match
+            const matches = keywords.filter(k => pName.includes(k));
+            return matches.length >= Math.min(keywords.length, 2);
         });
 
         // Fallback 1: First page with IG
@@ -203,7 +208,7 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         const instagramId = (bestPage as any).connected_instagram_account?.id;
         const allPageNames = pages.map(p => p.name).join(' | ');
 
-        console.log(`Campaign Creation Debug - AdAcc: ${adAccountName}, Clean: ${cleanAccName}, Selected: ${bestPage.name} (${pageId}), IG: ${instagramId || 'NOT FOUND'}, All: ${allPageNames}`);
+        console.log(`Campaign Creation Debug - AdAcc: ${adAccountName}, Selected: ${bestPage.name} (${pageId}), IG: ${instagramId || 'NOT FOUND'}, All: ${allPageNames}`);
 
         // 4. Upload all images in parallel
         const igStatus = instagramId ? `ig_found_${instagramId}` : `ig_missing_${pageDebug}`;
