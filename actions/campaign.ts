@@ -7,6 +7,8 @@ import { decrypt } from "@/lib/security/vault";
 import { createCampaign, createAdSet, createAdCreative, createAd, getPages, uploadAdImage, uploadAdVideo, updateObjectStatus, getAdSetsForCampaign, getAdsForAdSet, uploadAdImageFromUrl, uploadAdVideoFromUrl } from "@/lib/meta/api";
 import { parseTargetingFromGoal } from "@/lib/ai/openai";
 import { createLog } from "@/lib/data/logs";
+import { getGoogleAccessToken } from "@/actions/google-drive";
+import { downloadDriveFile } from "@/lib/google/drive";
 
 export async function getFacebookPagesAction() {
     try {
@@ -166,7 +168,7 @@ export async function uploadMediaAction(item: { type: 'IMAGE' | 'VIDEO', data: s
     }
 }
 
-export async function uploadMediaFromUrlAction(item: { type: 'IMAGE' | 'VIDEO', url: string }) {
+export async function uploadMediaFromUrlAction(item: { type: 'IMAGE' | 'VIDEO', url: string, fileId?: string }) {
     const integration = await getIntegration();
     if (!integration || !integration.access_token_ref || !integration.ad_account_id) {
         throw new Error("No Meta integration found");
@@ -178,11 +180,32 @@ export async function uploadMediaFromUrlAction(item: { type: 'IMAGE' | 'VIDEO', 
             ? integration.ad_account_id
             : `act_${integration.ad_account_id}`;
 
+        let base64 = "";
+
+        // 1. Fetch the file on the server
+        if (item.fileId && (item.url.includes('google.com') || item.url.includes('googleapis.com'))) {
+            // Specialized Google Drive download
+            console.log(`GAGE: Cloud Import using Drive API for fileId: ${item.fileId}`);
+            const googleToken = await getGoogleAccessToken();
+            if (!googleToken) throw new Error("Google Drive não conectado para baixar o arquivo.");
+
+            const buffer = await downloadDriveFile(googleToken, item.fileId);
+            base64 = buffer.toString('base64');
+        } else {
+            // General URL fetch
+            const response = await fetch(item.url);
+            if (!response.ok) throw new Error(`Failed to fetch media from URL: ${response.statusText}`);
+
+            const arrayBuffer = await response.arrayBuffer();
+            base64 = Buffer.from(arrayBuffer).toString('base64');
+        }
+
+        // 2. Upload to Meta as bytes
         if (item.type === 'VIDEO') {
-            const result = await uploadAdVideoFromUrl(adAccountId, item.url, accessToken);
+            const result = await uploadAdVideo(adAccountId, base64, accessToken);
             return { success: true, ref: result.id, type: 'VIDEO' };
         } else {
-            const result = await uploadAdImageFromUrl(adAccountId, item.url, accessToken);
+            const result = await uploadAdImage(adAccountId, base64, accessToken);
             return { success: true, ref: result.hash, type: 'IMAGE' };
         }
     } catch (error: any) {

@@ -27,13 +27,27 @@ export async function getDriveClient(accessToken: string) {
     return google.drive({ version: 'v3', auth });
 }
 
-export async function listDriveFiles(accessToken: string, query: string = "mimeType contains 'image/' or mimeType contains 'video/'") {
+export async function listDriveFiles(accessToken: string, folderId: string = 'root') {
     const drive = await getDriveClient(accessToken);
+
+    // Query items in the specific folder that are either folders, images or videos
+    const query = `'${folderId}' in parents and (mimeType = 'application/vnd.google-apps.folder' or mimeType contains 'image/' or mimeType contains 'video/') and trashed = false`;
+
     const response = await drive.files.list({
-        pageSize: 50,
+        pageSize: 100,
         fields: 'nextPageToken, files(id, name, mimeType, thumbnailLink, webViewLink, webContentLink, size)',
         q: query,
         spaces: 'drive',
+        orderBy: 'folder,name', // Folders first, then by name
     });
     return response.data;
+}
+
+export async function downloadDriveFile(accessToken: string, fileId: string): Promise<Buffer> {
+    const drive = await getDriveClient(accessToken);
+    const response = await drive.files.get(
+        { fileId, alt: 'media' },
+        { responseType: 'arraybuffer' }
+    );
+    return Buffer.from(response.data as ArrayBuffer);
 }

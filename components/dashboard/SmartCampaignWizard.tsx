@@ -322,7 +322,8 @@ export function SmartCampaignWizard() {
 
                 const result = await uploadMediaFromUrlAction({
                     type: cloudFile.type,
-                    url: cloudFile.url
+                    url: cloudFile.url,
+                    fileId: cloudFile.id
                 });
 
                 if (result.success && result.ref) {

@@ -12,7 +12,7 @@ Permitir o upload de arquivos pesados (como vídeos em 4K) diretamente do Google
 ### 🛠️ Arquitetura e Decisões
 1. **OAuth2 Resilience**: Implementado fluxo com `offline_access` e `refresh_tokens` criptografados no banco (Supabase).
 2. **Vault de Segurança**: Uso de AES-256-GCM para proteger tokens em repouso.
-3. **Cloud Pipeline**: O Meta Ads recebe apenas a URL do arquivo do Drive; a importação ocorre entre os servidores do Google e Meta.
+3. **Cloud Pipeline (Updated)**: Inicialmente tentamos o pipeline direto via URL, mas migramos para o **Server-side Fetch + Byte Upload** para maior confiabilidade contra restrições de aplicativos do Meta.
 
 ### ❌ Erros Enfrentados e Soluções (SAGA COMPLETA)
 1. **URI Mismatch (Erro 400)**: 
@@ -30,11 +30,17 @@ Permitir o upload de arquivos pesados (como vídeos em 4K) diretamente do Google
 5. **RLS Violation (Bypass de Segurança)**:
    - *Causa*: Supabase bloqueava a gravação por política de segurança de linha.
    - *Solução*: Criado o `createAdminClient` em `lib/supabase/admin.ts` usando a `SERVICE_ROLE_KEY` para garantir gravação 100% confiável no callback do Google.
+6. **Meta Capability Error (#3 Application Capability)**:
+   - *Causa*: O Meta Ads App não tinha permissão para buscar (pull) arquivos de URLs externas diretamente, resultando em erro ao tentar usar `file_url` para arquivos do Drive.
+   - *Solução (Server-Side Pipeline)*: Mudamos de "URL Link Fetch" para **"Server-side Fetch + Byte Upload"**. Agora o servidor do AIOS baixa o arquivo (usando Google Drive API para arquivos privados) e envia o buffer binário diretamente para o Meta. Isso resolve problemas de permissão e visibilidade.
+7. **Navegação em Pastas no Drive**:
+   - *Contexto*: A lista plana de arquivos era insuficiente para usuários com muitos ativos.
+   - *Solução*: Implementado suporte completo a pastas e breadcrumbs em `GoogleDriveSelector.tsx`, usando hierarquia de `folderId` via API v3.
 
 ---
 
 ## 📌 Regras de Ouro do Projeto
 - **Auth**: Sempre use `getCurrentUserId()` em `lib/data/settings.ts` para garantir compatibilidade entre Prod e Dev.
-- **Admin Ops**: Use o `createAdminClient` para operações críticas de integração que ocorrem via redirecionamentos externos (onde o cookie de sessão é instável).
+- **Admin Ops**: Use o `createAdminClient` para operações críticas de integração que ocorrem via redirecionamentos externos.
 - **Tokens**: Nunca salve tokens em texto limpo. Use o `encrypt` do `lib/security/vault.ts`.
-- **Cloud-to-Cloud**: Para arquivos > 20MB, a preferência é sempre o pipeline via URL, não upload de base64.
+- **Cloud Import (New Strategy)**: Para arquivos do Drive, prefira sempre o download via servidor + upload de Bytes/Binary para o Meta. Isso evita erros de "Capability" do App e problemas com links não públicos.

@@ -99,56 +99,65 @@ export async function handleGoogleCallbackAction(code: string, state?: string) {
 import { getCurrentUserId } from "@/lib/data/settings";
 
 /**
- * Fetches Google Drive files for the current user
+ * Helper to get and refresh Google token
  */
-export async function getGoogleDriveFilesAction() {
+export async function getGoogleAccessToken() {
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error("Identificação de usuário não encontrada");
+
+    const adminClient = createAdminClient();
+    const { data: integration, error: dbError } = await adminClient
+        .from("integrations")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("platform", "google")
+        .single();
+
+    if (dbError || !integration || !integration.access_token_ref) {
+        return null;
+    }
+
+    let accessToken = decrypt(integration.access_token_ref);
+
+    // Check for expiration
+    if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
+        if (!integration.refresh_token_ref) return accessToken; // Try current anyway
+
+        const client = getOAuth2Client();
+        client.setCredentials({
+            refresh_token: decrypt(integration.refresh_token_ref)
+        });
+
+        const { credentials } = await client.refreshAccessToken();
+        if (credentials.access_token) {
+            accessToken = credentials.access_token;
+            const encryptedAccessToken = encrypt(accessToken);
+            const expiresAt = credentials.expiry_date ? new Date(credentials.expiry_date).toISOString() : undefined;
+
+            await adminClient
+                .from("integrations")
+                .update({
+                    access_token_ref: encryptedAccessToken,
+                    expires_at: expiresAt,
+                    updated_at: new Date().toISOString()
+                })
+                .eq("id", integration.id);
+        }
+    }
+    return accessToken;
+}
+
+/**
+ * Fetches Google Drive files for the current user in a specific folder
+ */
+export async function getGoogleDriveFilesAction(folderId: string = 'root') {
     try {
-        const userId = await getCurrentUserId();
-        if (!userId) throw new Error("Identificação de usuário não encontrada");
-
-        const adminClient = createAdminClient();
-        const { data: integration, error: dbError } = await adminClient
-            .from("integrations")
-            .select("*")
-            .eq("user_id", userId)
-            .eq("platform", "google")
-            .single();
-
-        if (dbError || !integration || !integration.access_token_ref) {
+        const accessToken = await getGoogleAccessToken();
+        if (!accessToken) {
             return { success: false, error: "Google Drive não conectado" };
         }
 
-        let accessToken = decrypt(integration.access_token_ref);
-
-        // Check for expiration and refresh if necessary
-        if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
-            if (!integration.refresh_token_ref) {
-                return { success: false, error: "Token expirado e sem refresh token" };
-            }
-
-            const client = getOAuth2Client();
-            client.setCredentials({
-                refresh_token: decrypt(integration.refresh_token_ref)
-            });
-
-            const { credentials } = await client.refreshAccessToken();
-            if (credentials.access_token) {
-                accessToken = credentials.access_token;
-                const encryptedAccessToken = encrypt(accessToken);
-                const expiresAt = credentials.expiry_date ? new Date(credentials.expiry_date).toISOString() : undefined;
-
-                await adminClient
-                    .from("integrations")
-                    .update({
-                        access_token_ref: encryptedAccessToken,
-                        expires_at: expiresAt,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq("id", integration.id);
-            }
-        }
-
-        const files = await listDriveFiles(accessToken);
+        const files = await listDriveFiles(accessToken, folderId);
         return { success: true, files: files.files };
     } catch (error: any) {
         console.error("getGoogleDriveFilesAction error:", error);
