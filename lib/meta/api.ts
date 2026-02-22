@@ -501,13 +501,25 @@ export async function createAdCreative(adAccountId: string, name: string, object
         };
 
         if (currentIgId) {
-            // SURGICAL IDENTITY: In V21.0, the UI favors 'instagram_actor_id' at the root for auto-selection.
-            body.instagram_actor_id = currentIgId;
+            const igIdStr = String(currentIgId);
 
-            // SPEC MIRROR: Mirroring inside spec for redundancy in some ad formats
-            body.object_story_spec.instagram_actor_id = currentIgId;
+            // 1. ROOT LEVEL MIRROR (Covers modern and legacy fields)
+            body.instagram_user_id = igIdStr;
+            body.instagram_actor_id = igIdStr;
+            body.instagram_business_account_id = igIdStr;
 
-            console.log(`GAGE: [Attempt ${index}] Identity Injection with IG Actor: ${currentIgId}`);
+            // 2. SPEC LEVEL MIRROR (Crucial for Ads Manager UI to 'stick')
+            body.object_story_spec.instagram_actor_id = igIdStr;
+            body.object_story_spec.instagram_user_id = igIdStr;
+
+            // 3. TECHNICAL DATA MIRROR (Inside message blocks)
+            if (body.object_story_spec.video_data) {
+                body.object_story_spec.video_data.instagram_actor_id = igIdStr;
+            } else if (body.object_story_spec.link_data) {
+                body.object_story_spec.link_data.instagram_actor_id = igIdStr;
+            }
+
+            console.log(`GAGE: [Attempt ${index}] Total Identity Mirroring with IG: ${igIdStr}`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -540,10 +552,11 @@ export async function createAdCreative(adAccountId: string, name: string, object
             console.warn(`GAGE_ERROR: Attempt ${index} (${currentIgId || 'FB-ONLY'}) failed: ${e.message} (Code: ${code}, Sub: ${sub}, Blame: ${blame})`);
 
             if (currentIgId && isPotentialIgError) {
-                // FALLBACK 1: Try adding 'instagram_user_id' (modern field)
-                console.log("GAGE_RETRY: Trying modern 'instagram_user_id' field...");
+                // FALLBACK 1: Try modern 'instagram_user_id' ONLY (Some accounts prefer this)
+                console.log("GAGE_RETRY: Trying modern-only fallback...");
                 const modernBody = JSON.parse(JSON.stringify(body));
-                modernBody.instagram_user_id = currentIgId;
+                delete modernBody.instagram_actor_id;
+                modernBody.instagram_user_id = String(currentIgId);
 
                 const modernRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
                     method: 'POST',
@@ -551,20 +564,21 @@ export async function createAdCreative(adAccountId: string, name: string, object
                     body: JSON.stringify(modernBody)
                 });
                 const modernData = await modernRes.json();
-                if (!modernData.error) return { ...modernData, ig_linked: true, method: 'user_id_root', ig_id: currentIgId };
+                if (!modernData.error) return { ...modernData, ig_linked: true, method: 'modern_only', ig_id: currentIgId };
 
-                // FALLBACK 2: Try moving it deep into object_story_spec
-                console.log("GAGE_RETRY: Trying deep spec fallback...");
-                const deepBody = JSON.parse(JSON.stringify(body));
-                deepBody.object_story_spec.instagram_user_id = currentIgId;
+                // FALLBACK 2: Try legacy 'instagram_actor_id' ONLY
+                console.log("GAGE_RETRY: Trying legacy-only fallback...");
+                const legacyBody = JSON.parse(JSON.stringify(body));
+                delete legacyBody.instagram_user_id;
+                legacyBody.instagram_actor_id = String(currentIgId);
 
-                const deepRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+                const legacyRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(deepBody)
+                    body: JSON.stringify(legacyBody)
                 });
-                const deepData = await deepRes.json();
-                if (!deepData.error) return { ...deepData, ig_linked: true, method: 'spec_deep', ig_id: currentIgId };
+                const legacyData = await legacyRes.json();
+                if (!legacyData.error) return { ...legacyData, ig_linked: true, method: 'legacy_only', ig_id: currentIgId };
 
                 // ROTATE OR FAILBACK
                 if (!isLastIg) {
@@ -608,7 +622,6 @@ export async function createAdCreative(adAccountId: string, name: string, object
 
     return executeAttempt(0);
 }
-
 export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED', instagramActorId?: string) {
     const body: any = {
         name,
@@ -619,7 +632,7 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
     };
 
     if (instagramActorId) {
-        body.instagram_actor_id = instagramActorId;
+        body.instagram_actor_id = String(instagramActorId);
     }
 
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/ads`, {
