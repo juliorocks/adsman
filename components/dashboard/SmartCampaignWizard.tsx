@@ -296,8 +296,12 @@ export function SmartCampaignWizard() {
                         data: base64
                     });
 
-                    if (uploadResult.success && uploadResult.ref) {
+                    if (uploadResult && uploadResult.success && uploadResult.ref) {
                         mediaReferences.push({ type: uploadResult.type as any, ref: uploadResult.ref });
+                    } else {
+                        const errorMsg = uploadResult?.error || "Falha na resposta do servidor (provavelmente arquivo muito grande).";
+                        console.error(`Media upload failed for ${file.name}:`, errorMsg);
+                        throw new Error(`Erro ao subir "${file.name}": ${errorMsg}`);
                     }
                 } catch (err) {
                     console.error("Media processing/upload failed:", file.name, err);

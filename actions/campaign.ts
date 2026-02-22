@@ -191,15 +191,20 @@ export async function createSmartCampaignAction(formData: {
         let instagramId = formData.instagramId || (integration as any).preferred_instagram_id;
         let bestPage: any = null;
 
-        if (!pageId) {
-            // Discovery Fallback (ONLY IF NOT SPECIFIED)
-            const pageResult = await getPages(accessToken, adAccountId);
-            const pages = pageResult.pages;
+        // Fetch all pages to ensure we have the full object (needed for alternative_instagram_ids matching)
+        const pageResult = await getPages(accessToken, adAccountId);
+        const pages = pageResult.pages;
+
+        if (pageId) {
+            bestPage = pages.find((p: any) => p.id === pageId);
+        }
+
+        if (!pageId || !bestPage) {
             if (!pages || pages.length === 0) throw new Error("Nenhuma Página do Facebook encontrada.");
             bestPage = pages[0];
             pageId = bestPage.id;
             instagramId = (bestPage as any).connected_instagram_account?.id;
-            console.warn("WARNING: No identity selected, falling back to first page:", bestPage.name);
+            console.warn("WARNING: No identity selected or found, falling back to first page:", bestPage.name);
         }
 
         let safeObjective = formData.objective;
