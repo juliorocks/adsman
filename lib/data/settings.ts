@@ -69,6 +69,26 @@ export async function getIntegration() {
     }
 }
 
+export async function getGoogleIntegration() {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+
+        const { data, error } = await supabase
+            .from("integrations")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("platform", "google")
+            .single();
+
+        if (error) return null;
+        return data;
+    } catch (err) {
+        return null;
+    }
+}
+
 export async function getAvailableAdAccounts(): Promise<AdAccount[]> {
     const integration = await getIntegration();
     if (!integration || !integration.access_token_ref) return [];

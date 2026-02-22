@@ -3,9 +3,10 @@
 
 import { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bot, Sparkles, Target, DollarSign, Image as ImageIcon, CheckCircle2, ChevronRight, Loader2, AlertCircle, X, Box, Activity } from "lucide-react";
+import { Bot, Sparkles, Target, DollarSign, Image as ImageIcon, CheckCircle2, ChevronRight, Loader2, AlertCircle, X, Box, Activity, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createSmartCampaignAction, uploadMediaAction, getFacebookPagesAction, updatePreferredIdentityAction } from "@/actions/campaign";
+import { createSmartCampaignAction, uploadMediaAction, getFacebookPagesAction, updatePreferredIdentityAction, uploadMediaFromUrlAction } from "@/actions/campaign";
+import { GoogleDriveSelector } from "./GoogleDriveSelector";
 import { generateCreativeIdeasAction } from "@/actions/creatives";
 
 const OBJECTIVES = [
@@ -166,6 +167,8 @@ export function SmartCampaignWizard() {
         instagramId: '',
     });
     const [images, setImages] = useState<File[]>([]);
+    const [cloudFiles, setCloudFiles] = useState<{ id: string, name: string, url: string, type: 'IMAGE' | 'VIDEO' }[]>([]);
+    const [showDriveSelector, setShowDriveSelector] = useState(false);
     const [aiSuggestions, setAiSuggestions] = useState<{
         headlines: string[];
         primary_texts: string[];
@@ -228,6 +231,7 @@ export function SmartCampaignWizard() {
             setActiveMessage({ agent: 'strategist', text: 'Analizando os KPIs de destino e preparando a rota de distribuição neural...' });
             await new Promise(r => setTimeout(r, 2000));
 
+            // Process Local Files
             for (let i = 0; i < targetedFiles.length; i++) {
                 const file = targetedFiles[i];
                 const isVideo = file.type.startsWith('video/');
@@ -308,6 +312,26 @@ export function SmartCampaignWizard() {
                 }
             }
 
+            // Process Cloud Files
+            for (let i = 0; i < cloudFiles.length; i++) {
+                const cloudFile = cloudFiles[i];
+                setActiveMessage({
+                    agent: 'creative',
+                    text: `Importando "${cloudFile.name}" via Pipeline Cloud (Google Drive)...`
+                });
+
+                const result = await uploadMediaFromUrlAction({
+                    type: cloudFile.type,
+                    url: cloudFile.url
+                });
+
+                if (result.success && result.ref) {
+                    mediaReferences.push({ type: result.type as any, ref: result.ref });
+                } else {
+                    throw new Error(`Cloud Import Falhou: ${result.error}`);
+                }
+            }
+
             setActiveMessage({ agent: 'auditor', text: 'Executando auditoria técnica nos criativos e checando compliance de marca...' });
             await new Promise(r => setTimeout(r, 2000));
 
@@ -383,6 +407,23 @@ export function SmartCampaignWizard() {
             <div className="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden min-h-[460px]">
                 <AnimatePresence>
                     {activeMessage && <AgentSquadOverlay activeMessage={activeMessage} />}
+                </AnimatePresence>
+
+                <AnimatePresence>
+                    {showDriveSelector && (
+                        <GoogleDriveSelector
+                            onClose={() => setShowDriveSelector(false)}
+                            onSelect={(file) => {
+                                setCloudFiles([...cloudFiles, {
+                                    id: file.id,
+                                    name: file.name,
+                                    url: file.webContentLink || '',
+                                    type: file.mimeType.includes('video') ? 'VIDEO' : 'IMAGE'
+                                }]);
+                                setShowDriveSelector(false);
+                            }}
+                        />
+                    )}
                 </AnimatePresence>
                 {/* Step 1: Objective */}
                 {step === 1 && (
@@ -613,32 +654,49 @@ export function SmartCampaignWizard() {
                                 onChange={(e) => {
                                     if (e.target.files) {
                                         const newFiles = Array.from(e.target.files);
-                                        const tooLarge = newFiles.filter(f => f.size > 4.5 * 1024 * 1024);
+                                        const tooLarge = newFiles.filter(f => f.size > 14.5 * 1024 * 1024); // Relaxed for images
                                         if (tooLarge.length > 0) {
-                                            setError(`Os seguintes arquivos são muito grandes (>4.5MB) e podem falhar: ${tooLarge.map(f => f.name).join(', ')}`);
+                                            setError(`Os seguintes arquivos são muito grandes e podem falhar: ${tooLarge.map(f => f.name).join(', ')}. Considere carregar via Google Drive.`);
                                         }
                                         setImages([...images, ...newFiles]);
                                     }
                                 }}
                             />
 
-                            <div
-                                onClick={() => fileInputRef.current?.click()}
-                                className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-12 text-center space-y-4 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-primary-50/10 dark:hover:bg-primary-900/10 transition-colors cursor-pointer group"
-                            >
-                                <div className="h-16 w-16 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-full mx-auto flex items-center justify-center group-hover:bg-primary-50 dark:group-hover:bg-primary-900/20 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-all">
-                                    <ImageIcon className="h-8 w-8" />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-8 text-center space-y-3 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-primary-50/10 dark:hover:bg-primary-900/10 transition-colors cursor-pointer group"
+                                >
+                                    <div className="h-12 w-12 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-full mx-auto flex items-center justify-center group-hover:bg-primary-50 dark:group-hover:bg-primary-900/20 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-all">
+                                        <ImageIcon className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">Upload Manual</p>
+                                        <p className="text-[10px] text-slate-400 dark:text-slate-500">Selecione arquivos do seu dispositivo</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="font-semibold text-slate-900 dark:text-white">Suba suas imagens (opcional)</p>
-                                    <p className="text-sm text-slate-400 dark:text-slate-500">A IA também pode usar as sugestões acima se você não tiver imagens agora.</p>
+
+                                <div
+                                    onClick={() => setShowDriveSelector(true)}
+                                    className="border-2 border-dashed border-blue-200 dark:border-blue-900/50 rounded-2xl p-8 text-center space-y-3 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/10 dark:hover:bg-blue-900/10 transition-colors cursor-pointer group"
+                                >
+                                    <div className="h-12 w-12 bg-blue-50 dark:bg-blue-900/20 text-blue-400 dark:text-blue-500 rounded-full mx-auto flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-all">
+                                        <Database className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">Google Drive / Vault</p>
+                                        <p className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1">
+                                            Recomendado para vídeos HD <Sparkles className="h-2 w-2 text-blue-400" />
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 
-                            {images.length > 0 && (
+                            {(images.length > 0 || cloudFiles.length > 0) && (
                                 <div className="grid grid-cols-1 gap-2">
                                     {images.map((file, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
+                                        <div key={`local-${idx}`} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
                                             <div className="flex items-center gap-3 overflow-hidden">
                                                 {file.type.startsWith('video/') ? (
                                                     <div className="h-4 w-4 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
@@ -651,6 +709,21 @@ export function SmartCampaignWizard() {
                                             </div>
                                             <button
                                                 onClick={() => setImages(images.filter((_, i) => i !== idx))}
+                                                className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {cloudFiles.map((file, idx) => (
+                                        <div key={`cloud-${idx}`} className="flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800">
+                                            <div className="flex items-center gap-3 overflow-hidden">
+                                                <Database className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                                                <span className="text-sm text-blue-900 dark:text-blue-300 truncate">{file.name}</span>
+                                                <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full uppercase font-black tracking-tighter">CLOUD</span>
+                                            </div>
+                                            <button
+                                                onClick={() => setCloudFiles(cloudFiles.filter((_, i) => i !== idx))}
                                                 className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                                             >
                                                 <X className="h-4 w-4" />

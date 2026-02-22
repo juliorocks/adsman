@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getIntegration } from "@/lib/data/settings";
 import { decrypt } from "@/lib/security/vault";
-import { createCampaign, createAdSet, createAdCreative, createAd, getPages, uploadAdImage, uploadAdVideo, updateObjectStatus, getAdSetsForCampaign, getAdsForAdSet } from "@/lib/meta/api";
+import { createCampaign, createAdSet, createAdCreative, createAd, getPages, uploadAdImage, uploadAdVideo, updateObjectStatus, getAdSetsForCampaign, getAdsForAdSet, uploadAdImageFromUrl, uploadAdVideoFromUrl } from "@/lib/meta/api";
 import { parseTargetingFromGoal } from "@/lib/ai/openai";
 import { createLog } from "@/lib/data/logs";
 
@@ -162,6 +162,31 @@ export async function uploadMediaAction(item: { type: 'IMAGE' | 'VIDEO', data: s
         }
     } catch (error: any) {
         console.error("Upload Media Action error:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function uploadMediaFromUrlAction(item: { type: 'IMAGE' | 'VIDEO', url: string }) {
+    const integration = await getIntegration();
+    if (!integration || !integration.access_token_ref || !integration.ad_account_id) {
+        throw new Error("No Meta integration found");
+    }
+
+    try {
+        const accessToken = decrypt(integration.access_token_ref);
+        const adAccountId = integration.ad_account_id.startsWith('act_')
+            ? integration.ad_account_id
+            : `act_${integration.ad_account_id}`;
+
+        if (item.type === 'VIDEO') {
+            const result = await uploadAdVideoFromUrl(adAccountId, item.url, accessToken);
+            return { success: true, ref: result.id, type: 'VIDEO' };
+        } else {
+            const result = await uploadAdImageFromUrl(adAccountId, item.url, accessToken);
+            return { success: true, ref: result.hash, type: 'IMAGE' };
+        }
+    } catch (error: any) {
+        console.error("Upload Media From URL Action error:", error);
         return { success: false, error: error.message };
     }
 }

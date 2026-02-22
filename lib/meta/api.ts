@@ -263,13 +263,7 @@ export async function uploadAdImage(adAccountId: string, imageBase64: string, ac
         })
     });
     const data = await response.json();
-    if (data.error) {
-        const e = data.error;
-        console.error("Meta API uploadAdImage Error:", JSON.stringify(e, null, 2));
-        throw new Error(`ImageUpload: ${e.message} | ${e.error_user_msg || 'none'}`);
-    }
-    console.log("Meta uploadAdImage full response:", JSON.stringify(data));
-    // Response format: { images: { bytes: { hash: "abc123", url: "https://..." } } }
+    if (data.error) throw new Error(`ImageUpload: ${data.error.message}`);
     const images = data.images;
     if (images) {
         const firstKey = Object.keys(images)[0];
@@ -277,6 +271,43 @@ export async function uploadAdImage(adAccountId: string, imageBase64: string, ac
         return { hash: imgData.hash, url: imgData.url || '' };
     }
     throw new Error('ImageUpload: No hash returned from Meta');
+}
+
+// Upload an image to the ad account from a URL and return the image hash + url
+export async function uploadAdImageFromUrl(adAccountId: string, imageUrl: string, accessToken: string): Promise<{ hash: string; url: string }> {
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adimages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            url: imageUrl,
+            access_token: accessToken
+        })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(`ImageUploadFromUrl: ${data.error.message}`);
+    const images = data.images;
+    if (images) {
+        const firstKey = Object.keys(images)[0];
+        const imgData = images[firstKey];
+        return { hash: imgData.hash, url: imgData.url || '' };
+    }
+    throw new Error('ImageUploadFromUrl: No hash returned from Meta');
+}
+
+// Upload a video to the ad account from a URL and return the video ID
+export async function uploadAdVideoFromUrl(adAccountId: string, videoUrl: string, accessToken: string): Promise<{ id: string }> {
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/advideos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            file_url: videoUrl,
+            access_token: accessToken
+        })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(`VideoUploadFromUrl: ${data.error.message}`);
+    return { id: data.id || data.video_id };
 }
 
 // Upload a video to the ad account and return the video ID
