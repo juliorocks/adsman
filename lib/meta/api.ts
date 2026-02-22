@@ -153,17 +153,34 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
 
         candidateIds = Array.from(new Set(candidateIds));
 
-        // Path D: Cross-Reference & Name Match against Ad Account
+        // Path D: Cross-Reference & Fuzzy Name Match (Identity Bloodhound)
         const authorizedIgIds = new Set(authorizedIgs.map(ig => String(ig.id)));
         let igId = candidateIds.find(id => authorizedIgIds.has(id));
 
-        // Secondary name match if discovery endpoints are flaky
+        const clean = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        // Secondary matching via normalized fuzzy lookup
         if (!igId) {
-            const match = authorizedIgs.find(ig => ig.username?.toLowerCase() === p.name.toLowerCase() || p.name.toLowerCase().includes(ig.username?.toLowerCase() || ''));
+            const cleanPageName = clean(p.name);
+            const match = authorizedIgs.find(ig => {
+                const cleanIgName = clean(ig.username || '');
+                return cleanIgName && (cleanPageName.includes(cleanIgName) || cleanIgName.includes(cleanPageName));
+            });
             if (match) igId = String(match.id);
         }
 
-        let source = igId ? (authorizedIgIds.has(igId!) ? "triple_path_verified" : "name_match") : "none";
+        // Tertiary "Solo-Authorized" mapping: If discovery fails but we have exactly one authorized IG 
+        // that belongs to this business context, we use it. This solves the "Shadow Link" issue.
+        if (!igId && authorizedIgs.length === 1) {
+            const soloIg = authorizedIgs[0];
+            const cleanP = clean(p.name);
+            const cleanIg = clean(soloIg.username || '');
+            if (cleanIg && (cleanP.includes(cleanIg) || cleanIg.includes(cleanP))) {
+                igId = String(soloIg.id);
+            }
+        }
+
+        let source = igId ? (authorizedIgIds.has(igId!) ? "triple_path_verified" : "fuzzy_match") : "none";
 
         // Emergency fallback: If no cross-validation but page has one IG, use it
         if (!igId && candidateIds.length > 0) {
@@ -504,16 +521,17 @@ export async function createAdCreative(adAccountId: string, name: string, object
         if (currentIgId) {
             const igIdStr = String(currentIgId);
 
-            // THE PRECISE PIVOT: Triple-Anchor Identity Linkage (V21.0)
-            // Mirrors the ID across the core fields that trigger UI auto-selection.
+            // THE UNIFIED BIND: V21.0/V22.0 Hybrid (TESTE14)
+            // Mirrors the ID across the core fields to force UI synchronization.
             body.instagram_actor_id = igIdStr;
-            body.instagram_user_id = igIdStr; // Root redundancy
+            body.instagram_user_id = igIdStr; // Root modern link
 
-            // Spec Anchors (The link the UI uses for the dropdown match)
+            // Spec Binding: providing both formats ensures the UI 'Identity' card auto-populates
             body.object_story_spec.instagram_actor_id = igIdStr;
+            body.object_story_spec.instagram_user_id = igIdStr;
             body.object_story_spec.instagram_business_account = igIdStr;
 
-            console.log(`GAGE: [Precise Pivot] Identity Tri-Anchored (IG: ${igIdStr})`);
+            console.log(`GAGE: [Identity Bloodhound] Unified Binding (IG: ${igIdStr})`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
