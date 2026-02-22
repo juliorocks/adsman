@@ -131,42 +131,50 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
 
     // Aggressive Discovery: Find the "Holy Grail" ID (Actor, Business, or Page-Backed)
     let pages = await Promise.all(rawPages.map(async (p) => {
-        let pageLinkedIgs: string[] = [];
+        let candidateIds: string[] = [];
 
         // Path A: Standard Actor Accounts endpoint
         try {
             const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id&access_token=${accessToken}`);
             const data = await res.json();
-            if (data.data) data.data.forEach((ig: any) => pageLinkedIgs.push(String(ig.id)));
+            if (data.data) data.data.forEach((ig: any) => candidateIds.push(String(ig.id)));
         } catch (e) { }
 
         // Path B: Page-Backed Instagram Accounts (Modern "New Page Experience" source)
         try {
             const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/page_backed_instagram_accounts?fields=id&access_token=${accessToken}`);
             const data = await res.json();
-            if (data.data) data.data.forEach((ig: any) => pageLinkedIgs.push(String(ig.id)));
+            if (data.data) data.data.forEach((ig: any) => candidateIds.push(String(ig.id)));
         } catch (e) { }
 
         // Path C: Native Fields (Connected/Business)
-        if (p.instagram_business_account?.id) pageLinkedIgs.push(String(p.instagram_business_account.id));
-        if (p.connected_instagram_account?.id) pageLinkedIgs.push(String(p.connected_instagram_account.id));
+        if (p.instagram_business_account?.id) candidateIds.push(String(p.instagram_business_account.id));
+        if (p.connected_instagram_account?.id) candidateIds.push(String(p.connected_instagram_account.id));
 
-        pageLinkedIgs = Array.from(new Set(pageLinkedIgs));
+        candidateIds = Array.from(new Set(candidateIds));
 
-        // CROSS-VALIDATION: Find the ID that is both linked to the Page AND authorized for the Ad Account
+        // Path D: Cross-Reference & Name Match against Ad Account
         const authorizedIgIds = new Set(authorizedIgs.map(ig => String(ig.id)));
-        let igId = pageLinkedIgs.find(id => authorizedIgIds.has(id));
-        let source = igId ? "triple_path_verified" : "none";
+        let igId = candidateIds.find(id => authorizedIgIds.has(id));
 
-        // Emergency fallback: If no cross-validation but page has one IG, use it (could be unshared yet)
-        if (!igId && pageLinkedIgs.length > 0) {
-            igId = pageLinkedIgs[0];
+        // Secondary name match if discovery endpoints are flaky
+        if (!igId) {
+            const match = authorizedIgs.find(ig => ig.username?.toLowerCase() === p.name.toLowerCase() || p.name.toLowerCase().includes(ig.username?.toLowerCase() || ''));
+            if (match) igId = String(match.id);
+        }
+
+        let source = igId ? (authorizedIgIds.has(igId!) ? "triple_path_verified" : "name_match") : "none";
+
+        // Emergency fallback: If no cross-validation but page has one IG, use it
+        if (!igId && candidateIds.length > 0) {
+            igId = candidateIds[0];
             source = "page_only_fallback";
         }
 
         return {
             id: p.id,
             name: p.name,
+            _from_promote: !!p._from_promote,
             connected_instagram_account: igId ? { id: igId } : undefined,
             alternative_instagram_ids: authorizedIgs,
             ig_source: source
@@ -174,25 +182,15 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
     }));
 
     // SECURITY FILTER: Absolute Privacy Wall (Client Context)
-    // We only show Pages that are 100% confirmed as belonging to this Client/Ad Account context.
     if (adAccountId) {
-        const promotePageIds = new Set(rawPages.filter(p => p._from_promote).map(p => p.id));
-        const authorizedIgIds = new Set(authorizedIgs.map(ig => ig.id));
+        const adAccName = (debugInfo.match(/_acc_(.*?)_/) || [])[1]?.toLowerCase() || "";
+        const authorizedIgIds = new Set(authorizedIgs.map(ig => String(ig.id)));
 
-        const originalCount = pages.length;
         pages = pages.filter(p => {
             // 1. Must be returned by promote_pages (Authoritative link)
-            if (!promotePageIds.has(p.id)) return false;
+            if (!p._from_promote) return false;
 
-            // 2. Discover/Validate the IG for this page in this account's context
-            let pageIgId = p.connected_instagram_account?.id;
-
-            // CROSS-REFERENCE: Use the ID from the authorized list if available (Meta prefers Account-level IDs)
-            const authMatch = authorizedIgs.find(ig => ig.id === pageIgId || ig.username?.toLowerCase() === p.name.toLowerCase());
-            if (authMatch) {
-                pageIgId = authMatch.id;
-                p.connected_instagram_account = { id: pageIgId };
-            }
+            const pageIgId = p.connected_instagram_account?.id;
 
             // SECURITY RULE #1: Hard rejection of pages linked to unauthorized Instagrams
             if (pageIgId && authorizedIgs.length > 0 && !authorizedIgIds.has(pageIgId)) {
@@ -200,28 +198,19 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
                 return false;
             }
 
-            // Context Matching (Ad Account Name vs Page Name)
-            const cleanAcc = (debugInfo.match(/_acc_(.*?)_/) || [])[1]?.toLowerCase().replace(/\[.*?\]/g, '').trim() || "";
+            // Context Matching
             const pageName = p.name.toLowerCase();
-            const relevantParts = cleanAcc.split(' ').filter(part => part.length > 3);
-            const isNameMatch = relevantParts.length > 0 && relevantParts.some((part: string) => pageName.includes(part));
+            const relevantParts = adAccName.split(' ').filter(part => part.length > 3);
+            const isNameMatch = relevantParts.length > 0 && relevantParts.some(part => pageName.includes(part));
 
             // SECURITY RULE #2: Strict context isolation
-            // If we have MORE THAN ONE page and this one doesn't match the name OR the IG, block it.
             if (pages.length > 1 && !isNameMatch && (!pageIgId || !authorizedIgIds.has(pageIgId))) {
                 debugInfo += `_rejectUnrelatedContext_${p.name}_`;
                 return false;
             }
 
-            // SMART MAPPING: If missing an IG link but context matches and we have one authorized IG, use it.
-            if (!pageIgId && authorizedIgs.length === 1 && isNameMatch) {
-                p.connected_instagram_account = { id: authorizedIgs[0].id };
-                debugInfo += `_autoMapped_${p.name}_`;
-            }
-
             return true;
         });
-        debugInfo += `_filtered_${originalCount - pages.length}_out_`;
     }
 
     debugInfo += `_pages_[${pages.map(p => `${p.name}:${p.connected_instagram_account?.id || 'NO_IG'}`).join('|')}]_`;
@@ -515,25 +504,29 @@ export async function createAdCreative(adAccountId: string, name: string, object
         if (currentIgId) {
             const igIdStr = String(currentIgId);
 
-            // ORION IDENTITY SHADOWING (V21.0 Gold Standard)
-            // Mirroring the ID across the validated actor fields to force UI synchronization.
+            // ORION PROTOCOL V3: ABSOLUTE IDENTITY MIRRORING
+            // We set the identity in every single field Meta UI uses for auto-selection.
+
+            // Root Mirroring
             body.instagram_actor_id = igIdStr;
             body.instagram_user_id = igIdStr;
+            body.instagram_id = igIdStr;
+            body.instagram_business_account_id = igIdStr;
 
-            // Spec Anchor: the 'instagram_actor_id' inside story_spec is the main asset link
+            // Spec Anchor Mirroring (Forces the UI to sync)
             body.object_story_spec.instagram_actor_id = igIdStr;
-
-            // Modern UI Anchor: instagram_business_account triggers the Ads Manager identity check
+            body.object_story_spec.instagram_user_id = igIdStr;
             body.object_story_spec.instagram_business_account = igIdStr;
+            body.object_story_spec.instagram_business_account_id = igIdStr;
 
-            // Deep Injection for Link/Video placement visibility
+            // Placement-level redundancy
             if (body.object_story_spec.video_data) {
                 body.object_story_spec.video_data.instagram_actor_id = igIdStr;
             } else if (body.object_story_spec.link_data) {
                 body.object_story_spec.link_data.instagram_actor_id = igIdStr;
             }
 
-            console.log(`GAGE: [Orion Mode] Identity Shadowing (IG: ${igIdStr})`);
+            console.log(`GAGE: [Orion Protocol V3] Absolute Identity Mirror (IG: ${igIdStr})`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
