@@ -10,7 +10,9 @@ export function getOAuth2Client(): OAuth2Client {
     if (!clientID || !clientSecret || !redirectURI) {
         throw new Error("Missing Google OAuth environment variables");
     }
-    return new google.auth.OAuth2(clientID, clientSecret, redirectURI);
+    // Debug log to ensure the URI matches the Google Console exactly (server-side logs only)
+    console.log("[GoogleAuth] Initializing with Redirect URI:", redirectURI.trim());
+    return new google.auth.OAuth2(clientID, clientSecret, redirectURI.trim());
 }
 
 export const GOOGLE_SCOPES = [
