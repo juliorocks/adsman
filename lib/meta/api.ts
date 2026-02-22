@@ -504,12 +504,16 @@ export async function createAdCreative(adAccountId: string, name: string, object
         if (currentIgId) {
             const igIdStr = String(currentIgId);
 
-            // CLEAN SWEEP: Minimalist Precision (V21.0 Standard)
-            // Excessive fields can confuse the Ads Manager UI parser.
+            // THE PRECISE PIVOT: Triple-Anchor Identity Linkage (V21.0)
+            // Mirrors the ID across the core fields that trigger UI auto-selection.
             body.instagram_actor_id = igIdStr;
-            body.object_story_spec.instagram_actor_id = igIdStr;
+            body.instagram_user_id = igIdStr; // Root redundancy
 
-            console.log(`GAGE: [Clean Sweep] Identity Anchored (IG: ${igIdStr})`);
+            // Spec Anchors (The link the UI uses for the dropdown match)
+            body.object_story_spec.instagram_actor_id = igIdStr;
+            body.object_story_spec.instagram_business_account = igIdStr;
+
+            console.log(`GAGE: [Precise Pivot] Identity Tri-Anchored (IG: ${igIdStr})`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -622,7 +626,10 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
     };
 
     if (instagramActorId) {
-        body.instagram_actor_id = String(instagramActorId);
+        const igIdStr = String(instagramActorId);
+        body.instagram_actor_id = igIdStr;
+        // The 'instagram_id' field is used by some UI versions to bind the dropdown
+        (body as any).instagram_id = igIdStr;
     }
 
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/ads`, {
