@@ -609,7 +609,7 @@ export async function createAdCreative(adAccountId: string, name: string, object
     return executeAttempt(0);
 }
 
-export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED') {
+export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED', instagramActorId?: string) {
     const body: any = {
         name,
         adset_id: adSetId,
@@ -617,6 +617,10 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
         status: status,
         access_token: accessToken
     };
+
+    if (instagramActorId) {
+        body.instagram_actor_id = instagramActorId;
+    }
 
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/ads`, {
         method: 'POST',
