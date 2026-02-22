@@ -81,7 +81,7 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
     let debugInfo = "";
     const fields = "id,name,connected_instagram_account,instagram_business_account";
 
-    // 0. Fetch Ad Account's authorized Instagram accounts - THE SOURCE OF TRUTH
+    // 0. Fetch Ad Account's authorized Instagram accounts - FOR REFERENCE ONLY
     let authorizedIgs: { id: string, username: string }[] = [];
     if (adAccountId) {
         try {
@@ -117,27 +117,28 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         let source = "none";
 
         // PRIORITY 1: Explicitly check the page's linked instagram_accounts endpoint
+        // CRITICAL: We NO LONGER filter this against authorizedIgs because Meta often 
+        // expects a Page-Scoped ID that doesn't appear in the Ad Account asset list.
         try {
             const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id,username&access_token=${accessToken}`);
             const igData = await igRes.json();
             const foundId = igData.data?.[0]?.id;
-            // ONLY accept if in authorized list
-            if (foundId && authorizedIgs.some(ig => ig.id === foundId)) {
+            if (foundId) {
                 igId = foundId;
-                source = "verified_endpoint";
+                source = "page_endpoint_direct";
             }
         } catch (e) { }
 
-        // PRIORITY 2: Business fields (Verified)
+        // PRIORITY 2: Business fields (Verify if possible, but use anyway if endpoint failed)
         if (!igId) {
             const fieldId = p.instagram_business_account?.id || p.connected_instagram_account?.id;
-            if (fieldId && authorizedIgs.some(ig => ig.id === fieldId)) {
+            if (fieldId) {
                 igId = fieldId;
-                source = "verified_field";
+                source = "page_field";
             }
         }
 
-        // PRIORITY 3: Keyword match
+        // PRIORITY 3: Keyword match from authorized list (The Brute-Force Fallback)
         if (!igId && authorizedIgs.length > 0) {
             const pName = p.name.toLowerCase();
             const bestVerified = authorizedIgs.find(ig =>
@@ -155,7 +156,7 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
             id: p.id,
             name: p.name,
             connected_instagram_account: igId ? { id: igId } : undefined,
-            alternative_instagram_ids: authorizedIgs, // Full object for username logging
+            alternative_instagram_ids: authorizedIgs,
             ig_source: source
         };
     }));
@@ -163,13 +164,8 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
     const igFound = pages.find(p => p.connected_instagram_account);
     if (igFound) {
         const matchingIg = authorizedIgs.find(ig => ig.id === igFound.connected_instagram_account?.id);
-        debugInfo += `_selIG_${matchingIg ? matchingIg.username : 'ID'}:${igFound.connected_instagram_account?.id}_src_${igFound.ig_source}_`;
-    }
-
-    // Final Force: If no IG yet but we have exactly one authorized IG, use it as a safe bet
-    if (!igFound && authorizedIgs.length === 1 && pages.length > 0) {
-        pages[0].connected_instagram_account = { id: authorizedIgs[0].id };
-        debugInfo += `_forced_single_auth_${authorizedIgs[0].username}_`;
+        const nameLabel = matchingIg ? matchingIg.username : `ID_${igFound.connected_instagram_account?.id}`;
+        debugInfo += `_selIG_${nameLabel}_src_${igFound.ig_source}_`;
     }
 
     return { pages, debug: debugInfo };
