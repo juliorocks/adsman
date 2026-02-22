@@ -128,13 +128,9 @@ export function SmartCampaignWizard() {
             }
 
             if (result.success) {
-                // Temporarily show image debug info
-                if (result.imageDebug) {
-                    console.log("Image debug:", result.imageDebug);
-                }
                 nextStep();
             } else {
-                setError(`###UI-VER-201###: ${result.error || "Ocorreu um erro ao criar a campanha."} | img=${result.imageDebug || 'n/a'} (Data: ${JSON.stringify(formData)})`);
+                setError(`###UI-VER-201###: ${result.error || "Ocorreu um erro ao criar a campanha."} (Data: ${JSON.stringify(formData)})`);
             }
         } catch (err: any) {
             setError(`###UI-CATCH-201###: ${err.message || "Erro de conexão com o servidor."} (Data: ${JSON.stringify(formData)})`);
