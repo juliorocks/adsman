@@ -174,10 +174,12 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             throw new Error(`Nenhuma Página do Facebook encontrada (Debug: ${pageDebug}). Vincule uma página à sua conta de anúncios no Meta Business Suite.`);
         }
 
-        const pageId = pages[0].id;
-        const instagramId = pages[0].connected_instagram_account?.id;
+        // Prioritize pages that have an Instagram account connected
+        const bestPage = pages.find(p => (p as any).connected_instagram_account?.id) || pages[0];
+        const pageId = bestPage.id;
+        const instagramId = (bestPage as any).connected_instagram_account?.id;
 
-        console.log(`Campaign Creation Debug - Page: ${pages[0].name} (${pageId}), IG: ${instagramId || 'NOT FOUND'}, Det: ${pageDebug}`);
+        console.log(`Campaign Creation Debug - Selected Page: ${bestPage.name} (${pageId}), IG: ${instagramId || 'NOT FOUND'}, Det: ${pageDebug}`);
 
         // 4. Upload all images in parallel
         const igStatus = instagramId ? `ig_found_${instagramId}` : `ig_missing_${pageDebug}`;

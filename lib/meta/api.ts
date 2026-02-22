@@ -122,13 +122,13 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         };
     });
 
-    const foundOnPage = pages.some(p => p.connected_instagram_account);
-    if (foundOnPage) {
-        debugInfo += "_igfound_page";
+    const igFound = pages.find(p => p.connected_instagram_account);
+    if (igFound) {
+        debugInfo += `_igid_${igFound.connected_instagram_account?.id}`;
     }
 
     // 3. Fallback: Try to fetch Instagram accounts directly from act_ID
-    if (adAccountId && pages.length > 0 && !foundOnPage) {
+    if (adAccountId && pages.length > 0 && !igFound) {
         try {
             const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/instagram_accounts?fields=id,username&access_token=${accessToken}`);
             const data = await res.json();
