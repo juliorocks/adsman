@@ -9,16 +9,20 @@ import { revalidatePath } from "next/cache";
 /**
  * Generates the Google Auth URL for the connection
  */
-export async function getGoogleAuthUrlAction() {
+export async function getGoogleAuthUrlAction(preferredUserId?: string) {
     try {
         const supabase = await createClient();
 
-        // Try to get user from session (more resilient in some server environments)
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = session?.user;
+        let userId = preferredUserId;
 
-        if (!user) {
-            console.error("[getGoogleAuthUrlAction] No session/user found in Server Action");
+        if (!userId) {
+            // Try to get user from session as fallback
+            const { data: { session } } = await supabase.auth.getSession();
+            userId = session?.user?.id;
+        }
+
+        if (!userId) {
+            console.error("[getGoogleAuthUrlAction] No userId found (provided or session)");
             throw new Error("Sessão expirada ou não encontrada. Por favor, atualize a página e tente novamente.");
         }
 
@@ -27,7 +31,7 @@ export async function getGoogleAuthUrlAction() {
             access_type: 'offline',
             scope: GOOGLE_SCOPES,
             prompt: 'consent',
-            state: user.id
+            state: userId
         });
         return { success: true, url };
     } catch (error: any) {

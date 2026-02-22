@@ -1,8 +1,22 @@
-
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { decrypt } from "@/lib/security/vault";
 import { getAdAccounts, AdAccount } from "@/lib/meta/api";
-import { cookies } from "next/headers";
+
+export async function getCurrentUserId(): Promise<string | null> {
+    try {
+        const supabase = await createClient();
+        const { data } = await supabase.auth.getUser();
+        if (data?.user) return data.user.id;
+    } catch (e) { }
+
+    try {
+        const devSession = cookies().get("dev_session");
+        if (devSession) return "mock_user_id_dev";
+    } catch (e) { }
+
+    return null;
+}
 
 export async function getIntegration() {
     try {

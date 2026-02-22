@@ -1,5 +1,5 @@
 import { ConnectMetaButton } from "@/components/settings/ConnectMetaButton";
-import { getIntegration, getOpenAIKey, getGoogleIntegration } from "@/lib/data/settings";
+import { getIntegration, getOpenAIKey, getGoogleIntegration, getCurrentUserId } from "@/lib/data/settings";
 import { OpenAIKeyForm } from "@/components/settings/OpenAIKeyForm";
 import { GoogleDriveCard } from "@/components/settings/GoogleDriveCard";
 
@@ -8,8 +8,10 @@ export const dynamic = 'force-dynamic';
 export default async function SettingsPage() {
     let integration: any = null;
     let openAIKey: string | null = null;
+    let userId: string | null = null;
 
     try {
+        userId = await getCurrentUserId();
         integration = await getIntegration();
     } catch (e) {
         console.error("SettingsPage: Error loading integration:", e);
@@ -39,7 +41,7 @@ export default async function SettingsPage() {
                     <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
                 </div>
                 <ConnectMetaButton isConnected={isConnected} />
-                <GoogleDriveCard isConnected={!!googleIntegration} />
+                <GoogleDriveCard isConnected={!!googleIntegration} userId={userId} />
             </section>
 
             <section className="space-y-6">

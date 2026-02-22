@@ -7,12 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Database, Link2, Unlink, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-export function GoogleDriveCard({ isConnected }: { isConnected: boolean }) {
+export function GoogleDriveCard({ isConnected, userId }: { isConnected: boolean, userId: string | null }) {
     const [loading, setLoading] = useState(false);
 
     const handleConnect = async () => {
         setLoading(true);
-        const result = await getGoogleAuthUrlAction();
+        const result = await getGoogleAuthUrlAction(userId || undefined);
         if (result.success && result.url) {
             window.location.href = result.url;
         } else {
