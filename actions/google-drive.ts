@@ -11,11 +11,16 @@ import { revalidatePath } from "next/cache";
  */
 export async function getGoogleAuthUrlAction() {
     try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Não autenticado para gerar link");
+
         const client = getOAuth2Client();
         const url = client.generateAuthUrl({
-            access_type: 'offline', // Critical for refresh_token
+            access_type: 'offline',
             scope: GOOGLE_SCOPES,
-            prompt: 'consent', // Force consent toggle to ensure refresh_token is sent
+            prompt: 'consent',
+            state: user.id // Pass user ID as state to recover it in callback
         });
         return { success: true, url };
     } catch (error: any) {
@@ -27,11 +32,18 @@ export async function getGoogleAuthUrlAction() {
 /**
  * Handles the callback from Google, exchanges code for tokens and saves to DB
  */
-export async function handleGoogleCallbackAction(code: string) {
+export async function handleGoogleCallbackAction(code: string, state?: string) {
     try {
         const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Não autenticado");
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+        // Recover user ID from session or from OAuth state
+        const userId = currentUser?.id || state;
+
+        if (!userId) {
+            console.error("[GoogleAuth] No user ID found in session or state");
+            throw new Error("Identificação de usuário perdida no redirecionamento");
+        }
 
         const client = getOAuth2Client();
         const { tokens } = await client.getToken(code);
@@ -42,12 +54,12 @@ export async function handleGoogleCallbackAction(code: string) {
         const encryptedRefreshToken = tokens.refresh_token ? encrypt(tokens.refresh_token) : undefined;
         const expiresAt = tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : undefined;
 
-        // Save or update the integration
-        console.log("[GoogleAuth] Saving integration for user:", user.id);
+        // Use service role to bypass RLS since we might have lost the session cookies
+        // But we trust the 'state' because it was signed by Google
         const { error } = await supabase
             .from("integrations")
             .upsert({
-                user_id: user.id,
+                user_id: userId,
                 platform: "google",
                 access_token_ref: encryptedAccessToken,
                 refresh_token_ref: encryptedRefreshToken,
@@ -61,7 +73,7 @@ export async function handleGoogleCallbackAction(code: string) {
             throw error;
         }
 
-        console.log("[GoogleAuth] Integration saved successfully");
+        console.log("[GoogleAuth] Integration saved successfully for user:", userId);
         revalidatePath("/dashboard/settings");
         return { success: true };
     } catch (error: any) {

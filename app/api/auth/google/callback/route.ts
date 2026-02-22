@@ -6,6 +6,7 @@ import { NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get("code");
+    const state = searchParams.get("state");
     const error = searchParams.get("error");
 
     if (error || !code) {
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
     let redirectUrl = "/dashboard/settings?success=google_connected&refresh=" + Date.now();
 
     try {
-        const result = await handleGoogleCallbackAction(code);
+        const result = await handleGoogleCallbackAction(code, state || undefined);
         if (!result.success) {
             console.error("Google Callback Action Failed:", result.error);
             redirectUrl = `/dashboard/settings?error=google_db_error&msg=${encodeURIComponent(result.error || '')}`;
