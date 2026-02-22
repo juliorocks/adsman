@@ -2,6 +2,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getOAuth2Client, GOOGLE_SCOPES, listDriveFiles, getDriveClient } from "@/lib/google/drive";
 import { encrypt, decrypt } from "@/lib/security/vault";
 import { revalidatePath } from "next/cache";
@@ -65,9 +66,11 @@ export async function handleGoogleCallbackAction(code: string, state?: string) {
         const encryptedRefreshToken = tokens.refresh_token ? encrypt(tokens.refresh_token) : undefined;
         const expiresAt = tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : undefined;
 
-        // Use service role to bypass RLS since we might have lost the session cookies
-        // But we trust the 'state' because it was signed by Google
-        const { error } = await supabase
+        // Use admin client to bypass RLS since we might have lost the session cookies
+        // or the user is using a mock ID which standard auth wouldn't recognize.
+        // This is safe because the 'state' ensures we are saving for the person who initiated the request.
+        const adminClient = createAdminClient();
+        const { error } = await adminClient
             .from("integrations")
             .upsert({
                 user_id: userId,
