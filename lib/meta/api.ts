@@ -129,26 +129,30 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
     });
     rawPages = Array.from(uniqueMap.values());
 
-    // Normalizing pages with smart discovery
+    // Aggressive Discovery: Priority is Actor ID (endpoint) then Business User ID (field)
     let pages = await Promise.all(rawPages.map(async (p) => {
-        let igId: string | undefined = p.instagram_business_account?.id; // PRIORITY 1: Modern Business ID
-        let source = igId ? "page_biz_field" : "none";
+        let igId: string | undefined = undefined;
+        let source = "none";
+
+        // PRIORITY 1: Page-linked endpoint (Provides the 'Actor ID' Meta UI depends on)
+        try {
+            const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id,username&access_token=${accessToken}`);
+            const igData = await igRes.json();
+            if (igData.data?.[0]?.id) {
+                igId = String(igData.data[0].id);
+                source = "page_actor_endpoint";
+            }
+        } catch (e) { }
 
         if (!igId) {
-            // PRIORITY 2: Page-linked endpoint (The shadow ID source)
-            try {
-                const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id,username&access_token=${accessToken}`);
-                const igData = await igRes.json();
-                if (igData.data?.[0]?.id) {
-                    igId = igData.data[0].id;
-                    source = "page_endpoint";
-                }
-            } catch (e) { }
+            // PRIORITY 2: Business Account ID (Fallback)
+            igId = p.instagram_business_account?.id ? String(p.instagram_business_account.id) : undefined;
+            if (igId) source = "page_biz_field";
         }
 
         if (!igId) {
             // PRIORITY 3: Legacy connected account field
-            igId = p.connected_instagram_account?.id;
+            igId = p.connected_instagram_account?.id ? String(p.connected_instagram_account.id) : undefined;
             if (igId) source = "page_legacy_field";
         }
 
@@ -503,28 +507,27 @@ export async function createAdCreative(adAccountId: string, name: string, object
         if (currentIgId) {
             const igIdStr = String(currentIgId);
 
-            // OMEGA IDENTITY MIRRORING (Vercel/Meta UI Recognition Force)
-            // We set EVERY field Meta uses to ensure the UI 'sticks' the selection.
-
-            // 1. Root Level (Modern & Legacy)
+            // AGGRESSIVE UI MIRRORING (Aios-Master Force)
+            // Mirrors the ID across all modern and legacy fields to ensure Ads Manager UI auto-selection.
             body.instagram_actor_id = igIdStr;
-            body.instagram_id = igIdStr; // Some legacy UI versions use this
             body.instagram_user_id = igIdStr;
             body.instagram_business_account_id = igIdStr;
+            body.instagram_id = igIdStr;
 
-            // 2. Spec Level (Crucial for the 'Identity' section in Ads Manager)
+            // Spec Level Mirroring (Forces the 'Identity' section to sync)
             body.object_story_spec.instagram_actor_id = igIdStr;
             body.object_story_spec.instagram_user_id = igIdStr;
             body.object_story_spec.instagram_business_account = igIdStr;
+            body.object_story_spec.instagram_account_id = igIdStr;
 
-            // 3. Data-Block Mirroring (Inside message blocks)
+            // Media Block Mirroring
             if (body.object_story_spec.video_data) {
                 body.object_story_spec.video_data.instagram_actor_id = igIdStr;
             } else if (body.object_story_spec.link_data) {
                 body.object_story_spec.link_data.instagram_actor_id = igIdStr;
             }
 
-            console.log(`GAGE: [Attempt ${index}] OMEGA Identity Mirroring (IG: ${igIdStr})`);
+            console.log(`GAGE: [Aios-Master] Identity Linkage Forced (IG: ${igIdStr})`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
