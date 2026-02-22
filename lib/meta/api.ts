@@ -175,6 +175,13 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
             // 2. Discover/Validate the IG for this page in this account's context
             let pageIgId = p.connected_instagram_account?.id;
 
+            // CROSS-REFERENCE: Use the ID from the authorized list if available (Meta prefers Account-level IDs)
+            const authMatch = authorizedIgs.find(ig => ig.id === pageIgId || ig.username?.toLowerCase() === p.name.toLowerCase());
+            if (authMatch) {
+                pageIgId = authMatch.id;
+                p.connected_instagram_account = { id: pageIgId };
+            }
+
             // SECURITY RULE #1: Hard rejection of pages linked to unauthorized Instagrams
             if (pageIgId && authorizedIgs.length > 0 && !authorizedIgIds.has(pageIgId)) {
                 debugInfo += `_rejectUnauthorizedIg_${p.name}_`;
@@ -185,15 +192,13 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
             const cleanAcc = (debugInfo.match(/_acc_(.*?)_/) || [])[1]?.toLowerCase().replace(/\[.*?\]/g, '').trim() || "";
             const pageName = p.name.toLowerCase();
             const relevantParts = cleanAcc.split(' ').filter(part => part.length > 3);
-            const isNameMatch = relevantParts.length > 0 && relevantParts.some(part => pageName.includes(part));
+            const isNameMatch = relevantParts.length > 0 && relevantParts.some((part: string) => pageName.includes(part));
 
             // SECURITY RULE #2: Strict context isolation
-            // If the page has no authorized IG link, and it doesn't match the account name, it's a cross-client leak.
-            if (!pageIgId || !authorizedIgIds.has(pageIgId)) {
-                if (!isNameMatch) {
-                    debugInfo += `_rejectUnrelatedContext_${p.name}_`;
-                    return false;
-                }
+            // If we have MORE THAN ONE page and this one doesn't match the name OR the IG, block it.
+            if (pages.length > 1 && !isNameMatch && (!pageIgId || !authorizedIgIds.has(pageIgId))) {
+                debugInfo += `_rejectUnrelatedContext_${p.name}_`;
+                return false;
             }
 
             // SMART MAPPING: If missing an IG link but context matches and we have one authorized IG, use it.
@@ -496,26 +501,13 @@ export async function createAdCreative(adAccountId: string, name: string, object
         };
 
         if (currentIgId) {
-            // ROOT LEVEL MIRROR (Covers modern and legacy API fields)
-            body.instagram_user_id = currentIgId;
+            // SURGICAL IDENTITY: In V21.0, the UI favors 'instagram_actor_id' at the root for auto-selection.
             body.instagram_actor_id = currentIgId;
-            body.instagram_business_account_id = currentIgId;
 
-            // SPEC LEVEL MIRROR (Critical for Ads Manager UI recognition)
+            // SPEC MIRROR: Mirroring inside spec for redundancy in some ad formats
             body.object_story_spec.instagram_actor_id = currentIgId;
-            body.object_story_spec.instagram_user_id = currentIgId;
 
-            // TECHNICAL DATA MIRROR (Inside video/link blocks)
-            if (body.object_story_spec.video_data) {
-                body.object_story_spec.video_data.instagram_actor_id = currentIgId;
-            } else if (body.object_story_spec.link_data) {
-                body.object_story_spec.link_data.instagram_actor_id = currentIgId;
-            }
-
-            // EXTRA UI SHOTGUN: Add explicitly to spec root
-            body.object_story_spec.instagram_business_account = currentIgId;
-
-            console.log(`GAGE: [Attempt ${index}] Absolute Identity Shotgun with IG: ${currentIgId}`);
+            console.log(`GAGE: [Attempt ${index}] Identity Injection with IG Actor: ${currentIgId}`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -548,7 +540,33 @@ export async function createAdCreative(adAccountId: string, name: string, object
             console.warn(`GAGE_ERROR: Attempt ${index} (${currentIgId || 'FB-ONLY'}) failed: ${e.message} (Code: ${code}, Sub: ${sub}, Blame: ${blame})`);
 
             if (currentIgId && isPotentialIgError) {
-                // ROTATE OR FALLBACK
+                // FALLBACK 1: Try adding 'instagram_user_id' (modern field)
+                console.log("GAGE_RETRY: Trying modern 'instagram_user_id' field...");
+                const modernBody = JSON.parse(JSON.stringify(body));
+                modernBody.instagram_user_id = currentIgId;
+
+                const modernRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(modernBody)
+                });
+                const modernData = await modernRes.json();
+                if (!modernData.error) return { ...modernData, ig_linked: true, method: 'user_id_root', ig_id: currentIgId };
+
+                // FALLBACK 2: Try moving it deep into object_story_spec
+                console.log("GAGE_RETRY: Trying deep spec fallback...");
+                const deepBody = JSON.parse(JSON.stringify(body));
+                deepBody.object_story_spec.instagram_user_id = currentIgId;
+
+                const deepRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(deepBody)
+                });
+                const deepData = await deepRes.json();
+                if (!deepData.error) return { ...deepData, ig_linked: true, method: 'spec_deep', ig_id: currentIgId };
+
+                // ROTATE OR FAILBACK
                 if (!isLastIg) {
                     console.warn(`GAGE_RETRY: Identity error. Rotating to next available ID...`);
                     return executeAttempt(index + 1);
@@ -591,7 +609,7 @@ export async function createAdCreative(adAccountId: string, name: string, object
     return executeAttempt(0);
 }
 
-export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED', instagramActorId?: string) {
+export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED') {
     const body: any = {
         name,
         adset_id: adSetId,
@@ -599,10 +617,6 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
         status: status,
         access_token: accessToken
     };
-
-    if (instagramActorId) {
-        body.instagram_actor_id = instagramActorId;
-    }
 
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/ads`, {
         method: 'POST',
