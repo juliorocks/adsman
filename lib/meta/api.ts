@@ -175,28 +175,31 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
             // 2. Discover/Validate the IG for this page in this account's context
             let pageIgId = p.connected_instagram_account?.id;
 
-            // SECURITY RULE: If a page HAS an IG link, it MUST be in the authorized list for this Ad Account.
-            // If it's not, it's a cross-client leak, and we reject the page entirely.
-            if (pageIgId && !authorizedIgIds.has(pageIgId)) {
-                debugInfo += `_rejectLeak_${p.name}_`;
+            // SECURITY RULE #1: Hard rejection of pages linked to unauthorized Instagrams
+            if (pageIgId && authorizedIgs.length > 0 && !authorizedIgIds.has(pageIgId)) {
+                debugInfo += `_rejectUnauthorizedIg_${p.name}_`;
                 return false;
             }
 
-            // SMART MAPPING: If the page has NO IG link reported by Meta, we only "help" if the names match.
-            // This prevents mapping Carolina's IG to the Faculdade page.
-            if (!pageIgId && authorizedIgs.length > 0) {
-                const cleanAcc = (debugInfo.match(/_acc_(.*?)_/) || [])[1]?.toLowerCase().replace(/\[.*?\]/g, '').trim() || "";
-                const pn = p.name.toLowerCase();
-                const isMatch = cleanAcc && cleanAcc.split(' ').some((part: string) => part.length > 3 && pn.includes(part));
+            // Context Matching (Ad Account Name vs Page Name)
+            const cleanAcc = (debugInfo.match(/_acc_(.*?)_/) || [])[1]?.toLowerCase().replace(/\[.*?\]/g, '').trim() || "";
+            const pageName = p.name.toLowerCase();
+            const relevantParts = cleanAcc.split(' ').filter(part => part.length > 3);
+            const isNameMatch = relevantParts.length > 0 && relevantParts.some(part => pageName.includes(part));
 
-                if (isMatch && authorizedIgs.length === 1) {
-                    p.connected_instagram_account = { id: authorizedIgs[0].id };
-                    debugInfo += `_safeMapped_${p.name}_`;
-                } else if (!isMatch) {
-                    // Page from promote_pages with no IG link and no name match is likely a different client context
-                    debugInfo += `_rejectIncongruent_${p.name}_`;
+            // SECURITY RULE #2: Strict context isolation
+            // If the page has no authorized IG link, and it doesn't match the account name, it's a cross-client leak.
+            if (!pageIgId || !authorizedIgIds.has(pageIgId)) {
+                if (!isNameMatch) {
+                    debugInfo += `_rejectUnrelatedContext_${p.name}_`;
                     return false;
                 }
+            }
+
+            // SMART MAPPING: If missing an IG link but context matches and we have one authorized IG, use it.
+            if (!pageIgId && authorizedIgs.length === 1 && isNameMatch) {
+                p.connected_instagram_account = { id: authorizedIgs[0].id };
+                debugInfo += `_autoMapped_${p.name}_`;
             }
 
             return true;
@@ -474,8 +477,16 @@ export async function createAdCreative(adAccountId: string, name: string, object
     ]));
 
     const executeAttempt = async (index: number): Promise<any> => {
-        const currentIgId = idsToTry[index];
+        let currentIgId = idsToTry[index];
         const isLastIg = index >= idsToTry.length - 1;
+
+        // IDENTITY GUARDIAN: If we're on the first attempt and no IG was explicitly passed, 
+        // but we have authorized IGs for this specific account context, USE THE FIRST ONE as target.
+        // This solves the "missing selection" issue when discovery is inconsistent.
+        if (!currentIgId && igList.length > 0 && index === 0) {
+            currentIgId = igList[0].id;
+            console.log(`GAGE: Identity Guardian active. Auto-selected first authorized IG: ${currentIgId}`);
+        }
 
         // V21.0 Recommendation: instagram_user_id at root
         const body: any = {
@@ -485,8 +496,23 @@ export async function createAdCreative(adAccountId: string, name: string, object
         };
 
         if (currentIgId) {
+            // ROOT LEVEL MIRROR (Covers modern and legacy API fields)
             body.instagram_user_id = currentIgId;
-            console.log(`GAGE: [Attempt ${index}] Creative creation with IG: ${currentIgId}`);
+            body.instagram_actor_id = currentIgId;
+            body.instagram_business_account_id = currentIgId;
+
+            // SPEC LEVEL MIRROR (Critical for Ads Manager UI recognition)
+            body.object_story_spec.instagram_actor_id = currentIgId;
+            body.object_story_spec.instagram_user_id = currentIgId;
+
+            // TECHNICAL DATA MIRROR (Inside video/link blocks)
+            if (body.object_story_spec.video_data) {
+                body.object_story_spec.video_data.instagram_actor_id = currentIgId;
+            } else if (body.object_story_spec.link_data) {
+                body.object_story_spec.link_data.instagram_actor_id = currentIgId;
+            }
+
+            console.log(`GAGE: [Attempt ${index}] Universal Identity Mirroring with IG: ${currentIgId}`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {

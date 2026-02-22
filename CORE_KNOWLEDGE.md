@@ -47,12 +47,12 @@ Permitir o upload de arquivos pesados (como vídeos em 4K) diretamente do Google
 10. **Smart Identity Persistence**:
     - *Contexto*: O usuário não queria ter que escolher a Página/Instagram toda vez se já estivesse em uma conta específica.
     - *Solução*: O `SmartCampaignWizard` agora consome as `preferred_page_id` e `preferred_instagram_id` da tabela `integrations`. Ao carregar o passo de Identidade, ele pré-seleciona automaticamente os ativos salvos, mantendo a consistência com o que foi definido anteriormente.
-11. **Total Isolation Strategy (Versão Final)**:
-    - *Problema*: Vazamento de páginas de outros clientes (ex: Faculdade Internacional aparecendo na conta da Carolina Michelini).
-    - *Solução*: O sistema agora exige uma **dupla autorização** para exibir uma página: 
-        1. Ela deve estar na lista `promote_pages` específica do Ad Account.
-        2. O Instagram vinculado a ela deve estar na lista de `instagram_accounts` autorizadas do Ad Account.
-    - Isso cria uma barreira física que impede que um cliente veja os ativos de outro, mesmo que compartilhem o mesmo administrador. A auto-seleção agora também usa "Name Match" (ex: conta `[CM] Carolina` auto-seleciona página `Carolina Michelini`) como fallback de segurança.
+11. **Estratégia Zero Leak & Identity Guardian (Versão Definitiva)**:
+    - *Problema*: Vazamento de ativos entre clientes e Instagram não sendo setado no Gerenciador de Anúncios.
+    - *Solução*: 
+        1. **Zero Leak**: `getPages` agora rejeita qualquer página que não tenha um vínculo oficial com o Instagram autorizado da conta OU que não passe em uma validação de contexto rigorosa (Fuzzy Name Match entre Ad Account e Página). Impossível a "Faculdade" aparecer na "Carolina".
+        2. **Mirroring Universal**: `createAdCreative` agora espelha o ID do Instagram em **todos** os campos possíveis (root, spec, video_data, etc.) para garantir que a UI do Meta reconheça a seleção.
+        3. **Identity Guardian**: Se por qualquer motivo de descoberta o ID do Instagram chegar vazio na criação, o sistema auto-seleciona o primeiro Instagram autorizado da conta de anúncios como fallback de segurança, garantindo que o anúncio nunca seja criado sem identidade.
 
 ---
 
