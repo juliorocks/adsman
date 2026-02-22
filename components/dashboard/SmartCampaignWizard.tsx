@@ -508,9 +508,14 @@ export function SmartCampaignWizard() {
                         )}
 
                         {availablePages.length === 0 && !loadingPages ? (
-                            <div className="p-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-                                <Button onClick={handleFetchPages} className="bg-primary-600">
-                                    Carregar Minhas Páginas
+                            <div className="p-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl space-y-4">
+                                <Activity className="h-10 w-10 text-slate-300 mx-auto" />
+                                <div className="space-y-1">
+                                    <p className="text-slate-900 dark:text-white font-bold">Nenhuma Página vinculada encontrada</p>
+                                    <p className="text-sm text-slate-500 max-w-xs mx-auto">Esta conta de anúncios não possui permissão ou vínculo com páginas do Facebook. Verifique no Meta Business Manager.</p>
+                                </div>
+                                <Button variant="outline" onClick={handleFetchPages} className="mt-4">
+                                    Tentar Recarregar
                                 </Button>
                             </div>
                         ) : loadingPages ? (

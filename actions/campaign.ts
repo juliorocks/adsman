@@ -28,13 +28,18 @@ export async function getFacebookPagesAction() {
         const accountName = accountData.name || adAccountId;
 
         const pageResult = await getPages(accessToken, adAccountId);
+
+        // Validate preferences: only return them if they actually exist in the current account's pages
+        const prefPageId = (integration as any).preferred_page_id;
+        const isValidPref = pageResult.pages.some(p => p.id === prefPageId);
+
         return {
             success: true,
             data: pageResult.pages,
             accountName,
             accountId: adAccountId,
-            preferredPageId: (integration as any).preferred_page_id,
-            preferredInstagramId: (integration as any).preferred_instagram_id
+            preferredPageId: isValidPref ? prefPageId : undefined,
+            preferredInstagramId: isValidPref ? (integration as any).preferred_instagram_id : undefined
         };
     } catch (error: any) {
         console.error("getFacebookPagesAction error:", error);

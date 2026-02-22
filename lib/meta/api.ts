@@ -140,6 +140,23 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         };
     }));
 
+    // SECURITY FILTER: Only keep pages whose Instagram account is authorized for this Ad Account
+    // This prevents "Client A" pages from appearing when managing "Client B" ad account
+    if (adAccountId && authorizedIgs.length > 0) {
+        const authorizedIgIds = new Set(authorizedIgs.map(ig => ig.id));
+        const originalCount = pages.length;
+        pages = pages.filter(p => {
+            const pageIgId = p.connected_instagram_account?.id;
+            // If the page has an IG, it MUST be in the authorized list
+            if (pageIgId) return authorizedIgIds.has(pageIgId);
+            // If the page has NO IG, we only keep it if it was specifically returned for this account
+            // and we have no other better way to verify. But usually, if we have authorizedIgs,
+            // we should be strict.
+            return false;
+        });
+        debugInfo += `_filtered_${originalCount - pages.length}_out_`;
+    }
+
     debugInfo += `_pages_[${pages.map(p => `${p.name}:${p.connected_instagram_account?.id || 'NO_IG'}`).join('|')}]_`;
 
     return { pages, debug: debugInfo };
