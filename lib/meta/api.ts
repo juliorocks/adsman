@@ -129,38 +129,39 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
     });
     rawPages = Array.from(uniqueMap.values());
 
-    // Aggressive Discovery: Priority is Actor ID (endpoint) then Business User ID (field)
+    // Aggressive Discovery: Find the "Holy Grail" ID (Linked to both Page and Ad Account)
     let pages = await Promise.all(rawPages.map(async (p) => {
-        let igId: string | undefined = undefined;
-        let source = "none";
+        let pageLinkedIgs: string[] = [];
 
-        // PRIORITY 1: Page-linked endpoint (Provides the 'Actor ID' Meta UI depends on)
+        // 1. Get IDs from Page endpoint (Actor IDs)
         try {
-            const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id,username&access_token=${accessToken}`);
+            const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id&access_token=${accessToken}`);
             const igData = await igRes.json();
-            if (igData.data?.[0]?.id) {
-                igId = String(igData.data[0].id);
-                source = "page_actor_endpoint";
-            }
+            if (igData.data) pageLinkedIgs = igData.data.map((ig: any) => String(ig.id));
         } catch (e) { }
 
-        if (!igId) {
-            // PRIORITY 2: Business Account ID (Fallback)
-            igId = p.instagram_business_account?.id ? String(p.instagram_business_account.id) : undefined;
-            if (igId) source = "page_biz_field";
-        }
+        // 2. Get IDs from Page fields (Business/Legacy IDs)
+        if (p.instagram_business_account?.id) pageLinkedIgs.push(String(p.instagram_business_account.id));
+        if (p.connected_instagram_account?.id) pageLinkedIgs.push(String(p.connected_instagram_account.id));
 
-        if (!igId) {
-            // PRIORITY 3: Legacy connected account field
-            igId = p.connected_instagram_account?.id ? String(p.connected_instagram_account.id) : undefined;
-            if (igId) source = "page_legacy_field";
+        pageLinkedIgs = Array.from(new Set(pageLinkedIgs));
+
+        // 3. CROSS-VALIDATION: Find the ID that the Ad Account ALSO recognizes
+        const authorizedIgIds = new Set(authorizedIgs.map(ig => String(ig.id)));
+        let igId = pageLinkedIgs.find(id => authorizedIgIds.has(id));
+        let source = igId ? "cross_validated" : "none";
+
+        // Fallback to first available page-linked ID if no cross-validation matches
+        if (!igId && pageLinkedIgs.length > 0) {
+            igId = pageLinkedIgs[0];
+            source = "page_only";
         }
 
         return {
             id: p.id,
             name: p.name,
             connected_instagram_account: igId ? { id: igId } : undefined,
-            alternative_instagram_ids: authorizedIgs,
+            alternative_instagram_ids: authorizedIgs, // Keep all authorized for rotation fallbacks
             ig_source: source
         };
     }));
@@ -507,27 +508,25 @@ export async function createAdCreative(adAccountId: string, name: string, object
         if (currentIgId) {
             const igIdStr = String(currentIgId);
 
-            // AGGRESSIVE UI MIRRORING (Aios-Master Force)
-            // Mirrors the ID across all modern and legacy fields to ensure Ads Manager UI auto-selection.
+            // AGGRESSIVE IDENTITY ANCHOR (Aios-Master Force)
+            // We set the fields that Ads Manager UI uses to verify the 'Identity' state.
             body.instagram_actor_id = igIdStr;
             body.instagram_user_id = igIdStr;
             body.instagram_business_account_id = igIdStr;
-            body.instagram_id = igIdStr;
 
-            // Spec Level Mirroring (Forces the 'Identity' section to sync)
+            // Spec Anchor: instagram_business_account is the modern anchor for ID selection
             body.object_story_spec.instagram_actor_id = igIdStr;
             body.object_story_spec.instagram_user_id = igIdStr;
             body.object_story_spec.instagram_business_account = igIdStr;
-            body.object_story_spec.instagram_account_id = igIdStr;
 
-            // Media Block Mirroring
+            // Media-level redundancy
             if (body.object_story_spec.video_data) {
                 body.object_story_spec.video_data.instagram_actor_id = igIdStr;
             } else if (body.object_story_spec.link_data) {
                 body.object_story_spec.link_data.instagram_actor_id = igIdStr;
             }
 
-            console.log(`GAGE: [Aios-Master] Identity Linkage Forced (IG: ${igIdStr})`);
+            console.log(`GAGE: [Aios-Master] Absolute Identity Anchor (IG: ${igIdStr})`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -642,7 +641,7 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
     if (instagramActorId) {
         const igIdStr = String(instagramActorId);
         body.instagram_actor_id = igIdStr;
-        body.instagram_id = igIdStr; // Extra mirror at Ad level
+        // Note: Removed 'instagram_id' from Ad level to avoid V21.0 validation conflicts
     }
 
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/ads`, {

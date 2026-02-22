@@ -289,10 +289,13 @@ export async function createSmartCampaignAction(formData: {
             console.warn("WARNING: Falling back to first available page context:", bestPage.name);
         }
 
-        // SYNC IDENTITY: If instagramId is missing but bestPage has one (likely auto-mapped), use it!
-        if (!instagramId && bestPage.connected_instagram_account?.id) {
-            instagramId = bestPage.connected_instagram_account.id;
-            console.log(`GAGE: Identity Sync - Using Instagram ${instagramId} from Page ${bestPage.name}`);
+        // SMART SYNC (Aios-Master): Always prioritize the cross-validated ID from the discovery result
+        if (bestPage.connected_instagram_account?.id) {
+            const discoveredIgId = String(bestPage.connected_instagram_account.id);
+            if (!instagramId || instagramId !== discoveredIgId) {
+                console.log(`GAGE: [Aios-Master] Overriding ID with Cross-Validated ID: ${discoveredIgId}`);
+                instagramId = discoveredIgId;
+            }
         }
 
         let safeObjective = formData.objective;
