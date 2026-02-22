@@ -113,18 +113,33 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
     } catch (e: any) { debugInfo += `_meerr_${e.message}`; }
 
     // Normalize pages
-    let pages = rawPages.map(p => {
-        const igAccount = p.connected_instagram_account || p.instagram_business_account;
+    let pages = await Promise.all(rawPages.map(async (p) => {
+        let igId = p.connected_instagram_account?.id || p.instagram_business_account?.id;
+        let source = igId ? "page_field" : "none";
+
+        // If not found in main fields, try the specific page/instagram_accounts endpoint
+        if (!igId) {
+            try {
+                const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id&access_token=${accessToken}`);
+                const igData = await igRes.json();
+                if (igData.data?.[0]?.id) {
+                    igId = igData.data[0].id;
+                    source = "page_endpoint";
+                }
+            } catch (e) { }
+        }
+
         return {
             id: p.id,
             name: p.name,
-            connected_instagram_account: igAccount ? { id: igAccount.id } : undefined
+            connected_instagram_account: igId ? { id: igId } : undefined,
+            ig_source: source
         };
-    });
+    }));
 
     const igFound = pages.find(p => p.connected_instagram_account);
     if (igFound) {
-        debugInfo += `_igid_${igFound.connected_instagram_account?.id}`;
+        debugInfo += `_igid_${igFound.connected_instagram_account?.id}_src_${igFound.ig_source}`;
     }
 
     // 3. Fallback: Try to fetch Instagram accounts directly from act_ID
@@ -354,6 +369,7 @@ export async function createAdCreative(adAccountId: string, name: string, object
 
     if (instagramActorId) {
         body.instagram_actor_id = instagramActorId;
+        console.log(`DEBUG: Creating AdCreative with IG Actor ID: ${instagramActorId}`);
     }
 
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -363,6 +379,21 @@ export async function createAdCreative(adAccountId: string, name: string, object
     });
     const data = await response.json();
     if (data.error) {
+        // Fallback: If IG account is invalid, try creating WITHOUT it so at least the FB ad works
+        if (instagramActorId && data.error.message.includes('instagram_actor_id')) {
+            console.warn(`RETRY: Instagram ID ${instagramActorId} was rejected. Retrying without IG linking...`);
+            const retryBody = { ...body };
+            delete retryBody.instagram_actor_id;
+
+            const retryRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(retryBody)
+            });
+            const retryData = await retryRes.json();
+            if (!retryData.error) return retryData;
+        }
+
         const e = data.error;
         const fullError = [
             `msg: ${e.message}`,
