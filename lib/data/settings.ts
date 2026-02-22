@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { decrypt } from "@/lib/security/vault";
 import { getAdAccounts, AdAccount } from "@/lib/meta/api";
 
@@ -87,17 +88,17 @@ export async function getIntegration() {
 
 export async function getGoogleIntegration() {
     try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            console.log("[getGoogleIntegration] No user found");
+        const userId = await getCurrentUserId();
+        if (!userId) {
+            console.log("[getGoogleIntegration] No userId found");
             return null;
         }
 
-        const { data, error } = await supabase
+        const adminClient = createAdminClient();
+        const { data, error } = await adminClient
             .from("integrations")
             .select("*")
-            .eq("user_id", user.id)
+            .eq("user_id", userId)
             .eq("platform", "google")
             .single();
 
@@ -106,7 +107,7 @@ export async function getGoogleIntegration() {
             return null;
         }
 
-        console.log("[getGoogleIntegration] Found integration for user:", user.id);
+        console.log("[getGoogleIntegration] Found Google integration for user:", userId);
         return data;
     } catch (err) {
         console.error("[getGoogleIntegration] Unexpected error:", err);
