@@ -73,7 +73,10 @@ export async function getGoogleIntegration() {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return null;
+        if (!user) {
+            console.log("[getGoogleIntegration] No user found");
+            return null;
+        }
 
         const { data, error } = await supabase
             .from("integrations")
@@ -82,9 +85,15 @@ export async function getGoogleIntegration() {
             .eq("platform", "google")
             .single();
 
-        if (error) return null;
+        if (error) {
+            console.log("[getGoogleIntegration] Query error:", error.message);
+            return null;
+        }
+
+        console.log("[getGoogleIntegration] Found integration for user:", user.id);
         return data;
     } catch (err) {
+        console.error("[getGoogleIntegration] Unexpected error:", err);
         return null;
     }
 }

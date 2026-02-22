@@ -43,6 +43,7 @@ export async function handleGoogleCallbackAction(code: string) {
         const expiresAt = tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : undefined;
 
         // Save or update the integration
+        console.log("[GoogleAuth] Saving integration for user:", user.id);
         const { error } = await supabase
             .from("integrations")
             .upsert({
@@ -53,10 +54,14 @@ export async function handleGoogleCallbackAction(code: string) {
                 expires_at: expiresAt,
                 status: "active",
                 updated_at: new Date().toISOString()
-            }, { onConflict: "user_id, platform" });
+            }, { onConflict: "user_id,platform" });
 
-        if (error) throw error;
+        if (error) {
+            console.error("[GoogleAuth] Database error:", error.message);
+            throw error;
+        }
 
+        console.log("[GoogleAuth] Integration saved successfully");
         revalidatePath("/dashboard/settings");
         return { success: true };
     } catch (error: any) {
