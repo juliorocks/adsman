@@ -43,6 +43,9 @@ Permitir o upload de arquivos pesados (como vídeos em 4K) diretamente do Google
        2. Tenta `instagram_actor_id` no root (Legacy name fallback).
        3. Tenta dentro do `object_story_spec`.
        4. Se todos falharem, remove todas as referências de IG e força a veiculação apenas no Facebook para evitar o travamento da campanha.
+9. **Video Thumbnail Error (Seu anúncio precisa de uma miniatura)**:
+   - *Causa*: O Meta exige uma miniatura para anúncios de vídeo com Botão (CTA). Se o anúncio for criado imediatamente após o upload do vídeo, a miniatura automática pode não estar pronta.
+   - *Solução*: Implementado o helper `waitForVideoReady` que faz polling do status do vídeo no Meta. Quando o status vira `ready`, capturamos a URL da miniatura gerada e a injetamos explicitamente no `video_data.image_url` do Creative.
 
 ---
 

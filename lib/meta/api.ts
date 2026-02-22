@@ -617,3 +617,32 @@ export async function updateBudget(id: string, amount: number, type: 'daily_budg
     if (data.error) throw new Error(data.error.message);
     return data;
 }
+export async function getVideoStatus(videoId: string, accessToken: string) {
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${videoId}?fields=status,thumbnails{uri,id,is_preferred}&access_token=${accessToken}`);
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    return data;
+}
+
+export async function waitForVideoReady(videoId: string, accessToken: string, maxRetries = 10): Promise<string | null> {
+    console.log(`GAGE: Waiting for video ${videoId} processing...`);
+    for (let i = 0; i < maxRetries; i++) {
+        const data = await getVideoStatus(videoId, accessToken);
+        const status = data.status?.video_status;
+
+        console.log(`GAGE: Video ${videoId} status: ${status} (Attempt ${i + 1}/${maxRetries})`);
+
+        if (status === 'ready') {
+            // Find preferred thumbnail or first one
+            const thumbnail = data.thumbnails?.data?.find((t: any) => t.is_preferred) || data.thumbnails?.data?.[0];
+            return thumbnail?.uri || null;
+        }
+
+        if (status === 'error') {
+            throw new Error(`Meta Video Processing Error: ${data.status?.error_description || 'Unknown'}`);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3s between polls
+    }
+    return null;
+}

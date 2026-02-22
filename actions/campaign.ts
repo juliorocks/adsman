@@ -10,7 +10,7 @@ import { createLog } from "@/lib/data/logs";
 import { getGoogleAccessToken } from "@/actions/google-drive";
 import { downloadDriveFile } from "@/lib/google/drive";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { META_GRAPH_URL, META_API_VERSION } from "@/lib/meta/api";
+import { META_GRAPH_URL, META_API_VERSION, waitForVideoReady } from "@/lib/meta/api";
 
 export async function getFacebookPagesAction() {
     try {
@@ -346,6 +346,10 @@ export async function createSmartCampaignAction(formData: {
             let objectStorySpec: any = { page_id: pageId };
 
             if (mediaItem.type === 'VIDEO' && mediaItem.ref) {
+                // EXPLICIT FIX: Wait for Meta to process the video so a thumbnail is generated
+                console.log(`GAGE: Video ad detected. Checking processing status for ${mediaItem.ref}...`);
+                const thumbUrl = await waitForVideoReady(mediaItem.ref, accessToken);
+
                 objectStorySpec.video_data = {
                     video_id: mediaItem.ref,
                     message: primaryText,
@@ -355,6 +359,11 @@ export async function createSmartCampaignAction(formData: {
                         value: { link: linkUrl }
                     }
                 };
+
+                if (thumbUrl) {
+                    objectStorySpec.video_data.image_url = thumbUrl;
+                    console.log(`GAGE: Thumbnail attached manually to creative: ${thumbUrl}`);
+                }
             } else {
                 const linkData: any = {
                     message: primaryText,
