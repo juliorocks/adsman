@@ -166,17 +166,21 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         const adSet = await createAdSet(adAccountId, campaign.id, adSetParams, accessToken);
 
         // 3. Get a Facebook Page to use for the ad creative
-        const pages = await getPages(accessToken, adAccountId);
+        const pageResult = await getPages(accessToken, adAccountId);
+        const pages = pageResult.pages;
+        const pageDebug = pageResult.debug;
+
         if (!pages || pages.length === 0) {
-            throw new Error('Nenhuma Página do Facebook encontrada. Vincule uma página à sua conta de anúncios no Meta Business Suite.');
+            throw new Error(`Nenhuma Página do Facebook encontrada (Debug: ${pageDebug}). Vincule uma página à sua conta de anúncios no Meta Business Suite.`);
         }
+
         const pageId = pages[0].id;
         const instagramId = pages[0].connected_instagram_account?.id;
 
-        console.log(`Campaign Creation Debug - Page: ${pages[0].name} (${pageId}), IG: ${instagramId || 'NOT FOUND'}`);
+        console.log(`Campaign Creation Debug - Page: ${pages[0].name} (${pageId}), IG: ${instagramId || 'NOT FOUND'}, Det: ${pageDebug}`);
 
         // 4. Upload all images in parallel
-        const igStatus = instagramId ? `ig_found_${instagramId}` : 'ig_not_found';
+        const igStatus = instagramId ? `ig_found_${instagramId}` : `ig_missing_${pageDebug}`;
         let uploadStatus = 'no_images_provided';
         const uploadedImages: { hash: string; index: number }[] = [];
 

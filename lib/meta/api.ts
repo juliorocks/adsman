@@ -1,5 +1,5 @@
 
-const META_API_VERSION = "v24.0";
+const META_API_VERSION = "v21.0";
 const META_GRAPH_URL = "https://graph.facebook.com";
 
 export interface AdAccount {
@@ -76,8 +76,9 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
 }
 
 // Fetch Facebook Pages that can be used for ads (tries multiple sources)
-export async function getPages(accessToken: string, adAccountId?: string): Promise<{ id: string; name: string; connected_instagram_account?: { id: string } }[]> {
+export async function getPages(accessToken: string, adAccountId?: string): Promise<{ pages: { id: string; name: string; connected_instagram_account?: { id: string } }[], debug: string }> {
     let rawPages: any[] = [];
+    let debugInfo = "";
 
     // Helper to merge pages and ensure we don't have duplicates
     const mergePages = (newPages: any[]) => {
@@ -94,41 +95,53 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         try {
             const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/promote_pages?fields=${fields}&access_token=${accessToken}`);
             const data = await res.json();
-            if (data.data) mergePages(data.data);
-        } catch (e) { }
+            if (data.data) {
+                mergePages(data.data);
+                debugInfo += `_pp_${data.data.length}`;
+            }
+        } catch (e: any) { debugInfo += `_pperr_${e.message}`; }
     }
 
     // 2. Try me/accounts
     try {
         const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/accounts?fields=${fields}&access_token=${accessToken}`);
         const data = await res.json();
-        if (data.data) mergePages(data.data);
-    } catch (e) { }
+        if (data.data) {
+            mergePages(data.data);
+            debugInfo += `_me_${data.data.length}`;
+        }
+    } catch (e: any) { debugInfo += `_meerr_${e.message}`; }
 
-    console.log("DEBUG: Raw Pages Info from Meta:", JSON.stringify(rawPages, null, 2));
-
-    // Normalize pages to ensure connected_instagram_account is populated
-    const pages = rawPages.map(p => {
+    // Normalize pages
+    let pages = rawPages.map(p => {
         const igAccount = p.connected_instagram_account || p.instagram_business_account;
         return {
-            ...p,
+            id: p.id,
+            name: p.name,
             connected_instagram_account: igAccount ? { id: igAccount.id } : undefined
         };
     });
 
-    // 3. Try to fetch Instagram accounts directly if still no IG ID found on pages
-    if (adAccountId && pages.length > 0 && !pages.some(p => p.connected_instagram_account)) {
+    const foundOnPage = pages.some(p => p.connected_instagram_account);
+    if (foundOnPage) {
+        debugInfo += "_igfound_page";
+    }
+
+    // 3. Fallback: Try to fetch Instagram accounts directly from act_ID
+    if (adAccountId && pages.length > 0 && !foundOnPage) {
         try {
             const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/instagram_accounts?fields=id,username&access_token=${accessToken}`);
             const data = await res.json();
             if (data.data && data.data.length > 0) {
-                // If we found an IG account, attach it to the first page as a fallback
                 pages[0].connected_instagram_account = { id: data.data[0].id };
+                debugInfo += `_igfound_fallback_${data.data[0].username}`;
+            } else {
+                debugInfo += "_igfound_fallback_empty";
             }
-        } catch (e) { }
+        } catch (e: any) { debugInfo += `_igfallerr_${e.message}`; }
     }
 
-    return pages;
+    return { pages, debug: debugInfo };
 }
 
 export async function getCampaigns(adAccountId: string, accessToken: string) {
