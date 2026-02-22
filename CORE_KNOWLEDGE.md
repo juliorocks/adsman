@@ -38,11 +38,9 @@ Permitir o upload de arquivos pesados (como vídeos em 4K) diretamente do Google
    - *Solução*: Implementado suporte completo a pastas e breadcrumbs em `GoogleDriveSelector.tsx`, usando hierarquia de `folderId` via API v3.
 8. **Identity Selection Error (Subcode 1443226)**:
    - *Causa*: Meta V21.0 rejeita IDs de Instagram que não estão perfeitamente vinculados ou autorizados para a Página no Business Manager.
-   - *Solução*: Implementado fluxo de **Tentativa e Erro Multinível**: 
-       1. Tenta `instagram_user_id` no root (Padrão V21.0).
-       2. Tenta `instagram_actor_id` no root (Legacy name fallback).
-       3. Tenta dentro do `object_story_spec`.
-       4. Se todos falharem, remove todas as referências de IG e força a veiculação apenas no Facebook para evitar o travamento da campanha.
+   - *Solução*: Implementado o fluxo **Shotgun Strategy**:
+       1. O sistema agora envia todos os campos de identidade (`instagram_user_id`, `instagram_actor_id`, `instagram_business_account_id`) simultaneamente no root do objeto, dentro do `object_story_spec` e nos blocos técnicos (`video_data`/`link_data`). Isso garante que a interface do Ads Manager reconheça a seleção.
+       2. **Fallback Automático**: Se a identidade falhar, o sistema rotaciona IDs ou faz o downgrade para Facebook-Only (limpando todos os campos de IG) para garantir que a campanha seja criada.
 9. **Video Thumbnail Error (Seu anúncio precisa de uma miniatura)**:
    - *Causa*: O Meta exige uma miniatura para anúncios de vídeo com Botão (CTA). Se o anúncio for criado imediatamente após o upload do vídeo, a miniatura automática pode não estar pronta.
    - *Solução*: Implementado o helper `waitForVideoReady` que faz polling do status do vídeo no Meta. Quando o status vira `ready`, capturamos a URL da miniatura gerada e a injetamos explicitamente no `video_data.image_url` do Creative.

@@ -142,17 +142,15 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
 
     // SECURITY FILTER: Only keep pages whose Instagram account is authorized for this Ad Account
     // This prevents "Client A" pages from appearing when managing "Client B" ad account
+    // MODIFIED: If a page has NO IG, we still allow it (FB-only ads). 
+    // If it HAS an IG, we only keep it if authorized.
     if (adAccountId && authorizedIgs.length > 0) {
         const authorizedIgIds = new Set(authorizedIgs.map(ig => ig.id));
         const originalCount = pages.length;
         pages = pages.filter(p => {
             const pageIgId = p.connected_instagram_account?.id;
-            // If the page has an IG, it MUST be in the authorized list
             if (pageIgId) return authorizedIgIds.has(pageIgId);
-            // If the page has NO IG, we only keep it if it was specifically returned for this account
-            // and we have no other better way to verify. But usually, if we have authorizedIgs,
-            // we should be strict.
-            return false;
+            return true; // Keep pages without IGs or with IGs not in the authorized list
         });
         debugInfo += `_filtered_${originalCount - pages.length}_out_`;
     }
@@ -438,8 +436,23 @@ export async function createAdCreative(adAccountId: string, name: string, object
         };
 
         if (currentIgId) {
+            // Root level fields
             body.instagram_user_id = currentIgId;
-            console.log(`GAGE: [Attempt ${index}] Creative creation with IG: ${currentIgId}`);
+            body.instagram_actor_id = currentIgId;
+            body.instagram_business_account_id = currentIgId;
+
+            // Spec level fields
+            body.object_story_spec.instagram_actor_id = currentIgId;
+            body.object_story_spec.instagram_user_id = currentIgId;
+
+            // Sub-spec level (Inside video_data or link_data)
+            if (body.object_story_spec.video_data) {
+                body.object_story_spec.video_data.instagram_actor_id = currentIgId;
+            } else if (body.object_story_spec.link_data) {
+                body.object_story_spec.link_data.instagram_actor_id = currentIgId;
+            }
+
+            console.log(`GAGE: [Attempt ${index}] Shotgun Creative attempt with IG: ${currentIgId}`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -454,90 +467,40 @@ export async function createAdCreative(adAccountId: string, name: string, object
             const sub = e.error_subcode;
             const code = e.code;
             const msg = (e.message || "").toLowerCase();
-
-            // Extract as much detail as possible from Meta's complex error structure
             const blame = e.error_data?.blame_field || e.error_data?.field || e.error_user_title || 'unknown';
-            const extra = e.error_data ? JSON.stringify(e.error_data) : 'none';
 
-            // CRITICAL FIX: Only treat as identity error if it specifically mentions identity/instagram/actor
-            // OR if it is one of the definitive identity subcodes.
-            // Generic Code 100 (Invalid Parameter) should NOT trigger fallback unless message matches.
+            // CRITICAL FIX: Identify identity-related errors
             const isIdentitySubcode = sub === 1443226 || sub === 1443225 || sub === 1443115 || sub === 1443552;
             const isIdentityMessage = msg.includes('instagram_user_id') ||
                 msg.includes('instagram_actor_id') ||
                 msg.includes('instagram_business_account') ||
                 msg.includes('identity') || msg.includes('identidade') ||
                 msg.includes('actor') || msg.includes('ator') ||
-                msg.includes('permission') || msg.includes('permissão') ||
-                msg.includes('account') || msg.includes('conta');
+                msg.includes('permission') || msg.includes('permissão');
 
-            // Thumbnail errors or other format errors should NOT be treated as identity errors
             const isFormattingError = msg.includes('thumbnail') || msg.includes('video') || msg.includes('aspect') || msg.includes('format') || msg.includes('url');
 
             const isPotentialIgError = (isIdentitySubcode || isIdentityMessage) && !isFormattingError;
 
             console.warn(`GAGE_ERROR: Attempt ${index} (${currentIgId || 'FB-ONLY'}) failed: ${e.message} (Code: ${code}, Sub: ${sub}, Blame: ${blame})`);
 
-            // If we have an IG ID and it failed with anything that could be identity related...
             if (currentIgId && isPotentialIgError) {
-                // FALLBACK 1: Try legacy 'instagram_actor_id' field name at root
-                console.log("GAGE_RETRY: Trying alternative 'instagram_actor_id' root field...");
-                const altBody = JSON.parse(JSON.stringify(body));
-                delete altBody.instagram_user_id;
-                altBody.instagram_actor_id = currentIgId;
-
-                const altRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(altBody)
-                });
-                const altData = await altRes.json();
-                if (!altData.error) return { ...altData, ig_linked: true, method: 'actor_id_root' };
-
-                // FALLBACK 2: Try legacy 'instagram_user_id' placement inside object_story_spec
-                console.log("GAGE_RETRY: Trying spec.instagram_user_id fallback...");
-                const specUserBody = JSON.parse(JSON.stringify(body));
-                specUserBody.object_story_spec.instagram_user_id = currentIgId;
-                delete specUserBody.instagram_user_id;
-
-                const specUserRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(specUserBody)
-                });
-                const specUserData = await specUserRes.json();
-                if (!specUserData.error) return { ...specUserData, ig_linked: true, method: 'spec_user_id' };
-
-                // FALLBACK 3: Try legacy 'instagram_actor_id' placement inside object_story_spec
-                console.log("GAGE_RETRY: Trying spec.instagram_actor_id fallback...");
-                const specActorBody = JSON.parse(JSON.stringify(body));
-                specActorBody.object_story_spec.instagram_actor_id = currentIgId;
-                delete specActorBody.instagram_user_id;
-
-                const specActorRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(specActorBody)
-                });
-                const specActorData = await specActorRes.json();
-                if (!specActorData.error) return { ...specActorData, ig_linked: true, method: 'spec_actor_id' };
-
-                // Rotate to next available Instagram ID if any
+                // FALLBACK: Try rotating to next available Instagram ID if any
                 if (!isLastIg) {
-                    console.warn(`GAGE_RETRY: Rotating to next available Instagram ID...`);
+                    console.warn(`GAGE_RETRY: Identity error with ID ${currentIgId}. Rotating to next...`);
                     return executeAttempt(index + 1);
                 }
 
-                // ABSOLUTE LAST RESORT: Facebook-Only
-                console.warn(`GAGE_FALLBACK: Instagram identities exhausted or rejected. Forcing FB-Only attempt...`);
+                // ABSOLUTE LAST RESORT: Facebook-Only (Strip everything)
+                console.warn(`GAGE_FALLBACK: All Instagram identities failed. Forcing FB-Only creative...`);
                 const fbOnlyBody = JSON.parse(JSON.stringify(body));
 
-                // Deep clean all identity-related fields
                 const clean = (obj: any) => {
                     if (!obj || typeof obj !== 'object') return;
                     delete obj.instagram_user_id;
                     delete obj.instagram_actor_id;
                     delete obj.instagram_business_account;
+                    delete obj.instagram_business_account_id;
                     Object.values(obj).forEach(val => clean(val));
                 };
                 clean(fbOnlyBody);
@@ -553,7 +516,6 @@ export async function createAdCreative(adAccountId: string, name: string, object
                     return { ...fbData, ig_linked: false, ig_error: e.message };
                 }
 
-                // If even FB-only fails, throw the FB error
                 throw new Error(`Meta V21.0 FB-Fallback Error: ${fbData.error.message} | Original IG Error: ${e.message}`);
             }
 
