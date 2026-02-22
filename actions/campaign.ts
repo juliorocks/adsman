@@ -23,8 +23,19 @@ export async function getFacebookPagesAction() {
             ? integration.ad_account_id
             : `act_${integration.ad_account_id}`;
 
+        const accountRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}?fields=name&access_token=${accessToken}`);
+        const accountData = await accountRes.json();
+        const accountName = accountData.name || adAccountId;
+
         const pageResult = await getPages(accessToken, adAccountId);
-        return { success: true, data: pageResult.pages };
+        return {
+            success: true,
+            data: pageResult.pages,
+            accountName,
+            accountId: adAccountId,
+            preferredPageId: (integration as any).preferred_page_id,
+            preferredInstagramId: (integration as any).preferred_instagram_id
+        };
     } catch (error: any) {
         console.error("getFacebookPagesAction error:", error);
         return { success: false, error: error.message };

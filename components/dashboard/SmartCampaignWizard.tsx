@@ -176,7 +176,14 @@ export function SmartCampaignWizard() {
     } | null>(null);
     const [activeMessage, setActiveMessage] = useState<{ agent: string, text: string } | null>(null);
     const [availablePages, setAvailablePages] = useState<any[]>([]);
+    const [activeAccount, setActiveAccount] = useState<{ id: string, name: string } | null>(null);
     const [loadingPages, setLoadingPages] = useState(false);
+
+    useEffect(() => {
+        if (step === 2 && availablePages.length === 0) {
+            handleFetchPages();
+        }
+    }, [step]);
 
     const nextStep = () => setStep(s => s + 1);
     const prevStep = () => setStep(s => s - 1);
@@ -184,11 +191,24 @@ export function SmartCampaignWizard() {
     const handleFetchPages = async () => {
         setLoadingPages(true);
         try {
-            const result = await getFacebookPagesAction();
+            const result = await getFacebookPagesAction() as any;
             if (result.success && result.data) {
                 setAvailablePages(result.data);
-                // Auto-select first if only one
-                if (result.data.length === 1 && !formData.pageId) {
+                if (result.accountName) {
+                    setActiveAccount({ id: result.accountId, name: result.accountName });
+                }
+
+                // 1. Priority: Use preferred IDs from DB
+                if (result.preferredPageId) {
+                    setFormData(prev => ({
+                        ...prev,
+                        pageId: result.preferredPageId,
+                        instagramId: result.preferredInstagramId || ''
+                    }));
+                    console.log(`GAGE: Auto-selected preferred identity: ${result.preferredPageId}`);
+                }
+                // 2. Fallback: Auto-select first if only one page exists
+                else if (result.data.length === 1 && !formData.pageId) {
                     setFormData(prev => ({
                         ...prev,
                         pageId: result.data[0].id,
@@ -469,6 +489,23 @@ export function SmartCampaignWizard() {
                             </h3>
                             <p className="text-slate-500 dark:text-slate-400">Em qual página do Facebook e Instagram este anúncio será veiculado?</p>
                         </div>
+
+                        {activeAccount && (
+                            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-8 w-8 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
+                                        <Database className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Conta Ativa (do Dashboard)</p>
+                                        <p className="font-bold text-slate-900 dark:text-white text-sm">{activeAccount.name}</p>
+                                    </div>
+                                </div>
+                                <div className="text-[10px] font-bold text-slate-400">
+                                    {activeAccount.id}
+                                </div>
+                            </div>
+                        )}
 
                         {availablePages.length === 0 && !loadingPages ? (
                             <div className="p-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">

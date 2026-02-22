@@ -46,6 +46,9 @@ Permitir o upload de arquivos pesados (como vídeos em 4K) diretamente do Google
 9. **Video Thumbnail Error (Seu anúncio precisa de uma miniatura)**:
    - *Causa*: O Meta exige uma miniatura para anúncios de vídeo com Botão (CTA). Se o anúncio for criado imediatamente após o upload do vídeo, a miniatura automática pode não estar pronta.
    - *Solução*: Implementado o helper `waitForVideoReady` que faz polling do status do vídeo no Meta. Quando o status vira `ready`, capturamos a URL da miniatura gerada e a injetamos explicitamente no `video_data.image_url` do Creative.
+10. **Smart Identity Persistence**:
+    - *Contexto*: O usuário não queria ter que escolher a Página/Instagram toda vez se já estivesse em uma conta específica.
+    - *Solução*: O `SmartCampaignWizard` agora consome as `preferred_page_id` e `preferred_instagram_id` da tabela `integrations`. Ao carregar o passo de Identidade, ele pré-seleciona automaticamente os ativos salvos, mantendo a consistência com o que foi definido anteriormente.
 
 ---
 
