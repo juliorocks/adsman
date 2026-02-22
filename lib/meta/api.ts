@@ -119,8 +119,15 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         } catch (e: any) { debugInfo += `_pperr_${e.message}_`; }
     }
 
-    // Unique by ID
-    rawPages = Array.from(new Map(rawPages.map(p => [p.id, p])).values());
+    // Unique by ID (favor flagged authorized versions)
+    const uniqueMap = new Map();
+    rawPages.forEach(p => {
+        const existing = uniqueMap.get(p.id);
+        if (!existing || p._from_promote) {
+            uniqueMap.set(p.id, p);
+        }
+    });
+    rawPages = Array.from(uniqueMap.values());
 
     // Normalizing pages with smart discovery
     let pages = await Promise.all(rawPages.map(async (p) => {
@@ -154,15 +161,22 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         };
     }));
 
-    // SECURITY FILTER: Absolute Privacy Wall
-    // When an ad account is specified, we ONLY show pages explicitly returned by promote_pages.
+    // SECURITY FILTER: Absolute Privacy Wall (Client Context)
+    // We only show Pages that are 100% confirmed as belonging to this Client/Ad Account context.
     if (adAccountId) {
         const promotePageIds = new Set(rawPages.filter(p => p._from_promote).map(p => p.id));
+        const authorizedIgIds = new Set(authorizedIgs.map(ig => ig.id));
 
         const originalCount = pages.length;
         pages = pages.filter(p => {
-            // 1. Authority Check: Must be in promote_pages for this account
-            return promotePageIds.has(p.id);
+            // 1. Must be returned by promote_pages (Authoritative link)
+            if (!promotePageIds.has(p.id)) return false;
+
+            // 2. Must have a connected IG that is authorized for THIS Ad Account
+            const pageIgId = p.connected_instagram_account?.id;
+            if (pageIgId && !authorizedIgIds.has(pageIgId)) return false;
+
+            return true;
         });
         debugInfo += `_filtered_${originalCount - pages.length}_out_`;
     }

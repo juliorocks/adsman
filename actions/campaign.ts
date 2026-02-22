@@ -31,15 +31,32 @@ export async function getFacebookPagesAction() {
 
         // Validate preferences: only return them if they actually exist in the current account's pages
         const prefPageId = (integration as any).preferred_page_id;
-        const isValidPref = pageResult.pages.some(p => p.id === prefPageId);
+        const validMatch = pageResult.pages.find(p => p.id === prefPageId);
+
+        let finalPrefPageId = validMatch?.id;
+        let finalPrefIgId = validMatch?.connected_instagram_account?.id || (integration as any).preferred_instagram_id;
+
+        // Fallback: If no preference, or preference invalid, try to match by name
+        if (!finalPrefPageId && pageResult.pages.length > 0) {
+            const cleanAcc = accountName.toLowerCase().replace(/\[.*?\]/g, '').trim();
+            const match = pageResult.pages.find(p => {
+                const pn = p.name.toLowerCase();
+                return cleanAcc.split(' ').some((part: string) => part.length > 3 && pn.includes(part));
+            });
+            if (match) {
+                finalPrefPageId = match.id;
+                finalPrefIgId = match.connected_instagram_account?.id;
+                console.log(`GAGE: Name-match fallback found: ${match.name}`);
+            }
+        }
 
         return {
             success: true,
             data: pageResult.pages,
             accountName,
             accountId: adAccountId,
-            preferredPageId: isValidPref ? prefPageId : undefined,
-            preferredInstagramId: isValidPref ? (integration as any).preferred_instagram_id : undefined
+            preferredPageId: finalPrefPageId,
+            preferredInstagramId: finalPrefIgId
         };
     } catch (error: any) {
         console.error("getFacebookPagesAction error:", error);
