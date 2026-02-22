@@ -76,24 +76,23 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
 }
 
 // Fetch Facebook Pages that can be used for ads (tries multiple sources)
-// Fetch Facebook Pages that can be used for ads (tries multiple sources)
 export async function getPages(accessToken: string, adAccountId?: string): Promise<{ pages: { id: string; name: string; connected_instagram_account?: { id: string } }[], debug: string }> {
     let rawPages: any[] = [];
     let debugInfo = "";
     const fields = "id,name,connected_instagram_account,instagram_business_account";
 
     // 0. Fetch Ad Account's authorized Instagram accounts - THE SOURCE OF TRUTH
-    let authorizedIgIds: string[] = [];
+    let authorizedIgs: { id: string, username: string }[] = [];
     if (adAccountId) {
         try {
             const accRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}?fields=name,instagram_accounts{id,username}&access_token=${accessToken}`);
             const accData = await accRes.json();
             if (accData.name) {
-                debugInfo += `_account_${accData.name}_`;
+                debugInfo += `_acc_${accData.name}_`;
             }
             if (accData.instagram_accounts?.data) {
-                authorizedIgIds = accData.instagram_accounts.data.map((ig: any) => ig.id);
-                debugInfo += `_authIgs_${authorizedIgIds.length}_[${accData.instagram_accounts.data.map((ig: any) => ig.username).join(',')}]_`;
+                authorizedIgs = accData.instagram_accounts.data;
+                debugInfo += `_authIgs_${authorizedIgs.length}_[${authorizedIgs.map(ig => `${ig.username}:${ig.id}`).join('|')}]_`;
             }
         } catch (e) { }
     }
@@ -105,42 +104,27 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
             const data = await res.json();
             if (data.data && data.data.length > 0) {
                 rawPages = data.data;
-                debugInfo += `_ppfound_${data.data.length}_`;
-                data.data.forEach((p: any) => { debugInfo += `[${p.name}]`; });
-            } else {
-                debugInfo += "_pp_empty_";
+                debugInfo += `_pp_${data.data.length}_`;
             }
         } catch (e: any) { debugInfo += `_pperr_${e.message}_`; }
     }
 
-    // 2. Fallback to me/accounts ONLY if no adAccountId or found nothing
-    if (!adAccountId && rawPages.length === 0) {
-        try {
-            const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/accounts?fields=${fields}&access_token=${accessToken}`);
-            const data = await res.json();
-            if (data.data) {
-                rawPages = data.data;
-                debugInfo += `_me_${data.data.length}_`;
-            }
-        } catch (e: any) { debugInfo += `_meerr_${e.message}_`; }
-    }
-
-    // Normalize pages
+    // Normalizing pages with smart IG lookup
     let pages = await Promise.all(rawPages.map(async (p) => {
-        let igId = p.connected_instagram_account?.id || p.instagram_business_account?.id;
+        // Priority: instagram_business_account (modern) -> connected_instagram_account
+        let igId = p.instagram_business_account?.id || p.connected_instagram_account?.id;
         let source = igId ? "page_field" : "none";
 
-        // VERIFY: If found ID is NOT in authorized list, it might be a shadow ID.
-        // Try to find a match in the authorized list instead.
-        if (authorizedIgIds.length > 0) {
-            if (!igId || !authorizedIgIds.includes(igId)) {
-                // If the page doesn't have a valid ID, maybe it's linked but the ID is different
-                // or we can find one by querying the page directly
+        // Check against authorized list
+        if (authorizedIgs.length > 0) {
+            const isAuthorized = authorizedIgs.some(ig => ig.id === igId);
+            if (!igId || !isAuthorized) {
+                // Try specifically per-page endpoint
                 try {
                     const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id&access_token=${accessToken}`);
                     const igData = await igRes.json();
                     const foundId = igData.data?.[0]?.id;
-                    if (foundId && authorizedIgIds.includes(foundId)) {
+                    if (foundId && authorizedIgs.some(ig => ig.id === foundId)) {
                         igId = foundId;
                         source = "verified_endpoint";
                     }
@@ -158,13 +142,15 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
 
     const igFound = pages.find(p => p.connected_instagram_account);
     if (igFound) {
-        debugInfo += `_igid_${igFound.connected_instagram_account?.id}_src_${igFound.ig_source}_`;
+        const matchingIg = authorizedIgs.find(ig => ig.id === igFound.connected_instagram_account?.id);
+        debugInfo += `_selectedIG_${matchingIg ? matchingIg.username : 'unknown'}:${igFound.connected_instagram_account?.id}_`;
     }
 
-    // 3. Last Ditch: If still no IG but we have authorized ones, use the first authorized one for the first page
-    if (adAccountId && pages.length > 0 && !igFound && authorizedIgIds.length > 0) {
-        pages[0].connected_instagram_account = { id: authorizedIgIds[0] };
-        debugInfo += `_ig_forced_auth_`;
+    // Final Fallback: If still no IG linked to specific page, but we have authorized accounts,
+    // we use the first one if it's the only one found.
+    if (!igFound && authorizedIgs.length > 0 && pages.length > 0) {
+        pages[0].connected_instagram_account = { id: authorizedIgs[0].id };
+        debugInfo += `_forced_ig_${authorizedIgs[0].username}_`;
     }
 
     return { pages, debug: debugInfo };
@@ -380,8 +366,6 @@ export async function createAdCreative(adAccountId: string, name: string, object
 
     if (instagramActorId) {
         body.instagram_actor_id = instagramActorId;
-        // Dual-placement: root and inside object_story_spec for maximum compatibility
-        body.object_story_spec.instagram_actor_id = instagramActorId;
         console.log(`DEBUG: Creating AdCreative with IG Actor ID: ${instagramActorId} for Page: ${objectStorySpec.page_id}`);
     }
 
@@ -393,24 +377,19 @@ export async function createAdCreative(adAccountId: string, name: string, object
     const data = await response.json();
 
     if (data.error) {
-        const isIgError = data.error.message.toLowerCase().includes('instagram_actor_id') ||
+        const errorMsg = data.error.message.toLowerCase();
+        const isIgError = errorMsg.includes('instagram_actor_id') ||
             data.error.code === 100 ||
-            data.error.message.toLowerCase().includes('instagram');
+            errorMsg.includes('instagram');
 
         if (instagramActorId && isIgError) {
-            console.warn(`RETRY: Instagram ID ${instagramActorId} failed. Error: ${data.error.message}. Retrying WITHOUT Instagram...`);
+            console.warn(`RETRY_WITHOUT_IG: ID ${instagramActorId} failed. Error: ${data.error.message}`);
 
-            // Clean deep clone for retry
             const retryBody = {
                 name: `${name} (FB Only)`,
                 object_story_spec: { ...objectStorySpec },
                 access_token: accessToken
             };
-
-            // Remove IG ID from child spec just in case
-            if (retryBody.object_story_spec.instagram_actor_id) {
-                delete retryBody.object_story_spec.instagram_actor_id;
-            }
 
             const retryRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
                 method: 'POST',
@@ -419,19 +398,14 @@ export async function createAdCreative(adAccountId: string, name: string, object
             });
             const retryData = await retryRes.json();
 
-            if (!retryData.error) return { ...retryData, ig_linked: false };
+            if (!retryData.error) return { ...retryData, ig_linked: false, ig_error: data.error.message };
 
-            // If retry ALSO failed, report the final failure
             console.error("Meta API createAdCreative FINAL Error:", JSON.stringify(retryData.error, null, 2));
-            throw new Error(`Creative Fallback Failed: ${retryData.error.message} (Code: ${retryData.error.code})`);
+            throw new Error(`Fallback Failed: ${retryData.error.message}`);
         }
 
         const e = data.error;
-        const fullError = [
-            `msg: ${e.message}`,
-            `code: ${e.code}`,
-            `sub: ${e.error_subcode}`,
-        ].join(' | ');
+        const fullError = `msg: ${e.message} | code: ${e.code} | sub: ${e.error_subcode}`;
         console.error("Meta API createAdCreative Error:", JSON.stringify(data.error, null, 2));
         throw new Error(`Creative: ${fullError}`);
     }
