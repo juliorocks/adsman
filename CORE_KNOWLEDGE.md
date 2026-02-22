@@ -36,6 +36,13 @@ Permitir o upload de arquivos pesados (como vídeos em 4K) diretamente do Google
 7. **Navegação em Pastas no Drive**:
    - *Contexto*: A lista plana de arquivos era insuficiente para usuários com muitos ativos.
    - *Solução*: Implementado suporte completo a pastas e breadcrumbs em `GoogleDriveSelector.tsx`, usando hierarquia de `folderId` via API v3.
+8. **Identity Selection Error (Subcode 1443226)**:
+   - *Causa*: Meta V21.0 rejeita IDs de Instagram que não estão perfeitamente vinculados ou autorizados para a Página no Business Manager.
+   - *Solução*: Implementado fluxo de **Tentativa e Erro Multinível**: 
+       1. Tenta `instagram_user_id` no root (Padrão V21.0).
+       2. Tenta `instagram_actor_id` no root (Legacy name fallback).
+       3. Tenta dentro do `object_story_spec`.
+       4. Se todos falharem, remove todas as referências de IG e força a veiculação apenas no Facebook para evitar o travamento da campanha.
 
 ---
 

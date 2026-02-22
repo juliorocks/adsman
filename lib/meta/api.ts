@@ -413,7 +413,7 @@ export async function createAdCreative(adAccountId: string, name: string, object
         const currentIgId = idsToTry[index];
         const isLastIg = index >= idsToTry.length - 1;
 
-        // CRITICAL V21.0 FIX: instagram_user_id MUST be at the root level, not inside object_story_spec
+        // V21.0 Recommendation: instagram_user_id at root
         const body: any = {
             name,
             object_story_spec: JSON.parse(JSON.stringify(objectStorySpec)),
@@ -422,9 +422,7 @@ export async function createAdCreative(adAccountId: string, name: string, object
 
         if (currentIgId) {
             body.instagram_user_id = currentIgId;
-            console.log(`GAGE: Attempting AdCreative creation with instagram_user_id: ${currentIgId} (Modern Placement)`);
-        } else {
-            console.log(`GAGE: Attempting AdCreative creation WITHOUT instagram_user_id (Facebook Only)`);
+            console.log(`GAGE: [Attempt ${index}] Creative creation with IG: ${currentIgId}`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -436,56 +434,83 @@ export async function createAdCreative(adAccountId: string, name: string, object
 
         if (data.error) {
             const e = data.error;
-            const errorMsg = e.message.toLowerCase();
-            const isIgError = errorMsg.includes('instagram_user_id') ||
-                errorMsg.includes('instagram_actor_id') ||
-                errorMsg.includes('instagram_business_account') ||
-                e.code === 100 || e.code === 10;
+            const sub = e.error_subcode;
+            const msg = (e.message || "").toLowerCase();
 
-            console.warn(`GAGE_ERROR: Attempt ${index} failed: ${e.message} (Code: ${e.code})`);
+            // Subcode 1443226 is explicitly "Identity selection required" or "Invalid Instagram ID"
+            const isIgIdentityError = sub === 1443226 || sub === 1443225 || sub === 1443115 ||
+                msg.includes('instagram_user_id') ||
+                msg.includes('instagram_actor_id') ||
+                msg.includes('identity');
 
-            if (currentIgId && isIgError) {
-                // Try Fallback: Some legacy accounts might still need it inside spec? 
-                // (Unlikely for V21.0 but good for resilience if root fails)
-                if (!body.object_story_spec.instagram_user_id) {
-                    console.log("GAGE_RETRY: Trying Legacy Spec Placement fallback...");
-                    const fallbackBody = { ...body };
-                    fallbackBody.object_story_spec.instagram_user_id = currentIgId;
-                    delete fallbackBody.instagram_user_id;
+            console.warn(`GAGE_ERROR: Attempt ${index} (${currentIgId || 'FB-ONLY'}) failed: ${e.message} (Code: ${e.code}, Sub: ${sub})`);
 
-                    const fbRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(fallbackBody)
-                    });
-                    const fbData = await fbRes.json();
-                    if (!fbData.error) return { ...fbData, ig_linked: true };
-                }
+            if (currentIgId && isIgIdentityError) {
+                // FALLBACK 1: Try legacy 'instagram_actor_id' field name at root (some accounts still need this transitionally)
+                console.log("GAGE_RETRY: Trying alternative 'instagram_actor_id' root field...");
+                const altBody = JSON.parse(JSON.stringify(body));
+                delete altBody.instagram_user_id;
+                altBody.instagram_actor_id = currentIgId;
 
+                const altRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(altBody)
+                });
+                const altData = await altRes.json();
+                if (!altData.error) return { ...altData, ig_linked: true, method: 'actor_id_root' };
+
+                // FALLBACK 2: Try legacy placement inside object_story_spec
+                console.log("GAGE_RETRY: Trying Legacy Spec Placement fallback...");
+                const specBody = JSON.parse(JSON.stringify(body));
+                specBody.object_story_spec.instagram_user_id = currentIgId;
+                delete specBody.instagram_user_id;
+
+                const specRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(specBody)
+                });
+                const specData = await specRes.json();
+                if (!specData.error) return { ...specData, ig_linked: true, method: 'spec_placement' };
+
+                // Rotate to next available Instagram ID if any
                 if (!isLastIg) {
-                    console.warn(`GAGE_RETRY: Rotating to next Instagram ID...`);
+                    console.warn(`GAGE_RETRY: Rotating to next available Instagram ID...`);
                     return executeAttempt(index + 1);
                 }
 
-                // FINAL FB-ONLY FALLBACK
-                console.warn(`GAGE_FALLBACK: Deploying to Facebook only.`);
-                const cleanFbBody = { ...body };
-                delete cleanFbBody.instagram_user_id;
-                delete cleanFbBody.object_story_spec.instagram_user_id;
+                // ABSOLUTE LAST RESORT: Facebook-Only (Strip all IG references)
+                console.warn(`GAGE_FALLBACK: Instagram identities exhausted or rejected. Deploying to Facebook only.`);
+                const fbOnlyBody = JSON.parse(JSON.stringify(body));
+                delete fbOnlyBody.instagram_user_id;
+                delete fbOnlyBody.instagram_actor_id;
+                if (fbOnlyBody.object_story_spec) {
+                    delete fbOnlyBody.object_story_spec.instagram_user_id;
+                    delete fbOnlyBody.object_story_spec.instagram_actor_id;
+                    if (fbOnlyBody.object_story_spec.link_data) {
+                        delete fbOnlyBody.object_story_spec.link_data.instagram_user_id;
+                        delete fbOnlyBody.object_story_spec.link_data.instagram_actor_id;
+                    }
+                    if (fbOnlyBody.object_story_spec.video_data) {
+                        delete fbOnlyBody.object_story_spec.video_data.instagram_user_id;
+                    }
+                }
 
-                const fbOnlyRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+                const fbRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(cleanFbBody)
+                    body: JSON.stringify(fbOnlyBody)
                 });
-                const fbOnlyData = await fbOnlyRes.json();
-                if (!fbOnlyData.error) return { ...fbOnlyData, ig_linked: false, ig_error: e.message };
+                const fbData = await fbRes.json();
+                if (!fbData.error) return { ...fbData, ig_linked: false, ig_error: e.message };
 
-                // If even FB-only fails, catch its error for the final throw
-                data.error = fbOnlyData.error;
+                // If even FB-only fails, we throw the FB error as it's likely more fundamental (Page ID, Asset, etc.)
+                throw new Error(`Meta V21.0 FB-Fallback Error: ${fbData.error.message} (Original IG Error: ${e.message})`);
             }
 
-            throw new Error(`Meta V21.0 Migration Error: ${data.error.message} (Code: ${data.error.code}, Subcode: ${data.error.error_subcode || 'none'})`);
+            // Not an IG error or no more options, throw original
+            throw new Error(`Meta V21.0 Migration Error: ${e.message} (Code: ${e.code}, Sub: ${sub})`);
         }
         return { ...data, ig_linked: !!currentIgId };
     };
