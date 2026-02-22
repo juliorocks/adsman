@@ -504,29 +504,12 @@ export async function createAdCreative(adAccountId: string, name: string, object
         if (currentIgId) {
             const igIdStr = String(currentIgId);
 
-            // ORION PROTOCOL V3: ABSOLUTE IDENTITY MIRRORING
-            // We set the identity in every single field Meta UI uses for auto-selection.
-
-            // Root Mirroring
+            // CLEAN SWEEP: Minimalist Precision (V21.0 Standard)
+            // Excessive fields can confuse the Ads Manager UI parser.
             body.instagram_actor_id = igIdStr;
-            body.instagram_user_id = igIdStr;
-            body.instagram_id = igIdStr;
-            body.instagram_business_account_id = igIdStr;
-
-            // Spec Anchor Mirroring (Forces the UI to sync)
             body.object_story_spec.instagram_actor_id = igIdStr;
-            body.object_story_spec.instagram_user_id = igIdStr;
-            body.object_story_spec.instagram_business_account = igIdStr;
-            body.object_story_spec.instagram_business_account_id = igIdStr;
 
-            // Placement-level redundancy
-            if (body.object_story_spec.video_data) {
-                body.object_story_spec.video_data.instagram_actor_id = igIdStr;
-            } else if (body.object_story_spec.link_data) {
-                body.object_story_spec.link_data.instagram_actor_id = igIdStr;
-            }
-
-            console.log(`GAGE: [Orion Protocol V3] Absolute Identity Mirror (IG: ${igIdStr})`);
+            console.log(`GAGE: [Clean Sweep] Identity Anchored (IG: ${igIdStr})`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -639,10 +622,7 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
     };
 
     if (instagramActorId) {
-        const igIdStr = String(instagramActorId);
-        body.instagram_actor_id = igIdStr;
-        // Inject at ad-level to assist UI auto-selection
-        (body as any).instagram_id = igIdStr;
+        body.instagram_actor_id = String(instagramActorId);
     }
 
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/ads`, {
