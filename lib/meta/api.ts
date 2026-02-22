@@ -377,21 +377,29 @@ export async function createAdSet(adAccountId: string, campaignId: string, param
 }
 
 export async function createAdCreative(adAccountId: string, name: string, objectStorySpec: any, accessToken: string, instagramActorId?: string, alternativeIgIds?: string[]) {
-    const postBody = (igId?: string) => {
-        const b: any = {
+    // Collect all unique IDs to try in order
+    const idsToTry = Array.from(new Set([
+        ...(instagramActorId ? [instagramActorId] : []),
+        ...(alternativeIgIds || [])
+    ]));
+
+    const executeAttempt = async (index: number): Promise<any> => {
+        const currentIgId = idsToTry[index];
+        const isLastIg = index >= idsToTry.length - 1;
+
+        const body: any = {
             name,
             object_story_spec: { ...objectStorySpec },
             access_token: accessToken
         };
-        if (igId) b.instagram_actor_id = igId;
-        return b;
-    };
+        if (currentIgId) body.instagram_actor_id = currentIgId;
 
-    const attempt = async (igId?: string, isRetry: boolean = false): Promise<any> => {
+        console.log(`DEBUG: AdCreative attempt ${index + 1}/${idsToTry.length} with IG: ${currentIgId || 'None'}`);
+
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(postBody(igId))
+            body: JSON.stringify(body)
         });
         const data = await response.json();
 
@@ -401,23 +409,22 @@ export async function createAdCreative(adAccountId: string, name: string, object
                 data.error.code === 100 ||
                 errorMsg.includes('instagram');
 
-            if (igId && isIgError) {
-                console.warn(`RETRY_IG: ID ${igId} failed with: ${data.error.message}`);
+            if (currentIgId && isIgError) {
+                console.warn(`RETRY_IG: ID ${currentIgId} failed: ${data.error.message}`);
 
-                // If we have alternative IDs, try the next one
-                if (alternativeIgIds && alternativeIgIds.length > 0) {
-                    const nextIg = alternativeIgIds[0];
-                    const remaining = alternativeIgIds.slice(1);
-                    console.log(`Brute Forcing Alternative IG: ${nextIg} (${remaining.length} left)`);
-                    return attempt(nextIg === igId ? remaining[0] : nextIg, true);
+                if (!isLastIg) {
+                    return executeAttempt(index + 1);
                 }
 
-                // If all alternatives fail, fallback to Facebook only
+                // Final fallback to Facebook Only
                 console.warn(`ALL_IG_FAILED: Retrying FINAL fallback (Facebook Only)`);
+                const fbOnlyBody = { ...body };
+                delete fbOnlyBody.instagram_actor_id;
+
                 const retryRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(postBody(undefined))
+                    body: JSON.stringify(fbOnlyBody)
                 });
                 const retryData = await retryRes.json();
                 if (!retryData.error) return { ...retryData, ig_linked: false, ig_error: data.error.message };
@@ -429,10 +436,10 @@ export async function createAdCreative(adAccountId: string, name: string, object
             throw new Error(`Creative: msg: ${e.message} | code: ${e.code}`);
         }
 
-        return { ...data, ig_linked: !!igId };
+        return { ...data, ig_linked: !!currentIgId };
     };
 
-    return attempt(instagramActorId);
+    return executeAttempt(0);
 }
 
 export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED') {
