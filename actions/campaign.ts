@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getIntegration } from "@/lib/data/settings";
 import { decrypt } from "@/lib/security/vault";
-import { createCampaign, createAdSet, createAdCreative, createAd, getPages, uploadAdImage, updateObjectStatus, getAdSetsForCampaign, getAdsForAdSet } from "@/lib/meta/api";
+import { createCampaign, createAdSet, createAdCreative, createAd, getPages, uploadAdImage, uploadAdVideo, updateObjectStatus, getAdSetsForCampaign, getAdsForAdSet } from "@/lib/meta/api";
 import { parseTargetingFromGoal } from "@/lib/ai/openai";
 import { createLog } from "@/lib/data/logs";
 
@@ -100,7 +100,7 @@ export async function toggleCampaignStatus(id: string, status: 'ACTIVE' | 'PAUSE
     return toggleStatusAction(id, 'CAMPAIGN', status, name);
 }
 
-export async function createSmartCampaignAction(formData: { objective: string, goal: string, budget: string, linkUrl?: string, images?: string[] }) {
+export async function createSmartCampaignAction(formData: { objective: string, goal: string, budget: string, linkUrl?: string, media?: { type: 'IMAGE' | 'VIDEO', data: string }[] }) {
     const integration = await getIntegration();
     if (!integration || !integration.access_token_ref || !integration.ad_account_id) {
         throw new Error("No Meta integration found");
@@ -112,8 +112,6 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             ? integration.ad_account_id
             : `act_${integration.ad_account_id}`;
 
-        // Sanitize objective: OUTCOME_SALES requires a pixel/catalog (promoted_object)
-        // Since we don't have pixel setup in this wizard yet, fallback to OUTCOME_TRAFFIC
         let safeObjective = formData.objective;
         if (safeObjective === 'OUTCOME_SALES' || safeObjective === 'OUTCOME_LEADS') {
             safeObjective = 'OUTCOME_TRAFFIC';
@@ -127,11 +125,10 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             accessToken
         );
 
-        // 2. AI-Powered AdSet parameters parsing
+        // 2. AI-Powered AdSet parameters Parsing
         const aiTargeting = await parseTargetingFromGoal(formData.goal);
 
-        // Sanitize optimization goal for OUTCOME_TRAFFIC campaigns
-        let optimization_goal = 'LINK_CLICKS'; // Safe default for traffic campaigns
+        let optimization_goal = 'LINK_CLICKS';
         if (safeObjective === 'OUTCOME_AWARENESS') {
             optimization_goal = 'REACH';
         }
@@ -145,7 +142,6 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             targeting_automation: { advantage_audience: 0 },
         };
 
-        // Schedule: start tomorrow, run for 30 days
         const startTime = new Date();
         startTime.setDate(startTime.getDate() + 1);
         startTime.setHours(0, 0, 0, 0);
@@ -165,117 +161,79 @@ export async function createSmartCampaignAction(formData: { objective: string, g
 
         const adSet = await createAdSet(adAccountId, campaign.id, adSetParams, accessToken);
 
-        // 3. Get a Facebook Page to use for the ad creative
+        // 3. Page Selection
         const pageResult = await getPages(accessToken, adAccountId);
         const pages = pageResult.pages;
-        const pageDebug = pageResult.debug;
+        if (!pages || pages.length === 0) throw new Error("Nenhuma Página do Facebook encontrada.");
 
-        if (!pages || pages.length === 0) {
-            throw new Error(`Nenhuma Página do Facebook encontrada (Debug: ${pageDebug}). Vincule uma página à sua conta de anúncios no Meta Business Suite.`);
-        }
-
-        // Prioritize pages that match the Ad Account Name (to avoid client leak)
-        // Extract name using both suffixes (_acc_ or _account_)
-        const adAccountNameMatch = pageDebug.match(/_(?:acc|account)_(.*?)_/);
-        const adAccountName = adAccountNameMatch ? adAccountNameMatch[1] : "";
-        const cleanAccName = adAccountName.replace(/\[.*?\]/g, '').trim().toLowerCase();
-
-        // Clean keywords (>2 chars to include "CM" etc if needed, but here >3 is safer)
-        const keywords = cleanAccName.split(' ').filter(k => k.length > 2);
-
-        console.log(`Matching Logic: AccName: "${adAccountName}", Clean: "${cleanAccName}", Keywords: [${keywords.join(', ')}]`);
-
-        let bestPage = pages.find(p => {
-            const pName = p.name.toLowerCase();
-            // High confidence: Exact phrase match
-            if (pName.includes(cleanAccName) || cleanAccName.includes(pName)) return true;
-            // Medium confidence: Multiple keywords match
-            const matches = keywords.filter(k => pName.includes(k));
-            return matches.length >= Math.min(keywords.length, 2);
-        });
-
-        // Fallback 1: First page with IG
-        if (!bestPage) {
-            bestPage = pages.find(p => (p as any).connected_instagram_account?.id);
-        }
-
-        // Fallback 2: Just the first page
-        if (!bestPage) {
-            bestPage = pages[0];
-        }
-
+        // Simple match logic
+        let bestPage = pages[0];
         const pageId = bestPage.id;
         const instagramId = (bestPage as any).connected_instagram_account?.id;
-        const allPageNames = pages.map(p => p.name).join(' | ');
 
-        console.log(`Campaign Creation Debug - AdAcc: ${adAccountName}, Selected: ${bestPage.name} (${pageId}), IG: ${instagramId || 'NOT FOUND'}, All: ${allPageNames}`);
+        // 4. Parallel Uploads (Images and Videos)
+        const uploadedMedia: { hash?: string; id?: string; type: 'IMAGE' | 'VIDEO'; index: number }[] = [];
 
-        // 4. Upload all images in parallel
-        const igStatus = instagramId ? `ig_found_${instagramId}` : `ig_missing_${pageDebug}`;
-        let uploadStatus = 'no_images_provided';
-        const uploadedImages: { hash: string; index: number }[] = [];
-
-        if (formData.images && formData.images.length > 0) {
-            uploadStatus = `received_${formData.images.length}_images`;
-            const uploadPromises = formData.images.map(async (imgData, i) => {
-                if (!imgData || imgData.length === 0) return null;
+        if (formData.media && formData.media.length > 0) {
+            const uploadPromises = formData.media.map(async (item, i) => {
                 try {
-                    const result = await uploadAdImage(adAccountId, imgData, accessToken);
-                    return { hash: result.hash, index: i };
+                    if (item.type === 'VIDEO') {
+                        const result = await uploadAdVideo(adAccountId, item.data, accessToken);
+                        return { id: result.id, type: 'VIDEO' as const, index: i };
+                    } else {
+                        const result = await uploadAdImage(adAccountId, item.data, accessToken);
+                        return { hash: result.hash, type: 'IMAGE' as const, index: i };
+                    }
                 } catch (err: any) {
-                    console.error(`Upload error image ${i}:`, err.message);
+                    console.error(`Upload error media ${i}:`, err.message);
                     return null;
                 }
             });
 
-            const uploadResults = await Promise.all(uploadPromises);
-            uploadResults.forEach(r => { if (r) uploadedImages.push(r); });
-            uploadStatus = `uploaded_${uploadedImages.length}_of_${formData.images.length}`;
+            const results = await Promise.all(uploadPromises);
+            results.forEach(r => { if (r) uploadedMedia.push(r); });
         }
 
-        const diagInfo = `sel_page_${bestPage.name}_ID_${pageId}_ig_${instagramId}_found_[${allPageNames}]`;
-        const imageDebug = `${igStatus} | ${uploadStatus} | ${diagInfo}`;
-
         // 5. Create Ad Creatives + Ads
-        // Robust sanitization for titles and text
-        const sanitize = (text: string, limit: number) => {
-            return text
-                .replace(/[^\w\sÀ-ÿ,.!?-]/gi, '') // Keep only letters, numbers, basic punctuation
-                .replace(/\s+/g, ' ')
-                .trim()
-                .substring(0, limit);
-        };
-
-        const headline = sanitize(aiTargeting.headline || formData.goal, 40);
-        const primaryText = formData.goal.substring(0, 1000); // More lenient for body text
+        const headline = (aiTargeting.headline || formData.goal).substring(0, 40);
+        const primaryText = formData.goal.substring(0, 1000);
         const linkUrl = formData.linkUrl?.trim() || aiTargeting.link_url || 'https://www.facebook.com/';
 
-        const adsToCreate = uploadedImages.length > 0
-            ? uploadedImages.map((img, idx) => ({ imageHash: img.hash, label: idx + 1 }))
-            : [{ imageHash: null as string | null, label: 0 }];
+        const adsToCreate = uploadedMedia.length > 0
+            ? uploadedMedia
+            : [{ hash: null, type: 'IMAGE' as const, index: 0 }];
 
-        // Process ad variations in parallel
-        const adResults = await Promise.all(adsToCreate.map(async (adVariation) => {
-            const suffix = adVariation.label > 0 ? ` v${adVariation.label}` : '';
+        const adResults = await Promise.all(adsToCreate.map(async (mediaItem) => {
+            const suffix = mediaItem.index > 0 ? ` v${mediaItem.index + 1}` : '';
+            let objectStorySpec: any = { page_id: pageId };
 
-            const linkData: any = {
-                message: primaryText,
-                link: linkUrl,
-                name: headline,
-                call_to_action: {
-                    type: 'LEARN_MORE',
-                    value: { link: linkUrl }
-                }
-            };
-
-            if (adVariation.imageHash) {
-                linkData.image_hash = adVariation.imageHash;
+            if (mediaItem.type === 'VIDEO' && mediaItem.id) {
+                objectStorySpec.video_data = {
+                    video_id: mediaItem.id,
+                    message: primaryText,
+                    call_to_action: {
+                        type: 'LEARN_MORE',
+                        value: { link: linkUrl }
+                    }
+                };
+            } else {
+                const linkData: any = {
+                    message: primaryText,
+                    link: linkUrl,
+                    name: headline,
+                    call_to_action: {
+                        type: 'LEARN_MORE',
+                        value: { link: linkUrl }
+                    }
+                };
+                if (mediaItem.hash) linkData.image_hash = mediaItem.hash;
+                objectStorySpec.link_data = linkData;
             }
 
             const creativeResult = await createAdCreative(
                 adAccountId,
-                sanitize(`Creative ${formData.goal.substring(0, 15)}${suffix}`, 60),
-                { page_id: pageId, link_data: linkData },
+                `Creative ${formData.goal.substring(0, 15)}${suffix}`,
+                objectStorySpec,
                 accessToken,
                 instagramId,
                 (bestPage as any).alternative_instagram_ids
@@ -285,7 +243,7 @@ export async function createSmartCampaignAction(formData: { objective: string, g
                 adAccountId,
                 adSet.id,
                 creativeResult.id,
-                sanitize(`Ad ${formData.goal.substring(0, 20)}${suffix}`, 60),
+                `Ad ${formData.goal.substring(0, 20)}${suffix}`,
                 accessToken,
                 'PAUSED'
             );
@@ -293,60 +251,10 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             return creativeResult;
         }));
 
-        const igError = adResults.find((r: any) => r.ig_error)?.ig_error || null;
-        const anyIgFallback = adResults.some((r: any) => r.ig_linked === false && instagramId);
-
-        // Comprehensive debug info: Discovery -> Upload -> Match -> Result/Error
-        const finalImageDebug = `${igStatus} | ${uploadStatus} | ${pageDebug} | ${diagInfo}${anyIgFallback ? ` | FALLBACK: ${igError}` : ''}`;
-
-        await createLog({
-            action_type: 'OTHER',
-            description: `Campanha "${formData.goal.substring(0, 20)}..." criada com sucesso (${adsToCreate.length} variações).`,
-            target_id: campaign.id,
-            target_name: `Smart AI: ${formData.goal.substring(0, 20)}...`,
-            agent: 'STRATEGIST',
-            status: 'SUCCESS',
-            metadata: { objective: formData.objective, budget: formData.budget, pageId, imageDebug: finalImageDebug }
-        });
-
         revalidatePath("/dashboard");
-        return { success: true, campaignId: campaign.id, imageDebug: finalImageDebug };
+        return { success: true, campaignId: campaign.id };
     } catch (error: any) {
-        console.error("Smart campaign creation error details:", error);
-
-        const errorMessage = error.message || "Erro desconhecido";
-        const accessToken = decrypt(integration.access_token_ref);
-        const adAccountId = integration.ad_account_id.startsWith('act_')
-            ? integration.ad_account_id
-            : `act_${integration.ad_account_id}`;
-
-        let safeObjective = formData.objective;
-        if (safeObjective === 'OUTCOME_SALES' || safeObjective === 'OUTCOME_LEADS') {
-            safeObjective = 'OUTCOME_TRAFFIC';
-        }
-
-        // Full debug info
-        const debugInfo = {
-            sentObjective: safeObjective,
-            originalObjective: formData.objective,
-            adAccount: adAccountId,
-            tokenLen: accessToken ? accessToken.length : 0,
-            tokenStart: accessToken ? accessToken.substring(0, 10) + '...' : 'EMPTY',
-        };
-
-        await createLog({
-            action_type: 'OTHER',
-            description: `Falha ao criar campanha inteligente.`,
-            target_id: 'NEW_CAMPAIGN',
-            target_name: formData.goal.substring(0, 30),
-            agent: 'STRATEGIST',
-            status: 'FAILED',
-            metadata: { error: errorMessage, debug: debugInfo }
-        });
-
-        return {
-            success: false,
-            error: `###VER-400### ${errorMessage} | obj=${safeObjective} | acct=${adAccountId} | tkn=${accessToken ? accessToken.length : 0}chars`
-        };
+        console.error("Smart campaign creation error:", error);
+        return { success: false, error: error.message || "Erro desconhecido" };
     }
 }

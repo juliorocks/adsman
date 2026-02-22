@@ -279,6 +279,31 @@ export async function uploadAdImage(adAccountId: string, imageBase64: string, ac
     throw new Error('ImageUpload: No hash returned from Meta');
 }
 
+// Upload a video to the ad account and return the video ID
+export async function uploadAdVideo(adAccountId: string, videoBase64: string, accessToken: string): Promise<{ id: string }> {
+    // Process base64 to binary
+    const binaryData = Buffer.from(videoBase64, 'base64');
+    const blob = new Blob([binaryData], { type: 'video/mp4' }); // Assuming mp4 for now
+
+    const formData = new FormData();
+    formData.append('source', blob, 'video.mp4');
+    formData.append('access_token', accessToken);
+
+    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/advideos`, {
+        method: 'POST',
+        body: formData
+    });
+
+    const data = await response.json();
+    if (data.error) {
+        const e = data.error;
+        console.error("Meta API uploadAdVideo Error:", JSON.stringify(e, null, 2));
+        throw new Error(`VideoUpload: ${e.message} | ${e.error_user_msg || 'none'}`);
+    }
+
+    return { id: data.id };
+}
+
 // CREATION METHODS
 export async function createCampaign(adAccountId: string, name: string, objective: string, accessToken: string) {
     const cleanName = name.replace(/[\n\r]/g, ' ').trim().substring(0, 100) || `Campaign ${Date.now()}`;

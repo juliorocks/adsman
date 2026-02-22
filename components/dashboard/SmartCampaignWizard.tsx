@@ -58,52 +58,59 @@ export function SmartCampaignWizard() {
         setError(null);
 
         try {
-            // Convert, resize and compress images to base64 (up to 3 images)
-            // This ensures we stay under Vercel's 4.5MB request body limit
-            const imageBase64List: string[] = [];
-            for (const img of images.slice(0, 3)) {
+            const mediaList: { type: 'IMAGE' | 'VIDEO', data: string }[] = [];
+            const targetedFiles = images.slice(0, 10);
+
+            for (const file of targetedFiles) {
                 try {
-                    const base64 = await new Promise<string>((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                            const imgElement = new Image();
-                            imgElement.onload = () => {
-                                const canvas = document.createElement('canvas');
-                                let width = imgElement.width;
-                                let height = imgElement.height;
+                    const isVideo = file.type.startsWith('video/');
 
-                                // Max dimension 1080px (FB/IG standard)
-                                const MAX_SIZE = 1080;
-                                if (width > height) {
-                                    if (width > MAX_SIZE) {
-                                        height *= MAX_SIZE / width;
-                                        width = MAX_SIZE;
+                    if (isVideo) {
+                        const base64 = await new Promise<string>((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = (e) => resolve((e.target?.result as string).split(',')[1] || '');
+                            reader.onerror = () => reject(new Error('Failed to read video file'));
+                            reader.readAsDataURL(file);
+                        });
+                        mediaList.push({ type: 'VIDEO', data: base64 });
+                    } else {
+                        const base64 = await new Promise<string>((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                const imgElement = new Image();
+                                imgElement.onload = () => {
+                                    const canvas = document.createElement('canvas');
+                                    let width = imgElement.width;
+                                    let height = imgElement.height;
+                                    const MAX_SIZE = 1080;
+                                    if (width > height) {
+                                        if (width > MAX_SIZE) {
+                                            height *= MAX_SIZE / width;
+                                            width = MAX_SIZE;
+                                        }
+                                    } else {
+                                        if (height > MAX_SIZE) {
+                                            width *= MAX_SIZE / height;
+                                            height = MAX_SIZE;
+                                        }
                                     }
-                                } else {
-                                    if (height > MAX_SIZE) {
-                                        width *= MAX_SIZE / height;
-                                        height = MAX_SIZE;
-                                    }
-                                }
-
-                                canvas.width = width;
-                                canvas.height = height;
-                                const ctx = canvas.getContext('2d');
-                                ctx?.drawImage(imgElement, 0, 0, width, height);
-
-                                // Compress to JPEG with 0.8 quality
-                                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                                resolve(compressedDataUrl.split(',')[1] || '');
+                                    canvas.width = width;
+                                    canvas.height = height;
+                                    const ctx = canvas.getContext('2d');
+                                    ctx?.drawImage(imgElement, 0, 0, width, height);
+                                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                                    resolve(compressedDataUrl.split(',')[1] || '');
+                                };
+                                imgElement.onerror = () => reject(new Error('Failed to load image element'));
+                                imgElement.src = e.target?.result as string;
                             };
-                            imgElement.onerror = () => reject(new Error('Failed to load image element'));
-                            imgElement.src = e.target?.result as string;
-                        };
-                        reader.onerror = () => reject(new Error('Failed to read file'));
-                        reader.readAsDataURL(img);
-                    });
-                    if (base64) imageBase64List.push(base64);
+                            reader.onerror = () => reject(new Error('Failed to read file'));
+                            reader.readAsDataURL(file);
+                        });
+                        mediaList.push({ type: 'IMAGE', data: base64 });
+                    }
                 } catch (err) {
-                    console.error("Image processing failed, skipping:", img.name, err);
+                    console.error("Media processing failed:", file.name, err);
                 }
             }
 
@@ -112,7 +119,7 @@ export function SmartCampaignWizard() {
                 goal: formData.goal,
                 budget: formData.budget,
                 linkUrl: formData.linkUrl,
-                images: imageBase64List,
+                media: mediaList,
             });
 
             if (!result) {
@@ -337,7 +344,7 @@ export function SmartCampaignWizard() {
                                 ref={fileInputRef}
                                 className="hidden"
                                 multiple
-                                accept="image/*"
+                                accept="image/*,video/*"
                                 onChange={(e) => {
                                     if (e.target.files) {
                                         setImages([...images, ...Array.from(e.target.files)]);
@@ -363,7 +370,13 @@ export function SmartCampaignWizard() {
                                     {images.map((file, idx) => (
                                         <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
                                             <div className="flex items-center gap-3 overflow-hidden">
-                                                <ImageIcon className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+                                                {file.type.startsWith('video/') ? (
+                                                    <div className="h-4 w-4 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
+                                                        <Sparkles className="h-2 w-2 text-primary-600 dark:text-primary-400" />
+                                                    </div>
+                                                ) : (
+                                                    <ImageIcon className="h-4 w-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+                                                )}
                                                 <span className="text-sm text-slate-600 dark:text-slate-300 truncate">{file.name}</span>
                                             </div>
                                             <button
