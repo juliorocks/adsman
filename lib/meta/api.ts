@@ -172,9 +172,17 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
             // 1. Must be returned by promote_pages (Authoritative link)
             if (!promotePageIds.has(p.id)) return false;
 
-            // 2. Must have a connected IG that is authorized for THIS Ad Account
-            const pageIgId = p.connected_instagram_account?.id;
-            if (pageIgId && !authorizedIgIds.has(pageIgId)) return false;
+            // 2. Discover/Validate the IG for this page in this account's context
+            let pageIgId = p.connected_instagram_account?.id;
+
+            // CRITICAL FIX: If the page has NO valid authorized IG yet, and we have EXACTLY ONE authorized IG in this account,
+            // we "help" Meta and link them, because that's the only legitimate identity for this client.
+            if ((!pageIgId || !authorizedIgIds.has(pageIgId)) && authorizedIgs.length === 1) {
+                p.connected_instagram_account = { id: authorizedIgs[0].id };
+                debugInfo += `_autoMappedIg_${authorizedIgs[0].id}_`;
+            } else if (pageIgId && !authorizedIgIds.has(pageIgId)) {
+                debugInfo += `_igMismatch_${p.name}_`;
+            }
 
             return true;
         });
