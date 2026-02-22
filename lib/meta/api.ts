@@ -79,7 +79,8 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
 export async function getPages(accessToken: string, adAccountId?: string): Promise<{ pages: { id: string; name: string; connected_instagram_account?: { id: string }, alternative_instagram_ids?: { id: string, username: string }[] }[], debug: string }> {
     let rawPages: any[] = [];
     let debugInfo = "";
-    const fields = "id,name,connected_instagram_account,instagram_business_account,instagram_actor_id";
+    // Note: instagram_actor_id is DEPRECATED, we focus on instagram_business_account
+    const fields = "id,name,connected_instagram_account,instagram_business_account";
 
     // 0. Fetch Ad Account's authorized accounts
     let authorizedIgs: { id: string, username: string }[] = [];
@@ -109,8 +110,8 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
 
     // Normalizing pages with smart discovery
     let pages = await Promise.all(rawPages.map(async (p) => {
-        let igId: string | undefined = p.instagram_actor_id; // PRIORITY 1: Explicit Actor ID
-        let source = igId ? "page_actor_field" : "none";
+        let igId: string | undefined = p.instagram_business_account?.id; // PRIORITY 1: Modern Business ID
+        let source = igId ? "page_biz_field" : "none";
 
         if (!igId) {
             // PRIORITY 2: Page-linked endpoint (The shadow ID source)
@@ -125,9 +126,9 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         }
 
         if (!igId) {
-            // PRIORITY 3: Business fields
-            igId = p.instagram_business_account?.id || p.connected_instagram_account?.id;
-            if (igId) source = "page_field";
+            // PRIORITY 3: Legacy connected account field
+            igId = p.connected_instagram_account?.id;
+            if (igId) source = "page_legacy_field";
         }
 
         return {
@@ -356,8 +357,7 @@ export async function createAdCreative(adAccountId: string, name: string, object
         const currentIgId = idsToTry[index];
         const isLastIg = index >= idsToTry.length - 1;
 
-        // CLEAN INFRASTRUCTURE PAYLOAD: 
-        // For Traffic/Link ads, Meta v21.0 strictly wants instagram_actor_id INSIDE object_story_spec.
+        // CRITICAL V21.0 FIX: replaces deprecated 'instagram_actor_id' with 'instagram_user_id'
         const body: any = {
             name,
             object_story_spec: JSON.parse(JSON.stringify(objectStorySpec)),
@@ -365,8 +365,8 @@ export async function createAdCreative(adAccountId: string, name: string, object
         };
 
         if (currentIgId) {
-            body.object_story_spec.instagram_actor_id = currentIgId;
-            console.log(`GAGE: Attempting Clean Spec Placement with ID: ${currentIgId}`);
+            body.object_story_spec.instagram_user_id = currentIgId;
+            console.log(`GAGE: Attempting V21.0 Spec Placement with instagram_user_id: ${currentIgId}`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -378,17 +378,18 @@ export async function createAdCreative(adAccountId: string, name: string, object
 
         if (data.error) {
             const errorMsg = data.error.message.toLowerCase();
-            const isIgError = errorMsg.includes('instagram_actor_id') || data.error.code === 100;
+            const isIgError = errorMsg.includes('instagram_user_id') ||
+                errorMsg.includes('instagram_actor_id') ||
+                data.error.code === 100;
 
             if (currentIgId && isIgError) {
-                console.warn(`GAGE_RETRY: ID ${currentIgId} failed. Moving to next candidate...`);
+                console.warn(`GAGE_RETRY: IG ID ${currentIgId} failed. Rotating...`);
 
-                // Fallback attempt: Strategic 'Root' placement only (for certain account types)
+                // Legacy Root Fallback: use 'instagram_user_id' at top level
                 if (index === 0) {
-                    console.log(`GAGE: Trying Legacy Root Placement fallback for same ID...`);
                     const legacyBody = { ...body };
-                    delete legacyBody.object_story_spec.instagram_actor_id;
-                    legacyBody.instagram_actor_id = currentIgId;
+                    delete legacyBody.object_story_spec.instagram_user_id;
+                    legacyBody.instagram_user_id = currentIgId;
 
                     const legacyRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
                         method: 'POST',
@@ -401,10 +402,12 @@ export async function createAdCreative(adAccountId: string, name: string, object
 
                 if (!isLastIg) return executeAttempt(index + 1);
 
-                // FINAL DEPLOY: Facebook Only
+                // FINAL FB-ONLY FALLBACK
                 console.warn(`GAGE_FALLBACK: Deploying to Facebook only.`);
-                const fbBody = { ...body };
-                delete fbBody.object_story_spec.instagram_actor_id;
+                const fbBody = { ...body, object_story_spec: { ...body.object_story_spec } };
+                delete fbBody.object_story_spec.instagram_user_id;
+                delete fbBody.instagram_user_id;
+
                 const fbRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -413,7 +416,7 @@ export async function createAdCreative(adAccountId: string, name: string, object
                 const fbData = await fbRes.json();
                 if (!fbData.error) return { ...fbData, ig_linked: false, ig_error: data.error.message };
             }
-            throw new Error(`Meta Infrastructure Error: ${data.error.message}`);
+            throw new Error(`Meta V21.0 Migration Error: ${data.error.message}`);
         }
         return { ...data, ig_linked: !!currentIgId };
     };
