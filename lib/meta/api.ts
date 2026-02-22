@@ -80,37 +80,32 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
     let rawPages: any[] = [];
     let debugInfo = "";
 
-    // Helper to merge pages and ensure we don't have duplicates
-    const mergePages = (newPages: any[]) => {
-        newPages.forEach(p => {
-            if (!rawPages.find(existing => existing.id === p.id)) {
-                rawPages.push(p);
-            }
-        });
-    };
-
-    // 1. Try ad account's promote_pages
     const fields = "id,name,connected_instagram_account,instagram_business_account";
+
+    // 1. Try ad account's promote_pages - THIS IS THE SOURCE OF TRUTH FOR ADS
     if (adAccountId) {
         try {
             const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/promote_pages?fields=${fields}&access_token=${accessToken}`);
             const data = await res.json();
-            if (data.data) {
-                mergePages(data.data);
+            if (data.data && data.data.length > 0) {
+                rawPages = data.data;
                 debugInfo += `_pp_${data.data.length}`;
             }
         } catch (e: any) { debugInfo += `_pperr_${e.message}`; }
     }
 
-    // 2. Try me/accounts
-    try {
-        const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/accounts?fields=${fields}&access_token=${accessToken}`);
-        const data = await res.json();
-        if (data.data) {
-            mergePages(data.data);
-            debugInfo += `_me_${data.data.length}`;
-        }
-    } catch (e: any) { debugInfo += `_meerr_${e.message}`; }
+    // 2. Only if we found NOTHING in promote_pages, try me/accounts as a fallback
+    // This prevents pages from other clients leaking into the wrong ad account
+    if (rawPages.length === 0) {
+        try {
+            const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/accounts?fields=${fields}&access_token=${accessToken}`);
+            const data = await res.json();
+            if (data.data) {
+                rawPages = data.data;
+                debugInfo += `_me_${data.data.length}`;
+            }
+        } catch (e: any) { debugInfo += `_meerr_${e.message}`; }
+    }
 
     // Normalize pages
     let pages = await Promise.all(rawPages.map(async (p) => {
