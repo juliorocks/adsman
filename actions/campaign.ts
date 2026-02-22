@@ -176,11 +176,12 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         console.log(`Campaign Creation Debug - Page: ${pages[0].name} (${pageId}), IG: ${instagramId || 'NOT FOUND'}`);
 
         // 4. Upload all images in parallel
-        let imageDebug = instagramId ? `ig_found_${instagramId}` : 'ig_not_found';
+        const igStatus = instagramId ? `ig_found_${instagramId}` : 'ig_not_found';
+        let uploadStatus = 'no_images_provided';
         const uploadedImages: { hash: string; index: number }[] = [];
 
         if (formData.images && formData.images.length > 0) {
-            imageDebug = `received_${formData.images.length}_images`;
+            uploadStatus = `received_${formData.images.length}_images`;
             const uploadPromises = formData.images.map(async (imgData, i) => {
                 if (!imgData || imgData.length === 0) return null;
                 try {
@@ -194,8 +195,10 @@ export async function createSmartCampaignAction(formData: { objective: string, g
 
             const results = await Promise.all(uploadPromises);
             results.forEach(r => { if (r) uploadedImages.push(r); });
-            imageDebug = `uploaded_${uploadedImages.length}_of_${formData.images.length}`;
+            uploadStatus = `uploaded_${uploadedImages.length}_of_${formData.images.length}`;
         }
+
+        const imageDebug = `${igStatus} | ${uploadStatus}`;
 
         // 5. Create Ad Creatives + Ads
         // Robust sanitization for titles and text

@@ -77,21 +77,22 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
 
 // Fetch Facebook Pages that can be used for ads (tries multiple sources)
 export async function getPages(accessToken: string, adAccountId?: string): Promise<{ id: string; name: string; connected_instagram_account?: { id: string } }[]> {
-    let pages: any[] = [];
+    let rawPages: any[] = [];
 
     // Helper to merge pages and ensure we don't have duplicates
     const mergePages = (newPages: any[]) => {
         newPages.forEach(p => {
-            if (!pages.find(existing => existing.id === p.id)) {
-                pages.push(p);
+            if (!rawPages.find(existing => existing.id === p.id)) {
+                rawPages.push(p);
             }
         });
     };
 
     // 1. Try ad account's promote_pages
+    const fields = "id,name,connected_instagram_account,instagram_business_account";
     if (adAccountId) {
         try {
-            const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/promote_pages?fields=id,name,connected_instagram_account&access_token=${accessToken}`);
+            const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/promote_pages?fields=${fields}&access_token=${accessToken}`);
             const data = await res.json();
             if (data.data) mergePages(data.data);
         } catch (e) { }
@@ -99,10 +100,21 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
 
     // 2. Try me/accounts
     try {
-        const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/accounts?fields=id,name,connected_instagram_account&access_token=${accessToken}`);
+        const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/accounts?fields=${fields}&access_token=${accessToken}`);
         const data = await res.json();
         if (data.data) mergePages(data.data);
     } catch (e) { }
+
+    console.log("DEBUG: Raw Pages Info from Meta:", JSON.stringify(rawPages, null, 2));
+
+    // Normalize pages to ensure connected_instagram_account is populated
+    const pages = rawPages.map(p => {
+        const igAccount = p.connected_instagram_account || p.instagram_business_account;
+        return {
+            ...p,
+            connected_instagram_account: igAccount ? { id: igAccount.id } : undefined
+        };
+    });
 
     // 3. Try to fetch Instagram accounts directly if still no IG ID found on pages
     if (adAccountId && pages.length > 0 && !pages.some(p => p.connected_instagram_account)) {
