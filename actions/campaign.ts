@@ -177,13 +177,17 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         // Prioritize pages that match the Ad Account Name (to avoid client leak)
         const adAccountNameMatch = pageDebug.match(/_account_(.*?)_/);
         const adAccountName = adAccountNameMatch ? adAccountNameMatch[1] : "";
+        const cleanAccName = adAccountName.replace(/\[.*?\]/g, '').trim().toLowerCase();
 
-        let bestPage = pages.find(p =>
-            adAccountName && (
-                p.name.toLowerCase().includes(adAccountName.toLowerCase()) ||
-                adAccountName.toLowerCase().includes(p.name.toLowerCase())
-            )
-        );
+        // Clean keywords (>3 chars) to avoid matches with "the", "for", etc.
+        const keywords = cleanAccName.split(' ').filter(k => k.length > 3);
+
+        let bestPage = pages.find(p => {
+            const pName = p.name.toLowerCase();
+            return (keywords.length > 0 && keywords.some(k => pName.includes(k))) ||
+                pName.includes(cleanAccName) ||
+                cleanAccName.includes(pName);
+        });
 
         // Fallback 1: First page with IG
         if (!bestPage) {
@@ -197,8 +201,9 @@ export async function createSmartCampaignAction(formData: { objective: string, g
 
         const pageId = bestPage.id;
         const instagramId = (bestPage as any).connected_instagram_account?.id;
+        const allPageNames = pages.map(p => p.name).join(' | ');
 
-        console.log(`Campaign Creation Debug - AdAcc: ${adAccountName}, Selected Page: ${bestPage.name} (${pageId}), IG: ${instagramId || 'NOT FOUND'}, Det: ${pageDebug}`);
+        console.log(`Campaign Creation Debug - AdAcc: ${adAccountName}, Clean: ${cleanAccName}, Selected: ${bestPage.name} (${pageId}), IG: ${instagramId || 'NOT FOUND'}, All: ${allPageNames}`);
 
         // 4. Upload all images in parallel
         const igStatus = instagramId ? `ig_found_${instagramId}` : `ig_missing_${pageDebug}`;
@@ -223,7 +228,8 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             uploadStatus = `uploaded_${uploadedImages.length}_of_${formData.images.length}`;
         }
 
-        const imageDebug = `${igStatus} | ${uploadStatus}`;
+        const diagInfo = `sel_page_${bestPage.name}_found_[${allPageNames}]`;
+        const imageDebug = `${igStatus} | ${uploadStatus} | ${diagInfo}`;
 
         // 5. Create Ad Creatives + Ads
         // Robust sanitization for titles and text
@@ -282,7 +288,7 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         }));
 
         const anyIgFallback = results.some(r => r.ig_linked === false && instagramId);
-        const finalImageDebug = anyIgFallback ? `${imageDebug} | ig_fallback` : imageDebug;
+        const finalImageDebug = anyIgFallback ? `ig_fallback | ${imageDebug}` : imageDebug;
 
         await createLog({
             action_type: 'OTHER',
