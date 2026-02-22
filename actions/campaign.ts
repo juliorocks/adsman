@@ -171,6 +171,7 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             throw new Error('Nenhuma Página do Facebook encontrada. Vincule uma página à sua conta de anúncios no Meta Business Suite.');
         }
         const pageId = pages[0].id;
+        const instagramId = pages[0].connected_instagram_account?.id;
 
         // 4. Upload all images in parallel
         let imageDebug = 'no_images_provided';
@@ -234,7 +235,8 @@ export async function createSmartCampaignAction(formData: { objective: string, g
                 adAccountId,
                 sanitize(`Creative ${formData.goal.substring(0, 15)}${suffix}`, 60),
                 { page_id: pageId, link_data: linkData },
-                accessToken
+                accessToken,
+                instagramId
             );
 
             return createAd(

@@ -17,7 +17,7 @@ export function getAuthUrl(state: string) {
         client_id: appId,
         redirect_uri: redirectUri,
         state: state,
-        scope: "email,ads_management,ads_read,business_management,pages_show_list,pages_read_engagement",
+        scope: "email,ads_management,ads_read,business_management,pages_show_list,pages_read_engagement,instagram_basic,instagram_manage_insights",
         response_type: "code",
     });
 
@@ -76,11 +76,11 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
 }
 
 // Fetch Facebook Pages that can be used for ads (tries multiple sources)
-export async function getPages(accessToken: string, adAccountId?: string): Promise<{ id: string; name: string }[]> {
+export async function getPages(accessToken: string, adAccountId?: string): Promise<{ id: string; name: string; connected_instagram_account?: { id: string } }[]> {
     // 1. Try ad account's promote_pages (best for ads context)
     if (adAccountId) {
         try {
-            const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/promote_pages?fields=id,name&access_token=${accessToken}`);
+            const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/promote_pages?fields=id,name,connected_instagram_account&access_token=${accessToken}`);
             const data = await res.json();
             if (data.data && data.data.length > 0) return data.data;
         } catch (e) { /* try next */ }
@@ -88,14 +88,14 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
 
     // 2. Try user's own pages
     try {
-        const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/accounts?fields=id,name&access_token=${accessToken}`);
+        const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/accounts?fields=id,name,connected_instagram_account&access_token=${accessToken}`);
         const data = await res.json();
         if (data.data && data.data.length > 0) return data.data;
     } catch (e) { /* try next */ }
 
     // 3. Try business pages
     try {
-        const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/businesses?fields=owned_pages{id,name}&access_token=${accessToken}`);
+        const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/businesses?fields=owned_pages{id,name,connected_instagram_account}&access_token=${accessToken}`);
         const data = await res.json();
         if (data.data) {
             for (const biz of data.data) {
@@ -308,15 +308,21 @@ export async function createAdSet(adAccountId: string, campaignId: string, param
     return data;
 }
 
-export async function createAdCreative(adAccountId: string, name: string, objectStorySpec: any, accessToken: string) {
+export async function createAdCreative(adAccountId: string, name: string, objectStorySpec: any, accessToken: string, instagramActorId?: string) {
+    const body: any = {
+        name,
+        object_story_spec: objectStorySpec,
+        access_token: accessToken
+    };
+
+    if (instagramActorId) {
+        body.instagram_actor_id = instagramActorId;
+    }
+
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            name,
-            object_story_spec: objectStorySpec,
-            access_token: accessToken
-        })
+        body: JSON.stringify(body)
     });
     const data = await response.json();
     if (data.error) {
