@@ -96,17 +96,31 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         } catch (e) { }
     }
 
-    // 1. Fetch promote_pages
+    // 1. Fetch all user pages (Discovery base)
+    try {
+        const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/accounts?fields=${fields}&access_token=${accessToken}`);
+        const data = await res.json();
+        if (data.data) {
+            rawPages.push(...data.data);
+            debugInfo += `_me${data.data.length}_`;
+        }
+    } catch (e: any) { debugInfo += `_meerr_${e.message}_`; }
+
+    // 2. Fetch promote_pages (Account specific, overwrites to flag as authorized)
     if (adAccountId) {
         try {
             const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/promote_pages?fields=${fields}&access_token=${accessToken}`);
             const data = await res.json();
-            if (data.data && data.data.length > 0) {
-                rawPages = data.data;
-                debugInfo += `_pp_${data.data.length}_`;
+            if (data.data) {
+                const flagged = data.data.map((p: any) => ({ ...p, _from_promote: true }));
+                rawPages.push(...flagged);
+                debugInfo += `_pp${data.data.length}_`;
             }
         } catch (e: any) { debugInfo += `_pperr_${e.message}_`; }
     }
+
+    // Unique by ID
+    rawPages = Array.from(new Map(rawPages.map(p => [p.id, p])).values());
 
     // Normalizing pages with smart discovery
     let pages = await Promise.all(rawPages.map(async (p) => {
@@ -140,17 +154,23 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         };
     }));
 
-    // SECURITY FILTER: Only keep pages whose Instagram account is authorized for this Ad Account
+    // SECURITY FILTER: Only keep pages belonging to this Ad Account's context
     // This prevents "Client A" pages from appearing when managing "Client B" ad account
-    // MODIFIED: If a page has NO IG, we still allow it (FB-only ads). 
-    // If it HAS an IG, we only keep it if authorized.
-    if (adAccountId && authorizedIgs.length > 0) {
+    if (adAccountId) {
         const authorizedIgIds = new Set(authorizedIgs.map(ig => ig.id));
+        const promotePageIds = new Set(rawPages.filter(p => p._from_promote).map(p => p.id));
+
         const originalCount = pages.length;
         pages = pages.filter(p => {
+            // 1. If it was explicitly in promote_pages, it is authorized
+            if (promotePageIds.has(p.id)) return true;
+
+            // 2. If it has an IG, it MUST be in the authorized list for this account
             const pageIgId = p.connected_instagram_account?.id;
-            if (pageIgId) return authorizedIgIds.has(pageIgId);
-            return true; // Keep pages without IGs or with IGs not in the authorized list
+            if (pageIgId && authorizedIgIds.has(pageIgId)) return true;
+
+            // 3. Otherwise, it's likely from another client's context
+            return false;
         });
         debugInfo += `_filtered_${originalCount - pages.length}_out_`;
     }
@@ -436,23 +456,8 @@ export async function createAdCreative(adAccountId: string, name: string, object
         };
 
         if (currentIgId) {
-            // Root level fields
             body.instagram_user_id = currentIgId;
-            body.instagram_actor_id = currentIgId;
-            body.instagram_business_account_id = currentIgId;
-
-            // Spec level fields
-            body.object_story_spec.instagram_actor_id = currentIgId;
-            body.object_story_spec.instagram_user_id = currentIgId;
-
-            // Sub-spec level (Inside video_data or link_data)
-            if (body.object_story_spec.video_data) {
-                body.object_story_spec.video_data.instagram_actor_id = currentIgId;
-            } else if (body.object_story_spec.link_data) {
-                body.object_story_spec.link_data.instagram_actor_id = currentIgId;
-            }
-
-            console.log(`GAGE: [Attempt ${index}] Shotgun Creative attempt with IG: ${currentIgId}`);
+            console.log(`GAGE: [Attempt ${index}] Creative creation with IG: ${currentIgId}`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -485,9 +490,52 @@ export async function createAdCreative(adAccountId: string, name: string, object
             console.warn(`GAGE_ERROR: Attempt ${index} (${currentIgId || 'FB-ONLY'}) failed: ${e.message} (Code: ${code}, Sub: ${sub}, Blame: ${blame})`);
 
             if (currentIgId && isPotentialIgError) {
-                // FALLBACK: Try rotating to next available Instagram ID if any
+                // FALLBACK 1: Try legacy 'instagram_actor_id' field name at root
+                console.log("GAGE_RETRY: Trying alternative 'instagram_actor_id' root field...");
+                const altBody = JSON.parse(JSON.stringify(body));
+                delete altBody.instagram_user_id;
+                altBody.instagram_actor_id = currentIgId;
+
+                const altRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(altBody)
+                });
+                const altData = await altRes.json();
+                if (!altData.error) return { ...altData, ig_linked: true, method: 'actor_id_root' };
+
+                // FALLBACK 2: Try legacy 'instagram_user_id' placement inside object_story_spec
+                console.log("GAGE_RETRY: Trying spec.instagram_user_id fallback...");
+                const specUserBody = JSON.parse(JSON.stringify(body));
+                specUserBody.object_story_spec.instagram_user_id = currentIgId;
+                delete specUserBody.instagram_user_id;
+
+                const specUserRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(specUserBody)
+                });
+                const specUserData = await specUserRes.json();
+                if (!specUserData.error) return { ...specUserData, ig_linked: true, method: 'spec_user_id' };
+
+                // FALLBACK 3: Try legacy 'instagram_actor_id' placement inside object_story_spec
+                console.log("GAGE_RETRY: Trying spec.instagram_actor_id fallback...");
+                const specActorBody = JSON.parse(JSON.stringify(body));
+                specActorBody.object_story_spec.instagram_actor_id = currentIgId;
+                delete specActorBody.instagram_user_id;
+
+                const specActorRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(specActorBody)
+                });
+                const specActorData = await specActorRes.json();
+                if (!specActorData.error) return { ...specActorData, ig_linked: true, method: 'spec_actor_id' };
+
+
+                // Rotate to next available Instagram ID if any
                 if (!isLastIg) {
-                    console.warn(`GAGE_RETRY: Identity error with ID ${currentIgId}. Rotating to next...`);
+                    console.warn(`GAGE_RETRY: Rotating to next available Instagram ID...`);
                     return executeAttempt(index + 1);
                 }
 
