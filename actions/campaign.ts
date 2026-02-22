@@ -173,8 +173,10 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         const pageId = pages[0].id;
         const instagramId = pages[0].connected_instagram_account?.id;
 
+        console.log(`Campaign Creation Debug - Page: ${pages[0].name} (${pageId}), IG: ${instagramId || 'NOT FOUND'}`);
+
         // 4. Upload all images in parallel
-        let imageDebug = 'no_images_provided';
+        let imageDebug = instagramId ? `ig_found_${instagramId}` : 'ig_not_found';
         const uploadedImages: { hash: string; index: number }[] = [];
 
         if (formData.images && formData.images.length > 0) {

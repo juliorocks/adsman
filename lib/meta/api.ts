@@ -77,34 +77,46 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
 
 // Fetch Facebook Pages that can be used for ads (tries multiple sources)
 export async function getPages(accessToken: string, adAccountId?: string): Promise<{ id: string; name: string; connected_instagram_account?: { id: string } }[]> {
-    // 1. Try ad account's promote_pages (best for ads context)
+    let pages: any[] = [];
+
+    // Helper to merge pages and ensure we don't have duplicates
+    const mergePages = (newPages: any[]) => {
+        newPages.forEach(p => {
+            if (!pages.find(existing => existing.id === p.id)) {
+                pages.push(p);
+            }
+        });
+    };
+
+    // 1. Try ad account's promote_pages
     if (adAccountId) {
         try {
             const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/promote_pages?fields=id,name,connected_instagram_account&access_token=${accessToken}`);
             const data = await res.json();
-            if (data.data && data.data.length > 0) return data.data;
-        } catch (e) { /* try next */ }
+            if (data.data) mergePages(data.data);
+        } catch (e) { }
     }
 
-    // 2. Try user's own pages
+    // 2. Try me/accounts
     try {
         const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/accounts?fields=id,name,connected_instagram_account&access_token=${accessToken}`);
         const data = await res.json();
-        if (data.data && data.data.length > 0) return data.data;
-    } catch (e) { /* try next */ }
+        if (data.data) mergePages(data.data);
+    } catch (e) { }
 
-    // 3. Try business pages
-    try {
-        const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/businesses?fields=owned_pages{id,name,connected_instagram_account}&access_token=${accessToken}`);
-        const data = await res.json();
-        if (data.data) {
-            for (const biz of data.data) {
-                if (biz.owned_pages?.data?.length > 0) return biz.owned_pages.data;
+    // 3. Try to fetch Instagram accounts directly if still no IG ID found on pages
+    if (adAccountId && pages.length > 0 && !pages.some(p => p.connected_instagram_account)) {
+        try {
+            const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/instagram_accounts?fields=id,username&access_token=${accessToken}`);
+            const data = await res.json();
+            if (data.data && data.data.length > 0) {
+                // If we found an IG account, attach it to the first page as a fallback
+                pages[0].connected_instagram_account = { id: data.data[0].id };
             }
-        }
-    } catch (e) { /* no pages found */ }
+        } catch (e) { }
+    }
 
-    return [];
+    return pages;
 }
 
 export async function getCampaigns(adAccountId: string, accessToken: string) {
