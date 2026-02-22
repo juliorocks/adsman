@@ -13,16 +13,19 @@ export async function GET(request: NextRequest) {
         return redirect("/dashboard/settings?error=google_auth_failed");
     }
 
+    let redirectUrl = "/dashboard/settings?success=google_connected&refresh=" + Date.now();
+
     try {
         const result = await handleGoogleCallbackAction(code);
         if (!result.success) {
             console.error("Google Callback Action Failed:", result.error);
-            return redirect(`/dashboard/settings?error=google_db_error&msg=${encodeURIComponent(result.error || '')}`);
+            redirectUrl = `/dashboard/settings?error=google_db_error&msg=${encodeURIComponent(result.error || '')}`;
         }
     } catch (err: any) {
+        // Only override if it wasn't already set by a redirect throw (though results are handled above)
         console.error("Google Callback Route Error:", err);
-        return redirect(`/dashboard/settings?error=google_exchange_failed&msg=${encodeURIComponent(err.message)}`);
+        redirectUrl = `/dashboard/settings?error=google_exchange_failed&msg=${encodeURIComponent(err.message)}`;
     }
 
-    return redirect("/dashboard/settings?success=google_connected&refresh=" + Date.now());
+    return redirect(redirectUrl);
 }
