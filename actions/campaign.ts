@@ -253,12 +253,20 @@ export async function createSmartCampaignAction(formData: {
             optimization_goal = 'REACH';
         }
 
+        const publisher_platforms = ['facebook'];
+        if (instagramId) {
+            publisher_platforms.push('instagram');
+            console.log(`GAGE: Targeting both FB and IG (IG ID: ${instagramId})`);
+        } else {
+            console.warn("GAGE: No Instagram ID found, targeting Facebook Only.");
+        }
+
         const targeting: any = {
             geo_locations: { countries: ['BR'] },
             age_min: Math.max(18, aiTargeting.age_min || 18),
             age_max: Math.min(65, aiTargeting.age_max || 65),
             genders: aiTargeting.genders || [1, 2],
-            publisher_platforms: ['facebook', 'instagram'],
+            publisher_platforms,
             targeting_automation: { advantage_audience: 0 },
         };
 
