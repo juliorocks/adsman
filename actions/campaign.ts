@@ -8,6 +8,47 @@ import { createCampaign, createAdSet, createAdCreative, createAd, getPages, uplo
 import { parseTargetingFromGoal } from "@/lib/ai/openai";
 import { createLog } from "@/lib/data/logs";
 
+export async function getFacebookPagesAction() {
+    try {
+        const integration = await getIntegration();
+        if (!integration || !integration.access_token_ref || !integration.ad_account_id) {
+            throw new Error("No Meta integration found");
+        }
+        const accessToken = decrypt(integration.access_token_ref);
+        const adAccountId = integration.ad_account_id.startsWith('act_')
+            ? integration.ad_account_id
+            : `act_${integration.ad_account_id}`;
+
+        const pageResult = await getPages(accessToken, adAccountId);
+        return { success: true, data: pageResult.pages };
+    } catch (error: any) {
+        console.error("getFacebookPagesAction error:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function updatePreferredIdentityAction(pageId: string, instagramId?: string) {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Não autenticado");
+
+        const { error } = await supabase
+            .from('integrations')
+            .update({
+                preferred_page_id: pageId,
+                preferred_instagram_id: instagramId
+            })
+            .eq('user_id', user.id)
+            .eq('platform', 'meta');
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
 export async function getCampaignAdSetsAction(campaignId: string) {
     try {
         // DEBUG: Mock response to test server action connectivity
@@ -125,7 +166,15 @@ export async function uploadMediaAction(item: { type: 'IMAGE' | 'VIDEO', data: s
     }
 }
 
-export async function createSmartCampaignAction(formData: { objective: string, goal: string, budget: string, linkUrl?: string, mediaReferences?: { type: 'IMAGE' | 'VIDEO', ref: string }[] }) {
+export async function createSmartCampaignAction(formData: {
+    objective: string,
+    goal: string,
+    budget: string,
+    linkUrl?: string,
+    pageId?: string,
+    instagramId?: string,
+    mediaReferences?: { type: 'IMAGE' | 'VIDEO', ref: string }[]
+}) {
     const integration = await getIntegration();
     if (!integration || !integration.access_token_ref || !integration.ad_account_id) {
         throw new Error("No Meta integration found");
@@ -136,6 +185,22 @@ export async function createSmartCampaignAction(formData: { objective: string, g
         const adAccountId = integration.ad_account_id.startsWith('act_')
             ? integration.ad_account_id
             : `act_${integration.ad_account_id}`;
+
+        // IDENTITY SELECTION: Priority: 1. Passed in formData, 2. Preferred in DB, 3. Discovery Fallback
+        let pageId = formData.pageId || (integration as any).preferred_page_id;
+        let instagramId = formData.instagramId || (integration as any).preferred_instagram_id;
+        let bestPage: any = null;
+
+        if (!pageId) {
+            // Discovery Fallback (ONLY IF NOT SPECIFIED)
+            const pageResult = await getPages(accessToken, adAccountId);
+            const pages = pageResult.pages;
+            if (!pages || pages.length === 0) throw new Error("Nenhuma Página do Facebook encontrada.");
+            bestPage = pages[0];
+            pageId = bestPage.id;
+            instagramId = (bestPage as any).connected_instagram_account?.id;
+            console.warn("WARNING: No identity selected, falling back to first page:", bestPage.name);
+        }
 
         let safeObjective = formData.objective;
         if (safeObjective === 'OUTCOME_SALES' || safeObjective === 'OUTCOME_LEADS') {
@@ -186,15 +251,7 @@ export async function createSmartCampaignAction(formData: { objective: string, g
 
         const adSet = await createAdSet(adAccountId, campaign.id, adSetParams, accessToken);
 
-        // 3. Page Selection
-        const pageResult = await getPages(accessToken, adAccountId);
-        const pages = pageResult.pages;
-        if (!pages || pages.length === 0) throw new Error("Nenhuma Página do Facebook encontrada.");
-
-        // Simple match logic
-        let bestPage = pages[0];
-        const pageId = bestPage.id;
-        const instagramId = (bestPage as any).connected_instagram_account?.id;
+        // 3. Media references are now passed pre-uploaded
 
         // 4. Media references are now passed pre-uploaded
         const uploadedMedia = formData.mediaReferences || [];

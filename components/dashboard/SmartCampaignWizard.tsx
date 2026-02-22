@@ -1,10 +1,11 @@
 
 "use client";
 
-import { useRef, useState } from "react";
-import { Bot, Sparkles, Target, DollarSign, Image as ImageIcon, CheckCircle2, ChevronRight, Loader2, AlertCircle, X } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Bot, Sparkles, Target, DollarSign, Image as ImageIcon, CheckCircle2, ChevronRight, Loader2, AlertCircle, X, Box, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createSmartCampaignAction, uploadMediaAction } from "@/actions/campaign";
+import { createSmartCampaignAction, uploadMediaAction, getFacebookPagesAction, updatePreferredIdentityAction } from "@/actions/campaign";
 import { generateCreativeIdeasAction } from "@/actions/creatives";
 
 const OBJECTIVES = [
@@ -15,48 +16,136 @@ const OBJECTIVES = [
 ];
 
 const AGENTS = [
-    { id: 'architect', name: 'Aria', role: 'Architect', icon: '🏛️', color: 'text-blue-500' },
-    { id: 'dev', name: 'Dex', role: 'Dev', icon: '💻', color: 'text-emerald-500' },
-    { id: 'qa', name: 'Quinn', role: 'QA', icon: '🔍', color: 'text-amber-500' },
-    { id: 'devops', name: 'Gage', role: 'DevOps', icon: '⚡', color: 'text-purple-500' },
+    { id: 'strategist', name: 'STRATEGIST', img: '/robots/strategist.png', glow: 'text-blue-400', eye: 'bg-emerald-400' },
+    { id: 'creative', name: 'CREATIVE', img: '/robots/creative.png', glow: 'text-purple-400', eye: 'bg-fuchsia-400' },
+    { id: 'auditor', name: 'AUDITOR', img: '/robots/auditor.png', glow: 'text-orange-500', eye: 'bg-yellow-400' },
 ];
 
-function AgentConversationOverlay({ activeMessage }: { activeMessage: { agent: string, text: string } | null }) {
-    if (!activeMessage) return null;
-    const agent = AGENTS.find(a => a.id === activeMessage.agent) || AGENTS[0];
+const RobotBlink = ({ color }: { color: string }) => (
+    <div className="absolute inset-0 pointer-events-none z-30">
+        <motion.div
+            className={`absolute top-[38%] left-[32%] w-[12%] h-[6%] rounded-full ${color} mix-blend-screen blur-[1px]`}
+            animate={{ scaleY: [1, 1, 0, 1], opacity: [0.8, 0.8, 0, 0.8] }}
+            transition={{ duration: 5, repeat: Infinity, times: [0, 0.9, 0.92, 1], ease: "easeInOut" }}
+        />
+        <motion.div
+            className={`absolute top-[38%] right-[32%] w-[12%] h-[6%] rounded-full ${color} mix-blend-screen blur-[1px]`}
+            animate={{ scaleY: [1, 1, 0, 1], opacity: [0.8, 0.8, 0, 0.8] }}
+            transition={{ duration: 5, repeat: Infinity, times: [0, 0.9, 0.92, 1], ease: "easeInOut" }}
+        />
+    </div>
+);
+
+function AgentSquadOverlay({ activeMessage }: { activeMessage: { agent: string, text: string } | null }) {
+    if (!activeMessage || !activeMessage.agent) return null;
 
     return (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-500">
-            <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col items-center text-center space-y-6 animate-in zoom-in-95 duration-300">
-                <div className="relative">
-                    <div className="h-20 w-20 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-4xl shadow-inner animate-pulse">
-                        {agent.icon}
-                    </div>
-                    <div className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full bg-white dark:bg-slate-800 shadow-lg border border-slate-100 dark:border-slate-700 flex items-center justify-center">
-                        <Loader2 className="h-4 w-4 animate-spin text-primary-600" />
-                    </div>
-                </div>
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-end bg-slate-950 overflow-hidden rounded-2xl border border-slate-800">
+            {/* Background Effects */}
+            <div className="absolute inset-0 opacity-20 pointer-events-none">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_70%)]" />
+            </div>
 
-                <div className="space-y-2">
-                    <div className="flex items-center justify-center gap-2">
-                        <span className={`font-bold text-lg ${agent.color}`}>{agent.name}</span>
-                        <span className="text-xs font-medium uppercase tracking-widest text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">{agent.role}</span>
-                    </div>
-                    <p className="text-slate-600 dark:text-slate-300 text-lg leading-relaxed font-medium">
-                        "{activeMessage.text}"
-                    </p>
-                </div>
+            {/* Neural Scanner Line */}
+            <motion.div
+                animate={{ y: ["0%", "100%", "0%"] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                className="absolute inset-x-0 h-px bg-primary-500/50 shadow-[0_0_15px_rgba(59,130,246,0.5)] z-40 pointer-events-none"
+            />
 
-                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary-500 animate-[progress_3s_ease-in-out_infinite]" />
-                </div>
+            {/* Header Status */}
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-[10px] font-black text-slate-500 tracking-[0.3em] uppercase whitespace-nowrap">Orquestração em Tempo Real</span>
+            </div>
 
-                <style jsx>{`
-                    @keyframes progress {
-                        0% { width: 0%; }
-                        100% { width: 100%; }
-                    }
-                `}</style>
+            {/* Robot Squad */}
+            <div className="relative w-full flex justify-center items-end gap-2 px-6 pb-20 z-10 max-w-lg mx-auto">
+                {AGENTS.map((agent) => {
+                    const isActive = activeMessage.agent === agent.id;
+                    return (
+                        <div key={agent.id} className="relative w-1/3 flex flex-col items-center">
+                            {/* Label */}
+                            <div className={`mb-2 px-2 py-0.5 rounded-full bg-slate-900 border border-slate-800 z-20`}>
+                                <span className={`text-[7px] font-black tracking-widest uppercase ${agent.glow}`}>{agent.name}</span>
+                            </div>
+
+                            {/* Sprite */}
+                            <motion.div
+                                className="relative w-16 h-16"
+                                animate={{
+                                    y: isActive ? [-4, 4, -4] : [-2, 2, -2],
+                                    rotate: isActive ? [-1, 1, -1] : 0
+                                }}
+                                transition={{ duration: isActive ? 1.5 : 4, repeat: Infinity, ease: "easeInOut" }}
+                            >
+                                <img src={agent.img} alt={agent.name} className="w-full h-full object-contain" />
+                                <RobotBlink color={agent.eye} />
+                                {isActive && (
+                                    <motion.div
+                                        initial={{ scale: 1, opacity: 0.5 }}
+                                        animate={{ scale: 1.5, opacity: 0 }}
+                                        transition={{ duration: 1.2, repeat: Infinity }}
+                                        className="absolute inset-0 rounded-full border border-white/20"
+                                    />
+                                )}
+                            </motion.div>
+
+                            {/* Speech Bubble */}
+                            <AnimatePresence mode="wait">
+                                {isActive && (
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                                        className="absolute bottom-full mb-20 w-40 z-50 pointer-events-none"
+                                    >
+                                        <div className="bg-slate-900 border border-slate-700 p-2.5 rounded-xl shadow-2xl">
+                                            <div className="flex items-center gap-1.5 mb-1 opacity-50">
+                                                <Activity className="w-2.5 h-2.5 text-green-400" />
+                                                <span className="text-[7px] font-bold uppercase tracking-wider text-slate-400">Ativo</span>
+                                            </div>
+                                            <p className="text-[10px] font-medium text-white leading-tight">
+                                                {activeMessage.text}
+                                            </p>
+                                        </div>
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-900" />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Conveyor Belt */}
+            <div className="absolute bottom-0 w-full h-16 bg-slate-900 border-t border-slate-800 flex items-center shadow-[inset_0_10px_30px_rgba(0,0,0,0.5)] z-20">
+                <motion.div
+                    className="flex w-[200%] h-full opacity-10"
+                    animate={{ x: ["0%", "-50%"] }}
+                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                >
+                    {Array.from({ length: 20 }).map((_, i) => (
+                        <div key={i} className="w-[5%] border-r border-slate-700 h-full skew-x-12" />
+                    ))}
+                </motion.div>
+
+                {/* Moving Packages */}
+                <div className="absolute inset-0 flex items-center">
+                    {[1, 2, 3].map((i) => (
+                        <motion.div
+                            key={i}
+                            className="absolute"
+                            initial={{ left: "-10%" }}
+                            animate={{ left: "110%" }}
+                            transition={{ duration: 8, repeat: Infinity, ease: "linear", delay: i * 2.5 }}
+                        >
+                            <div className="w-8 h-8 bg-slate-800 border border-slate-700 rounded-lg flex items-center justify-center rotate-12 shadow-lg">
+                                <Box className="w-4 h-4 text-slate-500" />
+                            </div>
+                        </motion.div>
+                    ))}
+                </div>
             </div>
         </div>
     );
@@ -73,6 +162,8 @@ export function SmartCampaignWizard() {
         goal: '',
         budget: '50',
         linkUrl: '',
+        pageId: '',
+        instagramId: '',
     });
     const [images, setImages] = useState<File[]>([]);
     const [aiSuggestions, setAiSuggestions] = useState<{
@@ -81,9 +172,33 @@ export function SmartCampaignWizard() {
         image_prompts: string[];
     } | null>(null);
     const [activeMessage, setActiveMessage] = useState<{ agent: string, text: string } | null>(null);
+    const [availablePages, setAvailablePages] = useState<any[]>([]);
+    const [loadingPages, setLoadingPages] = useState(false);
 
     const nextStep = () => setStep(s => s + 1);
     const prevStep = () => setStep(s => s - 1);
+
+    const handleFetchPages = async () => {
+        setLoadingPages(true);
+        try {
+            const result = await getFacebookPagesAction();
+            if (result.success && result.data) {
+                setAvailablePages(result.data);
+                // Auto-select first if only one
+                if (result.data.length === 1 && !formData.pageId) {
+                    setFormData(prev => ({
+                        ...prev,
+                        pageId: result.data[0].id,
+                        instagramId: result.data[0].connected_instagram_account?.id || ''
+                    }));
+                }
+            }
+        } catch (err) {
+            console.error("Error fetching pages:", err);
+        } finally {
+            setLoadingPages(false);
+        }
+    };
 
     const handleGenerateAI = async () => {
         setGeneratingAI(true);
@@ -110,7 +225,7 @@ export function SmartCampaignWizard() {
             const targetedFiles = images.slice(0, 10);
             const mediaReferences: { type: 'IMAGE' | 'VIDEO', ref: string }[] = [];
 
-            setActiveMessage({ agent: 'architect', text: 'Analisando a estrutura da campanha e validando os objetivos estratégicos...' });
+            setActiveMessage({ agent: 'strategist', text: 'Analizando os KPIs de destino e preparando a rota de distribuição neural...' });
             await new Promise(r => setTimeout(r, 2000));
 
             for (let i = 0; i < targetedFiles.length; i++) {
@@ -119,12 +234,12 @@ export function SmartCampaignWizard() {
 
                 const messages = isVideo
                     ? [
-                        { agent: 'dev', text: `Codificando vídeo "${file.name}" para o padrão Meta Ads...` },
-                        { agent: 'devops', text: `Sincronizando fragmentos binários com a infraestrutura de vídeo do Meta...` }
+                        { agent: 'creative', text: `Codificando vídeo "${file.name}" para alto impacto visual...` },
+                        { agent: 'strategist', text: `Sincronizando metadados de mídia com o pipeline do Meta...` }
                     ]
                     : [
-                        { agent: 'ux-design-expert', text: `Otimizando compressão da imagem "${file.name}" para carregamento instantâneo...` },
-                        { agent: 'dev', text: `Viculando asset visual ao repositório de criativos...` }
+                        { agent: 'creative', text: `Otimizando brilho e contraste da imagem "${file.name}"...` },
+                        { agent: 'creative', text: `Comprimindo asset para carregamento ultrarrápido no feed...` }
                     ];
 
                 setActiveMessage(messages[0]);
@@ -189,21 +304,23 @@ export function SmartCampaignWizard() {
                 }
             }
 
-            setActiveMessage({ agent: 'qa', text: 'Realizando auditoria final nos criativos e garantindo conformidade com as diretrizes do Smart AI...' });
+            setActiveMessage({ agent: 'auditor', text: 'Executando auditoria técnica nos criativos e checando compliance de marca...' });
             await new Promise(r => setTimeout(r, 2000));
 
-            setActiveMessage({ agent: 'devops', text: 'Disparando gatilhos de criação no Meta Graph API. A mágica está acontecendo!' });
+            setActiveMessage({ agent: 'strategist', text: 'Solicitando autorização de voo para os servidores do Meta Ads. Quase lá!' });
 
             const result = await createSmartCampaignAction({
                 objective: formData.objective,
                 goal: formData.goal,
                 budget: formData.budget,
                 linkUrl: formData.linkUrl,
+                pageId: formData.pageId,
+                instagramId: formData.instagramId,
                 mediaReferences,
             });
 
             if (result.success) {
-                setActiveMessage({ agent: 'devops', text: 'Tudo pronto! Sua campanha foi orquestrada com sucesso.' });
+                setActiveMessage({ agent: 'auditor', text: 'Operação concluída. Campanha implantada com sucesso no ambiente de produção.' });
                 await new Promise(r => setTimeout(r, 1000));
                 nextStep();
             } else {
@@ -217,7 +334,7 @@ export function SmartCampaignWizard() {
         }
     };
 
-    if (step === 4) {
+    if (step === 5) {
         return (
             <div className="flex flex-col items-center justify-center py-12 text-center space-y-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
                 <div className="h-20 w-20 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center animate-bounce">
@@ -241,13 +358,13 @@ export function SmartCampaignWizard() {
         <div className="max-w-4xl mx-auto space-y-8">
             {/* Progress Bar */}
             <div className="flex items-center justify-between px-2">
-                {[1, 2, 3].map((s) => (
+                {[1, 2, 3, 4].map((s) => (
                     <div key={s} className="flex items-center">
                         <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${step >= s ? 'bg-primary-600 text-white shadow-lg shadow-primary-200 dark:shadow-none' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
                             }`}>
                             {s}
                         </div>
-                        {s < 3 && <div className={`h-1 w-24 mx-2 rounded ${step > s ? 'bg-primary-600' : 'bg-slate-100 dark:bg-slate-800'}`} />}
+                        {s < 4 && <div className={`h-1 w-16 mx-1 rounded ${step > s ? 'bg-primary-600' : 'bg-slate-100 dark:bg-slate-800'}`} />}
                     </div>
                 ))}
             </div>
@@ -259,8 +376,10 @@ export function SmartCampaignWizard() {
                 </div>
             )}
 
-            <div className="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden min-h-[400px]">
-                <AgentConversationOverlay activeMessage={activeMessage} />
+            <div className="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden min-h-[460px]">
+                <AnimatePresence>
+                    {activeMessage && <AgentSquadOverlay activeMessage={activeMessage} />}
+                </AnimatePresence>
                 {/* Step 1: Objective */}
                 {step === 1 && (
                     <div className="p-8 space-y-6">
@@ -294,8 +413,75 @@ export function SmartCampaignWizard() {
                     </div>
                 )}
 
-                {/* Step 2: AI Config */}
+                {/* Step 2: Identity Selection (CRITICAL FIX) */}
                 {step === 2 && (
+                    <div className="p-8 space-y-6">
+                        <div className="space-y-2">
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <Bot className="h-6 w-6 text-primary-600 dark:text-primary-400" />
+                                Confirme sua Identidade
+                            </h3>
+                            <p className="text-slate-500 dark:text-slate-400">Em qual página do Facebook e Instagram este anúncio será veiculado?</p>
+                        </div>
+
+                        {availablePages.length === 0 && !loadingPages ? (
+                            <div className="p-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                                <Button onClick={handleFetchPages} className="bg-primary-600">
+                                    Carregar Minhas Páginas
+                                </Button>
+                            </div>
+                        ) : loadingPages ? (
+                            <div className="p-12 flex flex-col items-center justify-center space-y-4">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+                                <p className="text-slate-500">Buscando suas páginas autorizadas...</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-1 gap-3">
+                                    {availablePages.map((page) => (
+                                        <button
+                                            key={page.id}
+                                            onClick={() => {
+                                                setFormData({
+                                                    ...formData,
+                                                    pageId: page.id,
+                                                    instagramId: page.connected_instagram_account?.id || ''
+                                                });
+                                                updatePreferredIdentityAction(page.id, page.connected_instagram_account?.id);
+                                            }}
+                                            className={`flex items-center justify-between p-4 rounded-xl border-2 text-left transition-all ${formData.pageId === page.id ? 'border-primary-600 bg-primary-50/50 dark:bg-primary-900/10' : 'border-slate-100 dark:border-slate-800'}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-500">
+                                                    {page.name.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-slate-900 dark:text-white">{page.name}</p>
+                                                    <p className="text-xs text-slate-500">Instagram: {page.connected_instagram_account ? 'Conectado' : 'Não vinculado'}</p>
+                                                </div>
+                                            </div>
+                                            {formData.pageId === page.id && <CheckCircle2 className="h-5 w-5 text-primary-600" />}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg flex items-center gap-2">
+                                    <AlertCircle className="h-4 w-4" />
+                                    Atenção: A escolha errada da identidade resultará em anúncios veiculados na página errada.
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="flex justify-between pt-6">
+                            <Button variant="ghost" onClick={prevStep}>Voltar</Button>
+                            <Button onClick={nextStep} disabled={!formData.pageId} className="bg-primary-600 hover:bg-primary-700 text-white">
+                                Próximo: Configuração <ChevronRight className="ml-2 h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 3: AI Config */}
+                {step === 3 && (
                     <div className="p-8 space-y-6">
                         <div className="space-y-2">
                             <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Configuração Inteligente</h3>
@@ -356,8 +542,8 @@ export function SmartCampaignWizard() {
                     </div>
                 )}
 
-                {/* Step 3: Creatives */}
-                {step === 3 && (
+                {/* Step 4: Creatives */}
+                {step === 4 && (
                     <div className="p-8 space-y-8">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="space-y-2">
@@ -422,7 +608,12 @@ export function SmartCampaignWizard() {
                                 accept="image/*,video/*"
                                 onChange={(e) => {
                                     if (e.target.files) {
-                                        setImages([...images, ...Array.from(e.target.files)]);
+                                        const newFiles = Array.from(e.target.files);
+                                        const tooLarge = newFiles.filter(f => f.size > 4.5 * 1024 * 1024);
+                                        if (tooLarge.length > 0) {
+                                            setError(`Os seguintes arquivos são muito grandes (>4.5MB) e podem falhar: ${tooLarge.map(f => f.name).join(', ')}`);
+                                        }
+                                        setImages([...images, ...newFiles]);
                                     }
                                 }}
                             />
