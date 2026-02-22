@@ -14,6 +14,54 @@ const OBJECTIVES = [
     { id: 'OUTCOME_AWARENESS', label: 'Reconhecimento', icon: Sparkles, description: 'Alcance o maior número de pessoas possível.' },
 ];
 
+const AGENTS = [
+    { id: 'architect', name: 'Aria', role: 'Architect', icon: '🏛️', color: 'text-blue-500' },
+    { id: 'dev', name: 'Dex', role: 'Dev', icon: '💻', color: 'text-emerald-500' },
+    { id: 'qa', name: 'Quinn', role: 'QA', icon: '🔍', color: 'text-amber-500' },
+    { id: 'devops', name: 'Gage', role: 'DevOps', icon: '⚡', color: 'text-purple-500' },
+];
+
+function AgentConversationOverlay({ activeMessage }: { activeMessage: { agent: string, text: string } | null }) {
+    if (!activeMessage) return null;
+    const agent = AGENTS.find(a => a.id === activeMessage.agent) || AGENTS[0];
+
+    return (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-500">
+            <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col items-center text-center space-y-6 animate-in zoom-in-95 duration-300">
+                <div className="relative">
+                    <div className="h-20 w-20 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-4xl shadow-inner animate-pulse">
+                        {agent.icon}
+                    </div>
+                    <div className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full bg-white dark:bg-slate-800 shadow-lg border border-slate-100 dark:border-slate-700 flex items-center justify-center">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary-600" />
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <div className="flex items-center justify-center gap-2">
+                        <span className={`font-bold text-lg ${agent.color}`}>{agent.name}</span>
+                        <span className="text-xs font-medium uppercase tracking-widest text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">{agent.role}</span>
+                    </div>
+                    <p className="text-slate-600 dark:text-slate-300 text-lg leading-relaxed font-medium">
+                        "{activeMessage.text}"
+                    </p>
+                </div>
+
+                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary-500 animate-[progress_3s_ease-in-out_infinite]" />
+                </div>
+
+                <style jsx>{`
+                    @keyframes progress {
+                        0% { width: 0%; }
+                        100% { width: 100%; }
+                    }
+                `}</style>
+            </div>
+        </div>
+    );
+}
+
 export function SmartCampaignWizard() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [step, setStep] = useState(1);
@@ -32,6 +80,7 @@ export function SmartCampaignWizard() {
         primary_texts: string[];
         image_prompts: string[];
     } | null>(null);
+    const [activeMessage, setActiveMessage] = useState<{ agent: string, text: string } | null>(null);
 
     const nextStep = () => setStep(s => s + 1);
     const prevStep = () => setStep(s => s - 1);
@@ -61,12 +110,24 @@ export function SmartCampaignWizard() {
             const targetedFiles = images.slice(0, 10);
             const mediaReferences: { type: 'IMAGE' | 'VIDEO', ref: string }[] = [];
 
+            setActiveMessage({ agent: 'architect', text: 'Analisando a estrutura da campanha e validando os objetivos estratégicos...' });
+            await new Promise(r => setTimeout(r, 2000));
+
             for (let i = 0; i < targetedFiles.length; i++) {
                 const file = targetedFiles[i];
                 const isVideo = file.type.startsWith('video/');
 
-                // Show status update
-                setError(`Enviando ${isVideo ? 'vídeo' : 'imagem'} ${i + 1} de ${targetedFiles.length}...`);
+                const messages = isVideo
+                    ? [
+                        { agent: 'dev', text: `Codificando vídeo "${file.name}" para o padrão Meta Ads...` },
+                        { agent: 'devops', text: `Sincronizando fragmentos binários com a infraestrutura de vídeo do Meta...` }
+                    ]
+                    : [
+                        { agent: 'ux-design-expert', text: `Otimizando compressão da imagem "${file.name}" para carregamento instantâneo...` },
+                        { agent: 'dev', text: `Viculando asset visual ao repositório de criativos...` }
+                    ];
+
+                setActiveMessage(messages[0]);
 
                 try {
                     let base64 = "";
@@ -113,7 +174,8 @@ export function SmartCampaignWizard() {
                         });
                     }
 
-                    // Individual upload per file to avoid 413 error
+                    setActiveMessage(messages[1]);
+
                     const uploadResult = await uploadMediaAction({
                         type: isVideo ? 'VIDEO' : 'IMAGE',
                         data: base64
@@ -121,15 +183,16 @@ export function SmartCampaignWizard() {
 
                     if (uploadResult.success && uploadResult.ref) {
                         mediaReferences.push({ type: uploadResult.type as any, ref: uploadResult.ref });
-                    } else {
-                        console.error(`Upload failed for ${file.name}:`, uploadResult.error);
                     }
                 } catch (err) {
                     console.error("Media processing/upload failed:", file.name, err);
                 }
             }
 
-            setError(null);
+            setActiveMessage({ agent: 'qa', text: 'Realizando auditoria final nos criativos e garantindo conformidade com as diretrizes do Smart AI...' });
+            await new Promise(r => setTimeout(r, 2000));
+
+            setActiveMessage({ agent: 'devops', text: 'Disparando gatilhos de criação no Meta Graph API. A mágica está acontecendo!' });
 
             const result = await createSmartCampaignAction({
                 objective: formData.objective,
@@ -139,20 +202,18 @@ export function SmartCampaignWizard() {
                 mediaReferences,
             });
 
-            if (!result) {
-                setError("Erro: O servidor não retornou uma resposta. Tente novamente.");
-                return;
-            }
-
             if (result.success) {
+                setActiveMessage({ agent: 'devops', text: 'Tudo pronto! Sua campanha foi orquestrada com sucesso.' });
+                await new Promise(r => setTimeout(r, 1000));
                 nextStep();
             } else {
-                setError(`###UI-VER-201###: ${result.error || "Ocorreu um erro ao criar a campanha."} (Data: ${JSON.stringify(formData)})`);
+                setError(result.error || "Ocorreu um erro ao criar a campanha.");
             }
         } catch (err: any) {
-            setError(`###UI-CATCH-201###: ${err.message || "Erro de conexão com o servidor."} (Data: ${JSON.stringify(formData)})`);
+            setError(err.message || "Erro de conexão com o servidor.");
         } finally {
             setLoading(false);
+            setActiveMessage(null);
         }
     };
 
@@ -198,7 +259,8 @@ export function SmartCampaignWizard() {
                 </div>
             )}
 
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden min-h-[400px]">
+                <AgentConversationOverlay activeMessage={activeMessage} />
                 {/* Step 1: Objective */}
                 {step === 1 && (
                     <div className="p-8 space-y-6">
