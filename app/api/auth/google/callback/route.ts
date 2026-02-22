@@ -23,5 +23,5 @@ export async function GET(request: NextRequest) {
         return redirect("/dashboard/settings?error=google_exchange_failed");
     }
 
-    return redirect("/dashboard/settings?success=google_connected");
+    return redirect("/dashboard/settings?success=google_connected&refresh=" + Date.now());
 }
