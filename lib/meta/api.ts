@@ -82,6 +82,17 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
 
     const fields = "id,name,connected_instagram_account,instagram_business_account";
 
+    // 0. Verify Ad Account Name for Debugging
+    if (adAccountId) {
+        try {
+            const accRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}?fields=name&access_token=${accessToken}`);
+            const accData = await accRes.json();
+            if (accData.name) {
+                debugInfo += `_account_${accData.name}_`;
+            }
+        } catch (e) { }
+    }
+
     // 1. Try ad account's promote_pages - THIS IS THE SOURCE OF TRUTH FOR ADS
     if (adAccountId) {
         try {
@@ -89,22 +100,25 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
             const data = await res.json();
             if (data.data && data.data.length > 0) {
                 rawPages = data.data;
-                debugInfo += `_pp_${data.data.length}`;
+                debugInfo += `_ppfound_${data.data.length}_`;
+                // Log all page names for debugging
+                data.data.forEach((p: any) => { debugInfo += `[${p.name}]`; });
+            } else {
+                debugInfo += "_pp_empty_";
             }
-        } catch (e: any) { debugInfo += `_pperr_${e.message}`; }
+        } catch (e: any) { debugInfo += `_pperr_${e.message}_`; }
     }
 
     // 2. Only if we found NOTHING in promote_pages, try me/accounts as a fallback
-    // This prevents pages from other clients leaking into the wrong ad account
-    if (rawPages.length === 0) {
+    if (!adAccountId && rawPages.length === 0) {
         try {
             const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/me/accounts?fields=${fields}&access_token=${accessToken}`);
             const data = await res.json();
             if (data.data) {
                 rawPages = data.data;
-                debugInfo += `_me_${data.data.length}`;
+                debugInfo += `_me_${data.data.length}_`;
             }
-        } catch (e: any) { debugInfo += `_meerr_${e.message}`; }
+        } catch (e: any) { debugInfo += `_meerr_${e.message}_`; }
     }
 
     // Normalize pages
@@ -134,21 +148,21 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
 
     const igFound = pages.find(p => p.connected_instagram_account);
     if (igFound) {
-        debugInfo += `_igid_${igFound.connected_instagram_account?.id}_src_${igFound.ig_source}`;
+        debugInfo += `_igid_${igFound.connected_instagram_account?.id}_src_${igFound.ig_source}_`;
     }
 
-    // 3. Fallback: Try to fetch Instagram accounts directly from act_ID
+    // 3. Fallback: Try to fetch Instagram accounts directly from act_ID if still missing
     if (adAccountId && pages.length > 0 && !igFound) {
         try {
             const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/instagram_accounts?fields=id,username&access_token=${accessToken}`);
             const data = await res.json();
             if (data.data && data.data.length > 0) {
                 pages[0].connected_instagram_account = { id: data.data[0].id };
-                debugInfo += `_igfound_fallback_${data.data[0].username}`;
+                debugInfo += `_igfound_fallback_${data.data[0].username}_`;
             } else {
-                debugInfo += "_igfound_fallback_empty";
+                debugInfo += "_igfound_fallback_empty_";
             }
-        } catch (e: any) { debugInfo += `_igfallerr_${e.message}`; }
+        } catch (e: any) { debugInfo += `_igfallerr_${e.message}_`; }
     }
 
     return { pages, debug: debugInfo };

@@ -174,12 +174,31 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             throw new Error(`Nenhuma Página do Facebook encontrada (Debug: ${pageDebug}). Vincule uma página à sua conta de anúncios no Meta Business Suite.`);
         }
 
-        // Prioritize pages that have an Instagram account connected
-        const bestPage = pages.find(p => (p as any).connected_instagram_account?.id) || pages[0];
+        // Prioritize pages that match the Ad Account Name (to avoid client leak)
+        const adAccountNameMatch = pageDebug.match(/_account_(.*?)_/);
+        const adAccountName = adAccountNameMatch ? adAccountNameMatch[1] : "";
+
+        let bestPage = pages.find(p =>
+            adAccountName && (
+                p.name.toLowerCase().includes(adAccountName.toLowerCase()) ||
+                adAccountName.toLowerCase().includes(p.name.toLowerCase())
+            )
+        );
+
+        // Fallback 1: First page with IG
+        if (!bestPage) {
+            bestPage = pages.find(p => (p as any).connected_instagram_account?.id);
+        }
+
+        // Fallback 2: Just the first page
+        if (!bestPage) {
+            bestPage = pages[0];
+        }
+
         const pageId = bestPage.id;
         const instagramId = (bestPage as any).connected_instagram_account?.id;
 
-        console.log(`Campaign Creation Debug - Selected Page: ${bestPage.name} (${pageId}), IG: ${instagramId || 'NOT FOUND'}, Det: ${pageDebug}`);
+        console.log(`Campaign Creation Debug - AdAcc: ${adAccountName}, Selected Page: ${bestPage.name} (${pageId}), IG: ${instagramId || 'NOT FOUND'}, Det: ${pageDebug}`);
 
         // 4. Upload all images in parallel
         const igStatus = instagramId ? `ig_found_${instagramId}` : `ig_missing_${pageDebug}`;
