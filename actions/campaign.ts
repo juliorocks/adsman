@@ -225,7 +225,7 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             : [{ imageHash: null as string | null, label: 0 }];
 
         // Process ad variations in parallel
-        await Promise.all(adsToCreate.map(async (adVariation) => {
+        const results = await Promise.all(adsToCreate.map(async (adVariation) => {
             const suffix = adVariation.label > 0 ? ` v${adVariation.label}` : '';
 
             const linkData: any = {
@@ -242,7 +242,7 @@ export async function createSmartCampaignAction(formData: { objective: string, g
                 linkData.image_hash = adVariation.imageHash;
             }
 
-            const creative = await createAdCreative(
+            const creativeResult = await createAdCreative(
                 adAccountId,
                 sanitize(`Creative ${formData.goal.substring(0, 15)}${suffix}`, 60),
                 { page_id: pageId, link_data: linkData },
@@ -250,15 +250,20 @@ export async function createSmartCampaignAction(formData: { objective: string, g
                 instagramId
             );
 
-            return createAd(
+            await createAd(
                 adAccountId,
                 adSet.id,
-                creative.id,
+                creativeResult.id,
                 sanitize(`Ad ${formData.goal.substring(0, 20)}${suffix}`, 60),
                 accessToken,
                 'PAUSED'
             );
+
+            return creativeResult;
         }));
+
+        const anyIgFallback = results.some(r => r.ig_linked === false && instagramId);
+        const finalImageDebug = anyIgFallback ? `${imageDebug} | ig_fallback` : imageDebug;
 
         await createLog({
             action_type: 'OTHER',
@@ -267,11 +272,11 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             target_name: `Smart AI: ${formData.goal.substring(0, 20)}...`,
             agent: 'STRATEGIST',
             status: 'SUCCESS',
-            metadata: { objective: formData.objective, budget: formData.budget, pageId, imageDebug }
+            metadata: { objective: formData.objective, budget: formData.budget, pageId, imageDebug: finalImageDebug }
         });
 
         revalidatePath("/dashboard");
-        return { success: true, campaignId: campaign.id, imageDebug };
+        return { success: true, campaignId: campaign.id, imageDebug: finalImageDebug };
     } catch (error: any) {
         console.error("Smart campaign creation error details:", error);
 

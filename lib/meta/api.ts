@@ -363,12 +363,14 @@ export async function createAdSet(adAccountId: string, campaignId: string, param
 export async function createAdCreative(adAccountId: string, name: string, objectStorySpec: any, accessToken: string, instagramActorId?: string) {
     const body: any = {
         name,
-        object_story_spec: objectStorySpec,
+        object_story_spec: { ...objectStorySpec },
         access_token: accessToken
     };
 
     if (instagramActorId) {
         body.instagram_actor_id = instagramActorId;
+        // Try dual-placement: root and inside object_story_spec
+        body.object_story_spec.instagram_actor_id = instagramActorId;
         console.log(`DEBUG: Creating AdCreative with IG Actor ID: ${instagramActorId}`);
     }
 
@@ -378,12 +380,16 @@ export async function createAdCreative(adAccountId: string, name: string, object
         body: JSON.stringify(body)
     });
     const data = await response.json();
+
     if (data.error) {
-        // Fallback: If IG account is invalid, try creating WITHOUT it so at least the FB ad works
-        if (instagramActorId && data.error.message.includes('instagram_actor_id')) {
-            console.warn(`RETRY: Instagram ID ${instagramActorId} was rejected. Retrying without IG linking...`);
+        const isIgError = data.error.message.includes('instagram_actor_id') || data.error.code === 100;
+
+        if (instagramActorId && isIgError) {
+            console.warn(`RETRY: Instagram ID ${instagramActorId} failed. Error: ${data.error.message}. Retrying WITHOUT Instagram...`);
+
             const retryBody = { ...body };
             delete retryBody.instagram_actor_id;
+            delete (retryBody.object_story_spec as any).instagram_actor_id;
 
             const retryRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
                 method: 'POST',
@@ -391,7 +397,7 @@ export async function createAdCreative(adAccountId: string, name: string, object
                 body: JSON.stringify(retryBody)
             });
             const retryData = await retryRes.json();
-            if (!retryData.error) return retryData;
+            if (!retryData.error) return { ...retryData, ig_linked: false };
         }
 
         const e = data.error;
@@ -399,13 +405,12 @@ export async function createAdCreative(adAccountId: string, name: string, object
             `msg: ${e.message}`,
             `code: ${e.code}`,
             `sub: ${e.error_subcode}`,
-            `title: ${e.error_user_title || 'none'}`,
-            `user_msg: ${e.error_user_msg || 'none'}`,
         ].join(' | ');
-        console.error("Meta API createAdCreative FULL Error:", JSON.stringify(data.error, null, 2));
+        console.error("Meta API createAdCreative Error:", JSON.stringify(data.error, null, 2));
         throw new Error(`Creative: ${fullError}`);
     }
-    return data;
+
+    return { ...data, ig_linked: !!instagramActorId };
 }
 
 export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED') {
