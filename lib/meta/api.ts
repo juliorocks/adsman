@@ -376,11 +376,16 @@ export async function createAdCreative(adAccountId: string, name: string, object
         access_token: accessToken
     };
 
+    // Force page_id at root level for stability
+    if (objectStorySpec.page_id) {
+        body.page_id = objectStorySpec.page_id;
+    }
+
     if (instagramActorId) {
         body.instagram_actor_id = instagramActorId;
-        // Try dual-placement: root and inside object_story_spec
+        // Dual-placement: root and inside object_story_spec
         body.object_story_spec.instagram_actor_id = instagramActorId;
-        console.log(`DEBUG: Creating AdCreative with IG Actor ID: ${instagramActorId}`);
+        console.log(`DEBUG: Creating AdCreative with IG Actor ID: ${instagramActorId} for Page: ${objectStorySpec.page_id}`);
     }
 
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -394,7 +399,7 @@ export async function createAdCreative(adAccountId: string, name: string, object
         const isIgError = data.error.message.includes('instagram_actor_id') || data.error.code === 100;
 
         if (instagramActorId && isIgError) {
-            console.warn(`RETRY: Instagram ID ${instagramActorId} failed. Error: ${data.error.message}. Retrying WITHOUT Instagram...`);
+            console.warn(`RETRY: Instagram ID ${instagramActorId} failed for Page ${objectStorySpec.page_id}. Error: ${data.error.message}. Retrying WITHOUT Instagram...`);
 
             const retryBody = { ...body };
             delete retryBody.instagram_actor_id;

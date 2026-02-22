@@ -223,12 +223,12 @@ export async function createSmartCampaignAction(formData: { objective: string, g
                 }
             });
 
-            const results = await Promise.all(uploadPromises);
-            results.forEach(r => { if (r) uploadedImages.push(r); });
+            const uploadResults = await Promise.all(uploadPromises);
+            uploadResults.forEach(r => { if (r) uploadedImages.push(r); });
             uploadStatus = `uploaded_${uploadedImages.length}_of_${formData.images.length}`;
         }
 
-        const diagInfo = `sel_page_${bestPage.name}_found_[${allPageNames}]`;
+        const diagInfo = `sel_page_${bestPage.name}_ID_${pageId}_ig_${instagramId}_found_[${allPageNames}]`;
         const imageDebug = `${igStatus} | ${uploadStatus} | ${diagInfo}`;
 
         // 5. Create Ad Creatives + Ads
@@ -250,7 +250,7 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             : [{ imageHash: null as string | null, label: 0 }];
 
         // Process ad variations in parallel
-        const results = await Promise.all(adsToCreate.map(async (adVariation) => {
+        const adResults = await Promise.all(adsToCreate.map(async (adVariation) => {
             const suffix = adVariation.label > 0 ? ` v${adVariation.label}` : '';
 
             const linkData: any = {
@@ -287,7 +287,7 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             return creativeResult;
         }));
 
-        const anyIgFallback = results.some(r => r.ig_linked === false && instagramId);
+        const anyIgFallback = adResults.some((r: any) => r.ig_linked === false && instagramId);
         const finalImageDebug = anyIgFallback ? `ig_fallback | ${imageDebug}` : imageDebug;
 
         await createLog({
