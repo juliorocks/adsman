@@ -76,7 +76,7 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
 }
 
 // Fetch Facebook Pages that can be used for ads (tries multiple sources)
-export async function getPages(accessToken: string, adAccountId?: string): Promise<{ pages: { id: string; name: string; connected_instagram_account?: { id: string }, alternative_instagram_ids?: string[] }[], debug: string }> {
+export async function getPages(accessToken: string, adAccountId?: string): Promise<{ pages: { id: string; name: string; connected_instagram_account?: { id: string }, alternative_instagram_ids?: { id: string, username: string }[] }[], debug: string }> {
     let rawPages: any[] = [];
     let debugInfo = "";
     const fields = "id,name,connected_instagram_account,instagram_business_account";
@@ -109,45 +109,45 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         } catch (e: any) { debugInfo += `_pperr_${e.message}_`; }
     }
 
-    // High-level "Intent" Match: Look for IG usernames that match account keywords
     const accKeywords = debugInfo.toLowerCase().split('_').join(' ').split(' ');
-    const allAuthIds = authorizedIgs.map(ig => ig.id);
 
     // Normalizing pages with smart IG lookup
     let pages = await Promise.all(rawPages.map(async (p) => {
-        // Priority: instagram_business_account (modern ads) -> connected_instagram_account
-        let igId = p.instagram_business_account?.id || p.connected_instagram_account?.id;
-        let source = igId ? "field" : "none";
+        let igId: string | undefined = undefined;
+        let source = "none";
 
-        // VERIFY & UPGRADE: If ID is in authorized list, we're good. 
-        // If not, or if missing, try to find a BETTER verified match.
-        if (authorizedIgs.length > 0) {
-            const isVerified = authorizedIgs.some(ig => ig.id === igId);
-
-            if (!igId || !isVerified) {
-                // Heuristic 1: Look for an IG that matches the Page/AdAccount name keywords
-                const pName = p.name.toLowerCase();
-                const bestVerified = authorizedIgs.find(ig =>
-                    pName.includes(ig.username.toLowerCase()) ||
-                    ig.username.toLowerCase().includes(pName.substring(0, 5)) ||
-                    accKeywords.some(kw => kw.length > 3 && ig.username.toLowerCase().includes(kw))
-                );
-
-                if (bestVerified) {
-                    igId = bestVerified.id;
-                    source = "keyword_match";
-                } else {
-                    // Heuristic 2: Try endpoint to find what's actually linked
-                    try {
-                        const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id&access_token=${accessToken}`);
-                        const igData = await igRes.json();
-                        const foundId = igData.data?.[0]?.id;
-                        if (foundId) {
-                            igId = foundId;
-                            source = authorizedIgs.some(ig => ig.id === foundId) ? "endpoint_verified" : "endpoint_unverified";
-                        }
-                    } catch (e) { }
+        // PRIORITY 1: Explicitly check the page's linked instagram_accounts endpoint
+        // This often returns the 'Page-Linked' ID which is the only one that works for ads.
+        try {
+            const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id,username&access_token=${accessToken}`);
+            const igData = await igRes.json();
+            if (igData.data?.[0]?.id) {
+                igId = igData.data[0].id;
+                source = "page_endpoint";
+                // If it's also in auth list, we're golden
+                if (authorizedIgs.some(ig => ig.id === igId)) {
+                    source = "page_endpoint_verified";
                 }
+            }
+        } catch (e) { }
+
+        // PRIORITY 2: Business fields if endpoint failed
+        if (!igId) {
+            igId = p.instagram_business_account?.id || p.connected_instagram_account?.id;
+            if (igId) source = "page_field";
+        }
+
+        // PRIORITY 3: Keyword match from authorized list
+        if (!igId && authorizedIgs.length > 0) {
+            const pName = p.name.toLowerCase();
+            const bestVerified = authorizedIgs.find(ig =>
+                pName.includes(ig.username.toLowerCase()) ||
+                ig.username.toLowerCase().includes(pName.substring(0, 5)) ||
+                accKeywords.some(kw => kw.length > 3 && ig.username.toLowerCase().includes(kw))
+            );
+            if (bestVerified) {
+                igId = bestVerified.id;
+                source = "keyword_match";
             }
         }
 
@@ -155,7 +155,7 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
             id: p.id,
             name: p.name,
             connected_instagram_account: igId ? { id: igId } : undefined,
-            alternative_instagram_ids: allAuthIds, // Carry all options for brute-force retry
+            alternative_instagram_ids: authorizedIgs, // Full object for username logging
             ig_source: source
         };
     }));
@@ -376,25 +376,31 @@ export async function createAdSet(adAccountId: string, campaignId: string, param
     return data;
 }
 
-export async function createAdCreative(adAccountId: string, name: string, objectStorySpec: any, accessToken: string, instagramActorId?: string, alternativeIgIds?: string[]) {
-    // Collect all unique IDs to try in order
+export async function createAdCreative(adAccountId: string, name: string, objectStorySpec: any, accessToken: string, instagramActorId?: string, alternativeIgs?: { id: string, username: string }[]) {
+    // Generate unique ordered list of IDs to try
+    const igList = alternativeIgs || [];
     const idsToTry = Array.from(new Set([
         ...(instagramActorId ? [instagramActorId] : []),
-        ...(alternativeIgIds || [])
+        ...igList.map(ig => ig.id)
     ]));
 
     const executeAttempt = async (index: number): Promise<any> => {
         const currentIgId = idsToTry[index];
         const isLastIg = index >= idsToTry.length - 1;
+        const currentIgUser = igList.find(ig => ig.id === currentIgId)?.username || 'unknown';
 
         const body: any = {
             name,
             object_story_spec: { ...objectStorySpec },
             access_token: accessToken
         };
-        if (currentIgId) body.instagram_actor_id = currentIgId;
 
-        console.log(`DEBUG: AdCreative attempt ${index + 1}/${idsToTry.length} with IG: ${currentIgId || 'None'}`);
+        if (currentIgId) {
+            // DUAL PLACEMENT strategy
+            body.instagram_actor_id = currentIgId;
+            body.object_story_spec.instagram_actor_id = currentIgId;
+            console.log(`DEBUG: Attempt ${index + 1}/${idsToTry.length} with IG: ${currentIgUser} (${currentIgId})`);
+        }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
             method: 'POST',
@@ -408,32 +414,43 @@ export async function createAdCreative(adAccountId: string, name: string, object
             const isIgError = errorMsg.includes('instagram_actor_id') ||
                 data.error.code === 100 ||
                 errorMsg.includes('instagram');
+            const isCapabilityError = data.error.code === 3;
 
-            if (currentIgId && isIgError) {
-                console.warn(`RETRY_IG: ID ${currentIgId} failed: ${data.error.message}`);
-
-                if (!isLastIg) {
-                    return executeAttempt(index + 1);
-                }
-
-                // Final fallback to Facebook Only
-                console.warn(`ALL_IG_FAILED: Retrying FINAL fallback (Facebook Only)`);
-                const fbOnlyBody = { ...body };
-                delete fbOnlyBody.instagram_actor_id;
-
-                const retryRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+            // Handle #3 Capability Error by removing root-level actor_id and retrying once
+            if (isCapabilityError && currentIgId) {
+                console.warn(`CAPABILITY_RETRY: Root actor_id rejected. Trying internal spec only...`);
+                const capBody = { ...body };
+                delete capBody.instagram_actor_id;
+                const capRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(fbOnlyBody)
+                    body: JSON.stringify(capBody)
                 });
-                const retryData = await retryRes.json();
-                if (!retryData.error) return { ...retryData, ig_linked: false, ig_error: data.error.message };
-
-                throw new Error(`Fallback Failed: ${retryData.error.message}`);
+                const capData = await capRes.json();
+                if (!capData.error) return { ...capData, ig_linked: true };
+                // If capability retry also fails, continue to next ID
             }
 
-            const e = data.error;
-            throw new Error(`Creative: msg: ${e.message} | code: ${e.code}`);
+            if (currentIgId && (isIgError || isCapabilityError)) {
+                console.warn(`RETRY_NEXT: ID ${currentIgId} (${currentIgUser}) failed: ${data.error.message}`);
+                if (!isLastIg) return executeAttempt(index + 1);
+
+                // FINAL FB-ONLY FALLBACK
+                console.warn(`FINAL_FALLBACK: Switching to Facebook Only`);
+                const fbBody = { ...body };
+                delete fbBody.instagram_actor_id;
+                delete fbBody.object_story_spec.instagram_actor_id;
+                const fbRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(fbBody)
+                });
+                const fbData = await fbRes.json();
+                if (!fbData.error) return { ...fbData, ig_linked: false, ig_error: data.error.message };
+                throw new Error(`Creative Fallback Failed: ${fbData.error.message}`);
+            }
+
+            throw new Error(`Creative Error: ${data.error.message}`);
         }
 
         return { ...data, ig_linked: !!currentIgId };
