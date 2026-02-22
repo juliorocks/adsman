@@ -58,26 +58,52 @@ export function SmartCampaignWizard() {
         setError(null);
 
         try {
-            // Convert images to base64 (up to 3 images, each up to 4MB)
+            // Convert, resize and compress images to base64 (up to 3 images)
+            // This ensures we stay under Vercel's 4.5MB request body limit
             const imageBase64List: string[] = [];
             for (const img of images.slice(0, 3)) {
-                if (img.size > 4 * 1024 * 1024) {
-                    console.warn("Image too large, skipping:", img.name, img.size);
-                    continue;
-                }
                 try {
                     const base64 = await new Promise<string>((resolve, reject) => {
                         const reader = new FileReader();
-                        reader.onloadend = () => {
-                            const dataUrl = reader.result as string;
-                            resolve(dataUrl.split(',')[1] || '');
+                        reader.onload = (e) => {
+                            const imgElement = new Image();
+                            imgElement.onload = () => {
+                                const canvas = document.createElement('canvas');
+                                let width = imgElement.width;
+                                let height = imgElement.height;
+
+                                // Max dimension 1080px (FB/IG standard)
+                                const MAX_SIZE = 1080;
+                                if (width > height) {
+                                    if (width > MAX_SIZE) {
+                                        height *= MAX_SIZE / width;
+                                        width = MAX_SIZE;
+                                    }
+                                } else {
+                                    if (height > MAX_SIZE) {
+                                        width *= MAX_SIZE / height;
+                                        height = MAX_SIZE;
+                                    }
+                                }
+
+                                canvas.width = width;
+                                canvas.height = height;
+                                const ctx = canvas.getContext('2d');
+                                ctx?.drawImage(imgElement, 0, 0, width, height);
+
+                                // Compress to JPEG with 0.8 quality
+                                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                                resolve(compressedDataUrl.split(',')[1] || '');
+                            };
+                            imgElement.onerror = () => reject(new Error('Failed to load image element'));
+                            imgElement.src = e.target?.result as string;
                         };
-                        reader.onerror = () => reject(new Error('Failed to read image'));
+                        reader.onerror = () => reject(new Error('Failed to read file'));
                         reader.readAsDataURL(img);
                     });
                     if (base64) imageBase64List.push(base64);
-                } catch (readErr) {
-                    console.warn("Failed to read image, skipping:", img.name);
+                } catch (err) {
+                    console.error("Image processing failed, skipping:", img.name, err);
                 }
             }
 
