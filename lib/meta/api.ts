@@ -435,18 +435,21 @@ export async function createAdCreative(adAccountId: string, name: string, object
         if (data.error) {
             const e = data.error;
             const sub = e.error_subcode;
+            const code = e.code;
             const msg = (e.message || "").toLowerCase();
+            const blame = e.error_data?.blame_field || e.error_data?.field || 'unknown';
 
-            // Subcode 1443226 is explicitly "Identity selection required" or "Invalid Instagram ID"
-            const isIgIdentityError = sub === 1443226 || sub === 1443225 || sub === 1443115 ||
-                msg.includes('instagram_user_id') ||
-                msg.includes('instagram_actor_id') ||
-                msg.includes('identity');
+            // Code 100 "Invalid parameter" is the most common generic error for bad IG links
+            const isPotentialIgError = code === 100 || code === 10 ||
+                sub === 1443226 || sub === 1443225 || sub === 1443115 ||
+                msg.includes('instagram') || msg.includes('identity') ||
+                msg.includes('actor');
 
-            console.warn(`GAGE_ERROR: Attempt ${index} (${currentIgId || 'FB-ONLY'}) failed: ${e.message} (Code: ${e.code}, Sub: ${sub})`);
+            console.warn(`GAGE_ERROR: Attempt ${index} (${currentIgId || 'FB-ONLY'}) failed: ${e.message} (Code: ${code}, Sub: ${sub}, Blame: ${blame})`);
 
-            if (currentIgId && isIgIdentityError) {
-                // FALLBACK 1: Try legacy 'instagram_actor_id' field name at root (some accounts still need this transitionally)
+            // If we have an IG ID and it failed with anything that could be identity related...
+            if (currentIgId && isPotentialIgError) {
+                // FALLBACK 1: Try legacy 'instagram_actor_id' field name at root
                 console.log("GAGE_RETRY: Trying alternative 'instagram_actor_id' root field...");
                 const altBody = JSON.parse(JSON.stringify(body));
                 delete altBody.instagram_user_id;
@@ -479,21 +482,31 @@ export async function createAdCreative(adAccountId: string, name: string, object
                     console.warn(`GAGE_RETRY: Rotating to next available Instagram ID...`);
                     return executeAttempt(index + 1);
                 }
+            }
 
-                // ABSOLUTE LAST RESORT: Facebook-Only (Strip all IG references)
-                console.warn(`GAGE_FALLBACK: Instagram identities exhausted or rejected. Deploying to Facebook only.`);
+            // ABSOLUTE LAST RESORT: Facebook-Only (Completely strip all possible IG/Identity fields)
+            // We do this if we had an IG ID that failed OR if we are on the final fallback
+            if (currentIgId || isLastIg) {
+                console.warn(`GAGE_FALLBACK: Instagram identities exhausted or rejected. Forcing FB-Only attempt...`);
+
                 const fbOnlyBody = JSON.parse(JSON.stringify(body));
+                // Root Level
                 delete fbOnlyBody.instagram_user_id;
                 delete fbOnlyBody.instagram_actor_id;
+
+                // Spec Level
                 if (fbOnlyBody.object_story_spec) {
                     delete fbOnlyBody.object_story_spec.instagram_user_id;
                     delete fbOnlyBody.object_story_spec.instagram_actor_id;
+
+                    // Specific Data Blocks
                     if (fbOnlyBody.object_story_spec.link_data) {
                         delete fbOnlyBody.object_story_spec.link_data.instagram_user_id;
                         delete fbOnlyBody.object_story_spec.link_data.instagram_actor_id;
                     }
                     if (fbOnlyBody.object_story_spec.video_data) {
                         delete fbOnlyBody.object_story_spec.video_data.instagram_user_id;
+                        delete fbOnlyBody.object_story_spec.video_data.instagram_actor_id;
                     }
                 }
 
@@ -503,14 +516,20 @@ export async function createAdCreative(adAccountId: string, name: string, object
                     body: JSON.stringify(fbOnlyBody)
                 });
                 const fbData = await fbRes.json();
-                if (!fbData.error) return { ...fbData, ig_linked: false, ig_error: e.message };
 
-                // If even FB-only fails, we throw the FB error as it's likely more fundamental (Page ID, Asset, etc.)
-                throw new Error(`Meta V21.0 FB-Fallback Error: ${fbData.error.message} (Original IG Error: ${e.message})`);
+                if (!fbData.error) {
+                    console.log("GAGE_SUCCESS: FB-Only fallback worked!");
+                    return { ...fbData, ig_linked: false, ig_error: e.message };
+                }
+
+                // If even FB-only fails, catch its detailed error
+                const fbe = fbData.error;
+                const fbBlame = fbe.error_data?.blame_field || fbe.error_data?.field || 'unknown';
+                throw new Error(`Meta V21.0 FB-Fallback Error: ${fbe.message} (Field: ${fbBlame}) | Original IG Error: ${e.message}`);
             }
 
-            // Not an IG error or no more options, throw original
-            throw new Error(`Meta V21.0 Migration Error: ${e.message} (Code: ${e.code}, Sub: ${sub})`);
+            // Not an IG error and no IG ID to fallback from, throw original
+            throw new Error(`Meta V21.0 Migration Error: ${e.message} (Code: ${code}, Sub: ${sub}, Blame: ${blame})`);
         }
         return { ...data, ig_linked: !!currentIgId };
     };
