@@ -378,14 +378,9 @@ export async function createAdCreative(adAccountId: string, name: string, object
         access_token: accessToken
     };
 
-    // Force page_id at root level for stability
-    if (objectStorySpec.page_id) {
-        body.page_id = objectStorySpec.page_id;
-    }
-
     if (instagramActorId) {
         body.instagram_actor_id = instagramActorId;
-        // Dual-placement: root and inside object_story_spec
+        // Dual-placement: root and inside object_story_spec for maximum compatibility
         body.object_story_spec.instagram_actor_id = instagramActorId;
         console.log(`DEBUG: Creating AdCreative with IG Actor ID: ${instagramActorId} for Page: ${objectStorySpec.page_id}`);
     }
@@ -398,14 +393,22 @@ export async function createAdCreative(adAccountId: string, name: string, object
     const data = await response.json();
 
     if (data.error) {
-        const isIgError = data.error.message.includes('instagram_actor_id') || data.error.code === 100;
+        const isIgError = data.error.message.toLowerCase().includes('instagram_actor_id') ||
+            data.error.code === 100 ||
+            data.error.message.toLowerCase().includes('instagram');
 
         if (instagramActorId && isIgError) {
             console.warn(`RETRY: Instagram ID ${instagramActorId} failed. Error: ${data.error.message}. Retrying WITHOUT Instagram...`);
 
-            const retryBody = JSON.parse(JSON.stringify(body)); // Deep clone
-            delete retryBody.instagram_actor_id;
-            if (retryBody.object_story_spec) {
+            // Clean deep clone for retry
+            const retryBody = {
+                name: `${name} (FB Only)`,
+                object_story_spec: { ...objectStorySpec },
+                access_token: accessToken
+            };
+
+            // Remove IG ID from child spec just in case
+            if (retryBody.object_story_spec.instagram_actor_id) {
                 delete retryBody.object_story_spec.instagram_actor_id;
             }
 
@@ -418,10 +421,9 @@ export async function createAdCreative(adAccountId: string, name: string, object
 
             if (!retryData.error) return { ...retryData, ig_linked: false };
 
-            // If retry ALSO failed, throw the retry error, not the original one
-            console.error("Meta API createAdCreative RETRY Error:", JSON.stringify(retryData.error, null, 2));
-            const re = retryData.error;
-            throw new Error(`Creative Retry Failed: ${re.message} (Code: ${re.code})`);
+            // If retry ALSO failed, report the final failure
+            console.error("Meta API createAdCreative FINAL Error:", JSON.stringify(retryData.error, null, 2));
+            throw new Error(`Creative Fallback Failed: ${retryData.error.message} (Code: ${retryData.error.code})`);
         }
 
         const e = data.error;
