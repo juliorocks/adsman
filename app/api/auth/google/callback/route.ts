@@ -16,11 +16,12 @@ export async function GET(request: NextRequest) {
     try {
         const result = await handleGoogleCallbackAction(code);
         if (!result.success) {
-            throw new Error(result.error);
+            console.error("Google Callback Action Failed:", result.error);
+            return redirect(`/dashboard/settings?error=google_db_error&msg=${encodeURIComponent(result.error || '')}`);
         }
     } catch (err: any) {
         console.error("Google Callback Route Error:", err);
-        return redirect("/dashboard/settings?error=google_exchange_failed");
+        return redirect(`/dashboard/settings?error=google_exchange_failed&msg=${encodeURIComponent(err.message)}`);
     }
 
     return redirect("/dashboard/settings?success=google_connected&refresh=" + Date.now());
