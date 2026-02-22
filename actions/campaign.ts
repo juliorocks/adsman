@@ -292,8 +292,11 @@ export async function createSmartCampaignAction(formData: { objective: string, g
             return creativeResult;
         }));
 
+        const igError = adResults.find((r: any) => r.ig_error)?.ig_error || null;
         const anyIgFallback = adResults.some((r: any) => r.ig_linked === false && instagramId);
-        const finalImageDebug = anyIgFallback ? `ig_fallback | ${imageDebug}` : imageDebug;
+
+        // Comprehensive debug info: Discovery -> Upload -> Match -> Result/Error
+        const finalImageDebug = `${igStatus} | ${uploadStatus} | ${pageDebug} | ${diagInfo}${anyIgFallback ? ` | FALLBACK: ${igError}` : ''}`;
 
         await createLog({
             action_type: 'OTHER',

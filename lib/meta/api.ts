@@ -109,26 +109,44 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         } catch (e: any) { debugInfo += `_pperr_${e.message}_`; }
     }
 
+    // High-level "Intent" Match: Look for IG usernames that match account keywords
+    const accKeywords = debugInfo.toLowerCase().split('_').join(' ').split(' ');
+
     // Normalizing pages with smart IG lookup
     let pages = await Promise.all(rawPages.map(async (p) => {
-        // Priority: instagram_business_account (modern) -> connected_instagram_account
+        // Priority: instagram_business_account (modern ads) -> connected_instagram_account
         let igId = p.instagram_business_account?.id || p.connected_instagram_account?.id;
-        let source = igId ? "page_field" : "none";
+        let source = igId ? "field" : "none";
 
-        // Check against authorized list
+        // VERIFY & UPGRADE: If ID is in authorized list, we're good. 
+        // If not, or if missing, try to find a BETTER verified match.
         if (authorizedIgs.length > 0) {
-            const isAuthorized = authorizedIgs.some(ig => ig.id === igId);
-            if (!igId || !isAuthorized) {
-                // Try specifically per-page endpoint
-                try {
-                    const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id&access_token=${accessToken}`);
-                    const igData = await igRes.json();
-                    const foundId = igData.data?.[0]?.id;
-                    if (foundId && authorizedIgs.some(ig => ig.id === foundId)) {
-                        igId = foundId;
-                        source = "verified_endpoint";
-                    }
-                } catch (e) { }
+            const isVerified = authorizedIgs.some(ig => ig.id === igId);
+
+            if (!igId || !isVerified) {
+                // Heuristic 1: Look for an IG that matches the Page/AdAccount name keywords
+                const pName = p.name.toLowerCase();
+                const bestVerified = authorizedIgs.find(ig =>
+                    pName.includes(ig.username.toLowerCase()) ||
+                    ig.username.toLowerCase().includes(pName.substring(0, 5)) ||
+                    accKeywords.some(kw => kw.length > 3 && ig.username.toLowerCase().includes(kw))
+                );
+
+                if (bestVerified) {
+                    igId = bestVerified.id;
+                    source = "keyword_match";
+                } else {
+                    // Heuristic 2: Try endpoint to find what's actually linked
+                    try {
+                        const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id&access_token=${accessToken}`);
+                        const igData = await igRes.json();
+                        const foundId = igData.data?.[0]?.id;
+                        if (foundId) {
+                            igId = foundId;
+                            source = authorizedIgs.some(ig => ig.id === foundId) ? "endpoint_verified" : "endpoint_unverified";
+                        }
+                    } catch (e) { }
+                }
             }
         }
 
@@ -143,14 +161,13 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
     const igFound = pages.find(p => p.connected_instagram_account);
     if (igFound) {
         const matchingIg = authorizedIgs.find(ig => ig.id === igFound.connected_instagram_account?.id);
-        debugInfo += `_selectedIG_${matchingIg ? matchingIg.username : 'unknown'}:${igFound.connected_instagram_account?.id}_`;
+        debugInfo += `_selIG_${matchingIg ? matchingIg.username : 'ID'}:${igFound.connected_instagram_account?.id}_src_${igFound.ig_source}_`;
     }
 
-    // Final Fallback: If still no IG linked to specific page, but we have authorized accounts,
-    // we use the first one if it's the only one found.
-    if (!igFound && authorizedIgs.length > 0 && pages.length > 0) {
+    // Final Force: If no IG yet but we have exactly one authorized IG, use it as a safe bet
+    if (!igFound && authorizedIgs.length === 1 && pages.length > 0) {
         pages[0].connected_instagram_account = { id: authorizedIgs[0].id };
-        debugInfo += `_forced_ig_${authorizedIgs[0].username}_`;
+        debugInfo += `_forced_single_auth_${authorizedIgs[0].username}_`;
     }
 
     return { pages, debug: debugInfo };
