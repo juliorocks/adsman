@@ -81,7 +81,7 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
     let debugInfo = "";
     const fields = "id,name,connected_instagram_account,instagram_business_account";
 
-    // 0. Fetch Ad Account's authorized Instagram accounts - FOR REFERENCE ONLY
+    // 0. Fetch Ad Account's authorized Instagram accounts - REFERENCE ONLY
     let authorizedIgs: { id: string, username: string }[] = [];
     if (adAccountId) {
         try {
@@ -117,19 +117,17 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         let source = "none";
 
         // PRIORITY 1: Explicitly check the page's linked instagram_accounts endpoint
-        // CRITICAL: We NO LONGER filter this against authorizedIgs because Meta often 
-        // expects a Page-Scoped ID that doesn't appear in the Ad Account asset list.
         try {
             const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id,username&access_token=${accessToken}`);
             const igData = await igRes.json();
             const foundId = igData.data?.[0]?.id;
             if (foundId) {
                 igId = foundId;
-                source = "page_endpoint_direct";
+                source = "page_endpoint";
             }
         } catch (e) { }
 
-        // PRIORITY 2: Business fields (Verify if possible, but use anyway if endpoint failed)
+        // PRIORITY 2: Business fields
         if (!igId) {
             const fieldId = p.instagram_business_account?.id || p.connected_instagram_account?.id;
             if (fieldId) {
@@ -138,7 +136,7 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
             }
         }
 
-        // PRIORITY 3: Keyword match from authorized list (The Brute-Force Fallback)
+        // PRIORITY 3: Keyword match fallback
         if (!igId && authorizedIgs.length > 0) {
             const pName = p.name.toLowerCase();
             const bestVerified = authorizedIgs.find(ig =>
@@ -161,12 +159,8 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         };
     }));
 
-    const igFound = pages.find(p => p.connected_instagram_account);
-    if (igFound) {
-        const matchingIg = authorizedIgs.find(ig => ig.id === igFound.connected_instagram_account?.id);
-        const nameLabel = matchingIg ? matchingIg.username : `ID_${igFound.connected_instagram_account?.id}`;
-        debugInfo += `_selIG_${nameLabel}_src_${igFound.ig_source}_`;
-    }
+    // Log individual page IG discovery for final debug visibility
+    debugInfo += `_pages_[${pages.map(p => `${p.name}:${p.connected_instagram_account?.id || 'NO_IG'}`).join('|')}]_`;
 
     return { pages, debug: debugInfo };
 }
@@ -383,22 +377,24 @@ export async function createAdCreative(adAccountId: string, name: string, object
     const executeAttempt = async (index: number): Promise<any> => {
         const currentIgId = idsToTry[index];
         const isLastIg = index >= idsToTry.length - 1;
-        const currentIgUser = igList.find(ig => ig.id === currentIgId)?.username || 'unknown';
+        const currentIgUser = igList.find(ig => ig.id === currentIgId)?.username || 'unauth_shadow';
 
         const body: any = {
             name,
-            object_story_spec: JSON.parse(JSON.stringify(objectStorySpec)), // Deep clone
+            object_story_spec: JSON.parse(JSON.stringify(objectStorySpec)),
             access_token: accessToken
         };
 
         if (currentIgId) {
-            // TRIPLE PLACEMENT strategy: Root, Spec, and LinkData
+            // Orion Quadruple Placement - Maximum visibility for all Meta objectives
             body.instagram_actor_id = currentIgId;
             body.object_story_spec.instagram_actor_id = currentIgId;
             if (body.object_story_spec.link_data) {
                 body.object_story_spec.link_data.instagram_actor_id = currentIgId;
+                // Add to root of link_data if nested doesn't work
+                (body.object_story_spec.link_data as any).instagram_actor_id = currentIgId;
             }
-            console.log(`DEBUG: Final Triple Attempt ${index + 1}/${idsToTry.length} with IG: ${currentIgUser}`);
+            console.log(`ORION: Attempting ID ${currentIgId} (${currentIgUser}) - Step ${index + 1}/${idsToTry.length}`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -415,9 +411,9 @@ export async function createAdCreative(adAccountId: string, name: string, object
                 errorMsg.includes('instagram');
             const isCapabilityError = data.error.code === 3;
 
-            // Handle Capability #3 by removing root-level and retrying specific placement
+            // CAPABILITY FIX (Error #3): Remove root-level actor if rejected
             if (isCapabilityError && currentIgId) {
-                console.warn(`CAPABILITY_FIX: Triple placement was too much. Retrying internal only...`);
+                console.warn(`CAPABILITY_FIX: Splitting placements...`);
                 const capBody = { ...body };
                 delete capBody.instagram_actor_id;
                 const capRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -430,11 +426,26 @@ export async function createAdCreative(adAccountId: string, name: string, object
             }
 
             if (currentIgId && (isIgError || isCapabilityError)) {
-                console.warn(`RETRY_NEXT: IG ${currentIgUser} failed: ${data.error.message}`);
+                console.warn(`ORION_RETRY: ID ${currentIgId} failed -> ${data.error.message}`);
+
+                // HAIL MARY: If this was the last listed ID, try one final contextual discovery for this page_id
+                if (isLastIg && body.object_story_spec.page_id) {
+                    try {
+                        console.log(`HAIL_MARY: Contextual Discovery for Page ${body.object_story_spec.page_id}`);
+                        const hmRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${body.object_story_spec.page_id}/instagram_accounts?fields=id&access_token=${accessToken}`);
+                        const hmData = await hmRes.json();
+                        const finalId = hmData.data?.[0]?.id;
+                        if (finalId && !idsToTry.includes(finalId)) {
+                            idsToTry.push(finalId);
+                            return executeAttempt(index + 1);
+                        }
+                    } catch (e) { }
+                }
+
                 if (!isLastIg) return executeAttempt(index + 1);
 
                 // FINAL FB-ONLY FALLBACK
-                console.warn(`FINAL_FALLBACK: Switching to Facebook Only after all IG fails`);
+                console.warn(`ORION_FALLBACK: Switching to Facebook Only`);
                 const fbBody = { ...body };
                 delete fbBody.instagram_actor_id;
                 delete fbBody.object_story_spec.instagram_actor_id;
@@ -447,12 +458,10 @@ export async function createAdCreative(adAccountId: string, name: string, object
                 });
                 const fbData = await fbRes.json();
                 if (!fbData.error) return { ...fbData, ig_linked: false, ig_error: data.error.message };
-                throw new Error(`Creative Full Failure: ${fbData.error.message}`);
+                throw new Error(`Creative Absolute Failure: ${fbData.error.message}`);
             }
-
-            throw new Error(`Meta API: ${data.error.message}`);
+            throw new Error(`Meta API Error: ${data.error.message}`);
         }
-
         return { ...data, ig_linked: !!currentIgId };
     };
 
