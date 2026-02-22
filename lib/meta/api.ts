@@ -79,17 +79,15 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
 export async function getPages(accessToken: string, adAccountId?: string): Promise<{ pages: { id: string; name: string; connected_instagram_account?: { id: string }, alternative_instagram_ids?: { id: string, username: string }[] }[], debug: string }> {
     let rawPages: any[] = [];
     let debugInfo = "";
-    const fields = "id,name,connected_instagram_account,instagram_business_account";
+    const fields = "id,name,connected_instagram_account,instagram_business_account,instagram_actor_id";
 
-    // 0. Fetch Ad Account's authorized Instagram accounts - REFERENCE ONLY
+    // 0. Fetch Ad Account's authorized accounts
     let authorizedIgs: { id: string, username: string }[] = [];
     if (adAccountId) {
         try {
             const accRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}?fields=name,instagram_accounts{id,username}&access_token=${accessToken}`);
             const accData = await accRes.json();
-            if (accData.name) {
-                debugInfo += `_acc_${accData.name}_`;
-            }
+            if (accData.name) debugInfo += `_acc_${accData.name}_`;
             if (accData.instagram_accounts?.data) {
                 authorizedIgs = accData.instagram_accounts.data;
                 debugInfo += `_authIgs_${authorizedIgs.length}_[${authorizedIgs.map(ig => `${ig.username}:${ig.id}`).join('|')}]_`;
@@ -97,7 +95,7 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         } catch (e) { }
     }
 
-    // 1. Try ad account's promote_pages
+    // 1. Fetch promote_pages
     if (adAccountId) {
         try {
             const res = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/promote_pages?fields=${fields}&access_token=${accessToken}`);
@@ -109,45 +107,27 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         } catch (e: any) { debugInfo += `_pperr_${e.message}_`; }
     }
 
-    const accKeywords = debugInfo.toLowerCase().split('_').join(' ').split(' ');
-
-    // Normalizing pages with smart IG lookup
+    // Normalizing pages with smart discovery
     let pages = await Promise.all(rawPages.map(async (p) => {
-        let igId: string | undefined = undefined;
-        let source = "none";
+        let igId: string | undefined = p.instagram_actor_id; // PRIORITY 1: Explicit Actor ID
+        let source = igId ? "page_actor_field" : "none";
 
-        // PRIORITY 1: Explicitly check the page's linked instagram_accounts endpoint
-        try {
-            const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id,username&access_token=${accessToken}`);
-            const igData = await igRes.json();
-            const foundId = igData.data?.[0]?.id;
-            if (foundId) {
-                igId = foundId;
-                source = "page_endpoint";
-            }
-        } catch (e) { }
-
-        // PRIORITY 2: Business fields
         if (!igId) {
-            const fieldId = p.instagram_business_account?.id || p.connected_instagram_account?.id;
-            if (fieldId) {
-                igId = fieldId;
-                source = "page_field";
-            }
+            // PRIORITY 2: Page-linked endpoint (The shadow ID source)
+            try {
+                const igRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${p.id}/instagram_accounts?fields=id,username&access_token=${accessToken}`);
+                const igData = await igRes.json();
+                if (igData.data?.[0]?.id) {
+                    igId = igData.data[0].id;
+                    source = "page_endpoint";
+                }
+            } catch (e) { }
         }
 
-        // PRIORITY 3: Keyword match fallback
-        if (!igId && authorizedIgs.length > 0) {
-            const pName = p.name.toLowerCase();
-            const bestVerified = authorizedIgs.find(ig =>
-                pName.includes(ig.username.toLowerCase()) ||
-                ig.username.toLowerCase().includes(pName.substring(0, 5)) ||
-                accKeywords.some(kw => kw.length > 3 && ig.username.toLowerCase().includes(kw))
-            );
-            if (bestVerified) {
-                igId = bestVerified.id;
-                source = "keyword_match";
-            }
+        if (!igId) {
+            // PRIORITY 3: Business fields
+            igId = p.instagram_business_account?.id || p.connected_instagram_account?.id;
+            if (igId) source = "page_field";
         }
 
         return {
@@ -159,7 +139,6 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
         };
     }));
 
-    // Log individual page IG discovery for final debug visibility
     debugInfo += `_pages_[${pages.map(p => `${p.name}:${p.connected_instagram_account?.id || 'NO_IG'}`).join('|')}]_`;
 
     return { pages, debug: debugInfo };
@@ -367,7 +346,6 @@ export async function createAdSet(adAccountId: string, campaignId: string, param
 }
 
 export async function createAdCreative(adAccountId: string, name: string, objectStorySpec: any, accessToken: string, instagramActorId?: string, alternativeIgs?: { id: string, username: string }[]) {
-    // Generate unique ordered list of IDs to try
     const igList = alternativeIgs || [];
     const idsToTry = Array.from(new Set([
         ...(instagramActorId ? [instagramActorId] : []),
@@ -377,8 +355,9 @@ export async function createAdCreative(adAccountId: string, name: string, object
     const executeAttempt = async (index: number): Promise<any> => {
         const currentIgId = idsToTry[index];
         const isLastIg = index >= idsToTry.length - 1;
-        const currentIgUser = igList.find(ig => ig.id === currentIgId)?.username || 'unauth_shadow';
 
+        // CLEAN INFRASTRUCTURE PAYLOAD: 
+        // For Traffic/Link ads, Meta v21.0 strictly wants instagram_actor_id INSIDE object_story_spec.
         const body: any = {
             name,
             object_story_spec: JSON.parse(JSON.stringify(objectStorySpec)),
@@ -386,15 +365,8 @@ export async function createAdCreative(adAccountId: string, name: string, object
         };
 
         if (currentIgId) {
-            // Orion Quadruple Placement - Maximum visibility for all Meta objectives
-            body.instagram_actor_id = currentIgId;
             body.object_story_spec.instagram_actor_id = currentIgId;
-            if (body.object_story_spec.link_data) {
-                body.object_story_spec.link_data.instagram_actor_id = currentIgId;
-                // Add to root of link_data if nested doesn't work
-                (body.object_story_spec.link_data as any).instagram_actor_id = currentIgId;
-            }
-            console.log(`ORION: Attempting ID ${currentIgId} (${currentIgUser}) - Step ${index + 1}/${idsToTry.length}`);
+            console.log(`GAGE: Attempting Clean Spec Placement with ID: ${currentIgId}`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -406,51 +378,33 @@ export async function createAdCreative(adAccountId: string, name: string, object
 
         if (data.error) {
             const errorMsg = data.error.message.toLowerCase();
-            const isIgError = errorMsg.includes('instagram_actor_id') ||
-                data.error.code === 100 ||
-                errorMsg.includes('instagram');
-            const isCapabilityError = data.error.code === 3;
+            const isIgError = errorMsg.includes('instagram_actor_id') || data.error.code === 100;
 
-            // CAPABILITY FIX (Error #3): Remove root-level actor if rejected
-            if (isCapabilityError && currentIgId) {
-                console.warn(`CAPABILITY_FIX: Splitting placements...`);
-                const capBody = { ...body };
-                delete capBody.instagram_actor_id;
-                const capRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(capBody)
-                });
-                const capData = await capRes.json();
-                if (!capData.error) return { ...capData, ig_linked: true };
-            }
+            if (currentIgId && isIgError) {
+                console.warn(`GAGE_RETRY: ID ${currentIgId} failed. Moving to next candidate...`);
 
-            if (currentIgId && (isIgError || isCapabilityError)) {
-                console.warn(`ORION_RETRY: ID ${currentIgId} failed -> ${data.error.message}`);
+                // Fallback attempt: Strategic 'Root' placement only (for certain account types)
+                if (index === 0) {
+                    console.log(`GAGE: Trying Legacy Root Placement fallback for same ID...`);
+                    const legacyBody = { ...body };
+                    delete legacyBody.object_story_spec.instagram_actor_id;
+                    legacyBody.instagram_actor_id = currentIgId;
 
-                // HAIL MARY: If this was the last listed ID, try one final contextual discovery for this page_id
-                if (isLastIg && body.object_story_spec.page_id) {
-                    try {
-                        console.log(`HAIL_MARY: Contextual Discovery for Page ${body.object_story_spec.page_id}`);
-                        const hmRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${body.object_story_spec.page_id}/instagram_accounts?fields=id&access_token=${accessToken}`);
-                        const hmData = await hmRes.json();
-                        const finalId = hmData.data?.[0]?.id;
-                        if (finalId && !idsToTry.includes(finalId)) {
-                            idsToTry.push(finalId);
-                            return executeAttempt(index + 1);
-                        }
-                    } catch (e) { }
+                    const legacyRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(legacyBody)
+                    });
+                    const legacyData = await legacyRes.json();
+                    if (!legacyData.error) return { ...legacyData, ig_linked: true };
                 }
 
                 if (!isLastIg) return executeAttempt(index + 1);
 
-                // FINAL FB-ONLY FALLBACK
-                console.warn(`ORION_FALLBACK: Switching to Facebook Only`);
+                // FINAL DEPLOY: Facebook Only
+                console.warn(`GAGE_FALLBACK: Deploying to Facebook only.`);
                 const fbBody = { ...body };
-                delete fbBody.instagram_actor_id;
                 delete fbBody.object_story_spec.instagram_actor_id;
-                if (fbBody.object_story_spec.link_data) delete fbBody.object_story_spec.link_data.instagram_actor_id;
-
                 const fbRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -458,9 +412,8 @@ export async function createAdCreative(adAccountId: string, name: string, object
                 });
                 const fbData = await fbRes.json();
                 if (!fbData.error) return { ...fbData, ig_linked: false, ig_error: data.error.message };
-                throw new Error(`Creative Absolute Failure: ${fbData.error.message}`);
             }
-            throw new Error(`Meta API Error: ${data.error.message}`);
+            throw new Error(`Meta Infrastructure Error: ${data.error.message}`);
         }
         return { ...data, ig_linked: !!currentIgId };
     };
