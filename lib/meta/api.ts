@@ -76,7 +76,7 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
 }
 
 // Fetch Facebook Pages that can be used for ads (tries multiple sources)
-export async function getPages(accessToken: string, adAccountId?: string): Promise<{ pages: { id: string; name: string; connected_instagram_account?: { id: string } }[], debug: string }> {
+export async function getPages(accessToken: string, adAccountId?: string): Promise<{ pages: { id: string; name: string; connected_instagram_account?: { id: string }, alternative_instagram_ids?: string[] }[], debug: string }> {
     let rawPages: any[] = [];
     let debugInfo = "";
     const fields = "id,name,connected_instagram_account,instagram_business_account";
@@ -111,6 +111,7 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
 
     // High-level "Intent" Match: Look for IG usernames that match account keywords
     const accKeywords = debugInfo.toLowerCase().split('_').join(' ').split(' ');
+    const allAuthIds = authorizedIgs.map(ig => ig.id);
 
     // Normalizing pages with smart IG lookup
     let pages = await Promise.all(rawPages.map(async (p) => {
@@ -154,6 +155,7 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
             id: p.id,
             name: p.name,
             connected_instagram_account: igId ? { id: igId } : undefined,
+            alternative_instagram_ids: allAuthIds, // Carry all options for brute-force retry
             ig_source: source
         };
     }));
@@ -374,60 +376,63 @@ export async function createAdSet(adAccountId: string, campaignId: string, param
     return data;
 }
 
-export async function createAdCreative(adAccountId: string, name: string, objectStorySpec: any, accessToken: string, instagramActorId?: string) {
-    const body: any = {
-        name,
-        object_story_spec: { ...objectStorySpec },
-        access_token: accessToken
+export async function createAdCreative(adAccountId: string, name: string, objectStorySpec: any, accessToken: string, instagramActorId?: string, alternativeIgIds?: string[]) {
+    const postBody = (igId?: string) => {
+        const b: any = {
+            name,
+            object_story_spec: { ...objectStorySpec },
+            access_token: accessToken
+        };
+        if (igId) b.instagram_actor_id = igId;
+        return b;
     };
 
-    if (instagramActorId) {
-        body.instagram_actor_id = instagramActorId;
-        console.log(`DEBUG: Creating AdCreative with IG Actor ID: ${instagramActorId} for Page: ${objectStorySpec.page_id}`);
-    }
+    const attempt = async (igId?: string, isRetry: boolean = false): Promise<any> => {
+        const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(postBody(igId))
+        });
+        const data = await response.json();
 
-    const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    });
-    const data = await response.json();
+        if (data.error) {
+            const errorMsg = data.error.message.toLowerCase();
+            const isIgError = errorMsg.includes('instagram_actor_id') ||
+                data.error.code === 100 ||
+                errorMsg.includes('instagram');
 
-    if (data.error) {
-        const errorMsg = data.error.message.toLowerCase();
-        const isIgError = errorMsg.includes('instagram_actor_id') ||
-            data.error.code === 100 ||
-            errorMsg.includes('instagram');
+            if (igId && isIgError) {
+                console.warn(`RETRY_IG: ID ${igId} failed with: ${data.error.message}`);
 
-        if (instagramActorId && isIgError) {
-            console.warn(`RETRY_WITHOUT_IG: ID ${instagramActorId} failed. Error: ${data.error.message}`);
+                // If we have alternative IDs, try the next one
+                if (alternativeIgIds && alternativeIgIds.length > 0) {
+                    const nextIg = alternativeIgIds[0];
+                    const remaining = alternativeIgIds.slice(1);
+                    console.log(`Brute Forcing Alternative IG: ${nextIg} (${remaining.length} left)`);
+                    return attempt(nextIg === igId ? remaining[0] : nextIg, true);
+                }
 
-            const retryBody = {
-                name: `${name} (FB Only)`,
-                object_story_spec: { ...objectStorySpec },
-                access_token: accessToken
-            };
+                // If all alternatives fail, fallback to Facebook only
+                console.warn(`ALL_IG_FAILED: Retrying FINAL fallback (Facebook Only)`);
+                const retryRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(postBody(undefined))
+                });
+                const retryData = await retryRes.json();
+                if (!retryData.error) return { ...retryData, ig_linked: false, ig_error: data.error.message };
 
-            const retryRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(retryBody)
-            });
-            const retryData = await retryRes.json();
+                throw new Error(`Fallback Failed: ${retryData.error.message}`);
+            }
 
-            if (!retryData.error) return { ...retryData, ig_linked: false, ig_error: data.error.message };
-
-            console.error("Meta API createAdCreative FINAL Error:", JSON.stringify(retryData.error, null, 2));
-            throw new Error(`Fallback Failed: ${retryData.error.message}`);
+            const e = data.error;
+            throw new Error(`Creative: msg: ${e.message} | code: ${e.code}`);
         }
 
-        const e = data.error;
-        const fullError = `msg: ${e.message} | code: ${e.code} | sub: ${e.error_subcode}`;
-        console.error("Meta API createAdCreative Error:", JSON.stringify(data.error, null, 2));
-        throw new Error(`Creative: ${fullError}`);
-    }
+        return { ...data, ig_linked: !!igId };
+    };
 
-    return { ...data, ig_linked: !!instagramActorId };
+    return attempt(instagramActorId);
 }
 
 export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED') {

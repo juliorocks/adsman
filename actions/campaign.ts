@@ -277,7 +277,8 @@ export async function createSmartCampaignAction(formData: { objective: string, g
                 sanitize(`Creative ${formData.goal.substring(0, 15)}${suffix}`, 60),
                 { page_id: pageId, link_data: linkData },
                 accessToken,
-                instagramId
+                instagramId,
+                (bestPage as any).alternative_instagram_ids
             );
 
             await createAd(
