@@ -1,6 +1,6 @@
 
-const META_API_VERSION = "v21.0";
-const META_GRAPH_URL = "https://graph.facebook.com";
+export const META_API_VERSION = "v21.0";
+export const META_GRAPH_URL = "https://graph.facebook.com";
 
 export interface AdAccount {
     id: string;
@@ -437,15 +437,18 @@ export async function createAdCreative(adAccountId: string, name: string, object
             const sub = e.error_subcode;
             const code = e.code;
             const msg = (e.message || "").toLowerCase();
-            const blame = e.error_data?.blame_field || e.error_data?.field || 'unknown';
+
+            // Extract as much detail as possible from Meta's complex error structure
+            const blame = e.error_data?.blame_field || e.error_data?.field || e.error_user_title || 'unknown';
+            const extra = e.error_data ? JSON.stringify(e.error_data) : 'none';
+
+            console.warn(`GAGE_ERROR: Attempt ${index} (${currentIgId || 'FB-ONLY'}) failed: ${e.message} (Code: ${code}, Sub: ${sub}, Blame: ${blame}, Extra: ${extra})`);
 
             // Code 100 "Invalid parameter" is the most common generic error for bad IG links
             const isPotentialIgError = code === 100 || code === 10 ||
                 sub === 1443226 || sub === 1443225 || sub === 1443115 ||
                 msg.includes('instagram') || msg.includes('identity') ||
                 msg.includes('actor');
-
-            console.warn(`GAGE_ERROR: Attempt ${index} (${currentIgId || 'FB-ONLY'}) failed: ${e.message} (Code: ${code}, Sub: ${sub}, Blame: ${blame})`);
 
             // If we have an IG ID and it failed with anything that could be identity related...
             if (currentIgId && isPotentialIgError) {
@@ -524,8 +527,9 @@ export async function createAdCreative(adAccountId: string, name: string, object
 
                 // If even FB-only fails, catch its detailed error
                 const fbe = fbData.error;
-                const fbBlame = fbe.error_data?.blame_field || fbe.error_data?.field || 'unknown';
-                throw new Error(`Meta V21.0 FB-Fallback Error: ${fbe.message} (Field: ${fbBlame}) | Original IG Error: ${e.message}`);
+                const fbBlame = fbe.error_data?.blame_field || fbe.error_data?.field || fbe.error_user_title || 'unknown';
+                const fbExtra = fbe.error_data ? JSON.stringify(fbe.error_data) : 'none';
+                throw new Error(`Meta V21.0 FB-Fallback Error: ${fbe.message} (Field: ${fbBlame}, Details: ${fbExtra}) | Original IG Error: ${e.message}`);
             }
 
             // Not an IG error and no IG ID to fallback from, throw original

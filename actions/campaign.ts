@@ -9,6 +9,8 @@ import { parseTargetingFromGoal } from "@/lib/ai/openai";
 import { createLog } from "@/lib/data/logs";
 import { getGoogleAccessToken } from "@/actions/google-drive";
 import { downloadDriveFile } from "@/lib/google/drive";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { META_GRAPH_URL, META_API_VERSION } from "@/lib/meta/api";
 
 export async function getFacebookPagesAction() {
     try {
@@ -320,13 +322,26 @@ export async function createSmartCampaignAction(formData: {
         // 5. Create Ad Creatives + Ads
         const headline = (aiTargeting.headline || formData.goal).substring(0, 40);
         const primaryText = formData.goal.substring(0, 1000);
-        const linkUrl = formData.linkUrl?.trim() || aiTargeting.link_url || 'https://www.facebook.com/';
+
+        // Safety: Ensure linkUrl has a protocol
+        let linkUrl = (formData.linkUrl?.trim() || aiTargeting.link_url || 'https://www.facebook.com/').trim();
+        if (linkUrl && !linkUrl.startsWith('http')) {
+            linkUrl = `https://${linkUrl}`;
+        }
+
+        console.log(`GAGE: Building creatives for Page: ${pageId}, Link: ${linkUrl}`);
 
         const adsToCreate = uploadedMedia.length > 0
             ? uploadedMedia
             : [{ ref: null, type: 'IMAGE' as const }];
 
-        const adResults = await Promise.all(adsToCreate.map(async (mediaItem, idx) => {
+        // We'll process them one by one to handle potential AdSet-level fallbacks
+        const creativeResults = [];
+        let isFbOnlyNow = false;
+
+        for (let i = 0; i < adsToCreate.length; i++) {
+            const mediaItem = adsToCreate[i];
+            const idx = i;
             const suffix = idx > 0 ? ` v${idx + 1}` : '';
             let objectStorySpec: any = { page_id: pageId };
 
@@ -334,6 +349,7 @@ export async function createSmartCampaignAction(formData: {
                 objectStorySpec.video_data = {
                     video_id: mediaItem.ref,
                     message: primaryText,
+                    title: headline, // V21.0: Title is often required for video ads with CTA
                     call_to_action: {
                         type: 'LEARN_MORE',
                         value: { link: linkUrl }
@@ -353,26 +369,84 @@ export async function createSmartCampaignAction(formData: {
                 objectStorySpec.link_data = linkData;
             }
 
-            const creativeResult = await createAdCreative(
-                adAccountId,
-                `Creative ${formData.goal.substring(0, 15)}${suffix}`,
-                objectStorySpec,
-                accessToken,
-                instagramId,
-                (bestPage as any).alternative_instagram_ids
-            );
+            try {
+                console.log(`GAGE: Creating creative ${idx + 1}/${adsToCreate.length} (IG ID: ${isFbOnlyNow ? 'STRIPPED' : (instagramId || 'None')})`);
+                const creativeResult = await createAdCreative(
+                    adAccountId,
+                    `Creative ${formData.goal.substring(0, 15)}${suffix}`,
+                    objectStorySpec,
+                    accessToken,
+                    isFbOnlyNow ? undefined : instagramId,
+                    isFbOnlyNow ? [] : (bestPage as any).alternative_instagram_ids
+                );
 
-            await createAd(
-                adAccountId,
-                adSet.id,
-                creativeResult.id,
-                `Ad ${formData.goal.substring(0, 20)}${suffix}`,
-                accessToken,
-                'PAUSED'
-            );
+                await createAd(
+                    adAccountId,
+                    adSet.id,
+                    creativeResult.id,
+                    `Ad ${formData.goal.substring(0, 20)}${suffix}`,
+                    accessToken,
+                    'PAUSED'
+                );
+                creativeResults.push(creativeResult);
 
-            return creativeResult;
-        }));
+            } catch (err: any) {
+                console.warn(`GAGE: Creative ${idx + 1} failed: ${err.message}`);
+
+                const isIdentityError = err.message.includes('1443226') || err.message.includes('identity') || err.message.includes('Identity');
+
+                if (isIdentityError && !isFbOnlyNow) {
+                    console.log("GAGE_CORE_FALLBACK: Instagram Identity Rejected. Forcing AdSet to Facebook-Only...");
+                    isFbOnlyNow = true;
+
+                    // UPDATE ADSET TO FB-ONLY
+                    const fbOnlyTargeting = {
+                        ...targeting,
+                        publisher_platforms: ['facebook']
+                    };
+
+                    const updateRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adSet.id}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            targeting: fbOnlyTargeting,
+                            access_token: accessToken
+                        })
+                    });
+                    const updateData = await updateRes.json();
+
+                    if (updateData.error) {
+                        console.error("GAGE_ERROR: Failed to downgrade AdSet to FB-only:", updateData.error);
+                    } else {
+                        console.log("GAGE_SUCCESS: AdSet downgraded to FB-only. Retrying creative...");
+                        // Give Meta a second to propagate the AdSet change
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                    }
+
+                    // RETRY with no instagramId
+                    const retryCreative = await createAdCreative(
+                        adAccountId,
+                        `Creative ${formData.goal.substring(0, 15)}${suffix}`,
+                        objectStorySpec,
+                        accessToken,
+                        undefined,
+                        []
+                    );
+
+                    await createAd(
+                        adAccountId,
+                        adSet.id,
+                        retryCreative.id,
+                        `Ad ${formData.goal.substring(0, 20)}${suffix}`,
+                        accessToken,
+                        'PAUSED'
+                    );
+                    creativeResults.push(retryCreative);
+                } else {
+                    throw err;
+                }
+            }
+        }
 
         revalidatePath("/dashboard");
         return { success: true, campaignId: campaign.id };
