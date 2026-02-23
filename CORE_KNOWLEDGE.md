@@ -57,6 +57,19 @@ Permitir o upload de arquivos pesados (como vídeos em 4K) diretamente do Google
     - *Problema*: A conta do Instagram não aparecia pré-selecionada ("setada") nos rascunhos de anúncios criados pelo AIOS na interface do Gerenciador de Anúncios da Meta, exigindo seleção manual. Nossos logs não exibiam erro porque a API aceitava a criação, mas falhava no mapeamento interno da UI.
     - *Causa*: A Meta V21/V22 depreciou o uso isolado de `instagram_actor_id`. A UI moderna agora exige rigorosamente o campo `instagram_user_id` aninhado dentro da raiz do criativo E também do `object_story_spec`.  
     - *Solução*: Implementado um "Apex Bind" em `lib/meta/api.ts` que força `body.object_story_spec.instagram_user_id = igIdStr` e também injeta o campo root `body.instagram_user_id = igIdStr`. Atualizado também os métodos `createAd` e os mecanismos de fallback para espelhar isso uniformemente. Isso garantiu que todos os Ads gerados aparecessem 100% corretos na UI moderna da Meta.
+    - *Código Funcional (Apex Bind)*:
+      ```typescript
+      if (currentIgId) {
+          const igIdStr = String(currentIgId);
+          // THE APEX BIND: Unified V21/V22 Identity
+          body.instagram_actor_id = igIdStr;
+          body.instagram_user_id = igIdStr; // Modern root anchor
+
+          // Spec Anchor (The critical asset-link for modern New Page Experiences)
+          body.object_story_spec.instagram_actor_id = igIdStr;
+          body.object_story_spec.instagram_user_id = igIdStr; // CRITICAL: Added for V21/V22 UI compatibility
+      }
+      ```
 13. **Inicialização de Campanhas Ativas (Fevereiro 2026)**:
     - *Problema*: O usuário queria ser capaz de gerar a campanha no Smart Campaign Wizard e já publicá-la ativa diretamente na Meta, sem precisar ir ativar manualmente depois de criá-la como pausada.
     - *Solução*: Adicionado a opção `status: 'ACTIVE' | 'PAUSED'` a todos os blocos de criação (Campanha, AdSet e Ads) na API (`lib/meta/api.ts`). O formulário visual em `SmartCampaignWizard.tsx` (Step 3) ganhou um toggle interativo que permite definir isso, com o valor padrão sendo repassado para o controller `createSmartCampaignAction`.
