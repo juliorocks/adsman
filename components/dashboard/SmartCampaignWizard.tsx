@@ -773,28 +773,48 @@ export function SmartCampaignWizard() {
                                     </div>
                                 </div>
                                 {aiSuggestions.image_prompts?.[0] && (
-                                    <div className="md:col-span-2 space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2">
-                                                <ImageIcon className="h-3 w-3" /> Prompt do Visual (DALL-E)
-                                            </p>
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleGenerateImage(aiSuggestions.image_prompts[0])}
-                                                disabled={generatingImage}
-                                                className="h-8 text-xs bg-primary-50 hover:bg-primary-100 text-primary-700 border-primary-200 dark:bg-primary-900/20 dark:hover:bg-primary-900/40 dark:text-primary-400 dark:border-primary-800 shrink-0"
-                                            >
-                                                {generatingImage ? <Loader2 className="h-3 w-3 mr-2 animate-spin" /> : <Sparkles className="h-3 w-3 mr-2" />}
-                                                Gerar Imagem com IA (DALL-E 3)
-                                            </Button>
+                                    <div className="md:col-span-2 mt-6 p-6 rounded-2xl bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5 border border-purple-200/50 dark:border-purple-900/50 shadow-sm relative overflow-hidden">
+                                        {/* Background decoration */}
+                                        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-purple-500/10 dark:bg-purple-900/20 rounded-full blur-3xl pointer-events-none" />
+
+                                        <div className="relative z-10 space-y-4">
+                                            <div className="flex flex-col space-y-1">
+                                                <h4 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                                    <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                                                    Estúdio DALL-E 3
+                                                </h4>
+                                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                                    Nossa IA criou um <i>prompt</i> visual otimizado para o seu anúncio. Você pode editá-lo abaixo e gerar <b>quantas opções quiser</b> até encontrar a imagem perfeita.
+                                                </p>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2">
+                                                    Prompt da Imagem (Em Inglês)
+                                                </p>
+                                                <textarea
+                                                    value={aiSuggestions.image_prompts[0]}
+                                                    onChange={(e) => setAiSuggestions({ ...aiSuggestions, image_prompts: [e.target.value] })}
+                                                    className="w-full text-sm text-slate-700 dark:text-slate-300 bg-white/80 dark:bg-slate-950/80 p-4 rounded-xl border border-purple-200 dark:border-purple-800 focus:ring-2 focus:ring-purple-500 min-h-[100px] resize-y shadow-inner"
+                                                    placeholder="Descreva a imagem que deseja gerar..."
+                                                />
+                                            </div>
+
+                                            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                                <div className="text-xs text-slate-400">
+                                                    <span className="font-semibold text-purple-600 dark:text-purple-400">Dica:</span> A IA adicionará textos (overlay) se especificado.
+                                                </div>
+                                                <Button
+                                                    size="lg"
+                                                    onClick={() => handleGenerateImage(aiSuggestions.image_prompts[0])}
+                                                    disabled={generatingImage}
+                                                    className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0 shadow-lg shadow-purple-500/25 transition-all"
+                                                >
+                                                    {generatingImage ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Sparkles className="h-5 w-5 mr-2" />}
+                                                    {generatingImage ? "Criando Arte..." : "Criar Imagem Profissional"}
+                                                </Button>
+                                            </div>
                                         </div>
-                                        <textarea
-                                            value={aiSuggestions.image_prompts[0]}
-                                            onChange={(e) => setAiSuggestions({ ...aiSuggestions, image_prompts: [e.target.value] })}
-                                            className="w-full text-sm text-slate-600 dark:text-slate-300 italic bg-white dark:bg-slate-950 p-3 rounded-lg border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary-500 min-h-[80px]"
-                                            placeholder="Descreva a imagem que deseja gerar..."
-                                        />
                                     </div>
                                 )}
                             </div>

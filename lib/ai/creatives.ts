@@ -73,7 +73,7 @@ Retorne EXATAMENTE o seguinte formato JSON:
 {
   "headlines": ["titulo 1", "titulo 2", "titulo 3"],
   "primary_texts": ["texto principal longo 1", "texto principal longo 2"],
-  "image_prompts": ["Um prompt detalhado em inglês para a DALL-E 3 gerar o visual do anúncio"]
+  "image_prompts": ["A highly converting Meta Ad image for [product]. INCLUDE REAL TEXT on the image saying \\"[Short Punchy Headline]\\". The visual should be vibrant, commercial, and professional, looking like a real sponsored Instagram post."]
 }`;
 
         if (contextText) {
