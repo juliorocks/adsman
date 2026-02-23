@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { GoogleDriveSelector } from "@/components/dashboard/GoogleDriveSelector";
-import { addKnowledgeSource, deleteKnowledgeSource } from "@/actions/knowledge";
+import { addKnowledgeSource, deleteKnowledgeSource, triggerKnowledgeSync } from "@/actions/knowledge";
 import { Cloud, Link as LinkIcon, FileText, Trash2, Plus, RefreshCw, UploadCloud, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -187,15 +187,40 @@ export function SourcesManager({ knowledgeBaseId, initialSources }: SourcesManag
                                         </div>
                                     </div>
                                 </div>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleDelete(source.id)}
-                                    disabled={loading}
-                                    className="text-slate-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all rounded-lg"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={async () => {
+                                            setLoading(true);
+                                            try {
+                                                const res = await triggerKnowledgeSync(knowledgeBaseId);
+                                                if (res.success) {
+                                                    alert("Lendo todas as fontes. Pode levar 1-2 minutos para atualizar.");
+                                                    window.location.reload();
+                                                } else {
+                                                    alert(res.error);
+                                                }
+                                            } finally {
+                                                setLoading(false);
+                                            }
+                                        }}
+                                        disabled={loading}
+                                        className="h-8 text-xs border-slate-700 text-slate-300 hover:text-white"
+                                    >
+                                        <RefreshCw className={`w-3 h-3 mr-2 ${loading ? 'animate-spin' : ''}`} /> Sincronizar Agora
+                                    </Button>
+
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleDelete(source.id)}
+                                        disabled={loading}
+                                        className="text-slate-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all rounded-lg"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </div>
                             </div>
                         ))
                     )}

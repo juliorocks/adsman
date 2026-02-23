@@ -227,3 +227,23 @@ export async function deleteKnowledgeSource(id: string, knowledgeBaseId: string)
         return { success: false, error: e.message };
     }
 }
+
+export async function triggerKnowledgeSync(knowledgeBaseId: string) {
+    try {
+        const userId = await getCurrentUserId();
+        if (!userId) return { success: false, error: "Usuário não autenticado." };
+
+        const supabase = await createClient();
+        const { data, error } = await supabase.functions.invoke("sync-knowledge");
+
+        if (error) {
+            console.error("Error triggering sync:", error);
+            return { success: false, error: "Falha ao acionar sincronização." };
+        }
+
+        revalidatePath(`/dashboard/knowledge/${knowledgeBaseId}`);
+        return { success: true, message: data?.message || "Sync iniciado" };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
