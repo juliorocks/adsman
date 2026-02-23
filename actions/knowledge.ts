@@ -142,3 +142,88 @@ export async function updateKnowledgeBase(id: string, formData: FormData) {
         return { success: false, error: e.message };
     }
 }
+
+export async function getKnowledgeSources(knowledgeBaseId: string) {
+    try {
+        const userId = await getCurrentUserId();
+        if (!userId) return [];
+
+        const supabase = await createClient();
+        const { data, error } = await supabase
+            .from("knowledge_sources")
+            .select("*")
+            .eq("knowledge_base_id", knowledgeBaseId)
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false });
+
+        if (error) {
+            console.error("Error fetching knowledge sources:", error);
+            return [];
+        }
+
+        return data || [];
+    } catch (e) {
+        console.error("Failed to get knowledge sources", e);
+        return [];
+    }
+}
+
+export async function addKnowledgeSource(
+    knowledgeBaseId: string,
+    sourceType: 'GOOGLE_DRIVE' | 'URL' | 'TEXT',
+    sourceRef: string,
+    metadata: any = {}
+) {
+    try {
+        const userId = await getCurrentUserId();
+        if (!userId) return { success: false, error: "Usuário não autenticado." };
+
+        const supabase = await createClient();
+        const { data, error } = await supabase
+            .from("knowledge_sources")
+            .insert({
+                knowledge_base_id: knowledgeBaseId,
+                user_id: userId,
+                source_type: sourceType,
+                source_ref: sourceRef,
+                metadata: metadata,
+                sync_status: 'PENDING'
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error("Error adding knowledge source:", error);
+            return { success: false, error: "Falha ao vincular fonte." };
+        }
+
+        revalidatePath(`/dashboard/knowledge/${knowledgeBaseId}`);
+        return { success: true, data };
+    } catch (e: any) {
+        console.error("Failed to add knowledge source", e);
+        return { success: false, error: e.message };
+    }
+}
+
+export async function deleteKnowledgeSource(id: string, knowledgeBaseId: string) {
+    try {
+        const userId = await getCurrentUserId();
+        if (!userId) return { success: false, error: "Usuário não autenticado." };
+
+        const supabase = await createClient();
+        const { error } = await supabase
+            .from("knowledge_sources")
+            .delete()
+            .match({ id, user_id: userId });
+
+        if (error) {
+            console.error("Error deleting knowledge source:", error);
+            return { success: false, error: "Falha ao apagar." };
+        }
+
+        revalidatePath(`/dashboard/knowledge/${knowledgeBaseId}`);
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
