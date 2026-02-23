@@ -449,11 +449,11 @@ export async function uploadAdVideo(adAccountId: string, videoBase64: string, ac
 }
 
 // CREATION METHODS
-export async function createCampaign(adAccountId: string, name: string, objective: string, accessToken: string) {
+export async function createCampaign(adAccountId: string, name: string, objective: string, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED') {
     const cleanName = name.replace(/[\n\r]/g, ' ').trim().substring(0, 100) || `Campaign ${Date.now()}`;
 
     // is_adset_budget_sharing_enabled is REQUIRED in v24.0 when not using campaign budget
-    const requestBody = `name=${encodeURIComponent(cleanName)}&objective=${encodeURIComponent(objective)}&status=PAUSED&special_ad_categories=%5B%5D&is_adset_budget_sharing_enabled=0&access_token=${encodeURIComponent(accessToken)}`;
+    const requestBody = `name=${encodeURIComponent(cleanName)}&objective=${encodeURIComponent(objective)}&status=${status}&special_ad_categories=%5B%5D&is_adset_budget_sharing_enabled=0&access_token=${encodeURIComponent(accessToken)}`;
 
     const url = `${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/campaigns`;
 
@@ -486,14 +486,14 @@ export async function createCampaign(adAccountId: string, name: string, objectiv
     return data;
 }
 
-export async function createAdSet(adAccountId: string, campaignId: string, params: any, accessToken: string) {
+export async function createAdSet(adAccountId: string, campaignId: string, params: any, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED') {
     const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adsets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             ...params,
             campaign_id: campaignId,
-            status: 'PAUSED',
+            status: status,
             access_token: accessToken
         })
     });

@@ -165,6 +165,7 @@ export function SmartCampaignWizard() {
         linkUrl: '',
         pageId: '',
         instagramId: '',
+        status: 'PAUSED' as 'ACTIVE' | 'PAUSED',
     });
     const [images, setImages] = useState<File[]>([]);
     const [cloudFiles, setCloudFiles] = useState<{ id: string, name: string, url: string, type: 'IMAGE' | 'VIDEO' }[]>([]);
@@ -379,6 +380,7 @@ export function SmartCampaignWizard() {
                 linkUrl: formData.linkUrl,
                 pageId: formData.pageId,
                 instagramId: formData.instagramId,
+                status: formData.status,
                 mediaReferences,
             });
 
@@ -632,6 +634,23 @@ export function SmartCampaignWizard() {
                                     />
                                     <span className="font-bold text-primary-600 dark:text-primary-400">R$ {formData.budget}</span>
                                 </div>
+                            </div>
+
+                            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Status Inicial da Campanha</label>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, status: formData.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE' })}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.status === 'ACTIVE' ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.status === 'ACTIVE' ? 'translate-x-6' : 'translate-x-1'}`} />
+                                    </button>
+                                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                                        {formData.status === 'ACTIVE' ? 'Criar e já Publicar (Ativa)' : 'Criar como Rascunho (Pausada)'}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-400 dark:text-slate-500 italic">Se ativo, a campanha irá para validação do Meta e começará a rodar imediatamente.</p>
                             </div>
                         </div>
 

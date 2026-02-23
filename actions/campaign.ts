@@ -256,6 +256,7 @@ export async function createSmartCampaignAction(formData: {
     linkUrl?: string,
     pageId?: string,
     instagramId?: string,
+    status?: 'ACTIVE' | 'PAUSED',
     mediaReferences?: { type: 'IMAGE' | 'VIDEO', ref: string }[]
 }) {
     const integration = await getIntegration();
@@ -304,11 +305,13 @@ export async function createSmartCampaignAction(formData: {
         }
 
         // 1. Create Campaign
+        const initialStatus = formData.status || 'PAUSED';
         const campaign = await createCampaign(
             adAccountId,
             `Smart AI: ${formData.goal.substring(0, 30)}...`,
             safeObjective,
-            accessToken
+            accessToken,
+            initialStatus
         );
 
         // 2. AI-Powered AdSet parameters Parsing
@@ -353,7 +356,7 @@ export async function createSmartCampaignAction(formData: {
             end_time: endTime.toISOString(),
         };
 
-        const adSet = await createAdSet(adAccountId, campaign.id, adSetParams, accessToken);
+        const adSet = await createAdSet(adAccountId, campaign.id, adSetParams, accessToken, initialStatus);
 
         // 3. Media references are now passed pre-uploaded
 
@@ -436,7 +439,7 @@ export async function createSmartCampaignAction(formData: {
                     creativeResult.id,
                     `Ad ${formData.goal.substring(0, 20)}${suffix}`,
                     accessToken,
-                    'PAUSED',
+                    initialStatus,
                     creativeResult.ig_id // Universal Identity injection at Ad level
                 );
                 creativeResults.push(creativeResult);
@@ -490,7 +493,7 @@ export async function createSmartCampaignAction(formData: {
                         retryCreative.id,
                         `Ad ${formData.goal.substring(0, 20)}${suffix}`,
                         accessToken,
-                        'PAUSED'
+                        initialStatus
                     );
                     creativeResults.push(retryCreative);
                 } else {
