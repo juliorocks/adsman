@@ -153,50 +153,62 @@ export async function getPages(accessToken: string, adAccountId?: string): Promi
 
         candidateIds = Array.from(new Set(candidateIds));
 
-        // Path D: Eagle Eye Hierarchical Selection
-        const authorizedIgIds = new Set(authorizedIgs.map(ig => String(ig.id)));
+        // Path D: Apex Semantic Scoring
+        const authorizedMap = new Map(authorizedIgs.map(ig => [String(ig.id), ig.username || '']));
+        const authorizedIgIds = new Set(authorizedMap.keys());
 
         let igId: string | undefined;
         let source = "none";
 
-        // 1. Primary Hierarchy: Direct metadata link (Most authoritative)
+        // 1. Direct Metadata Link (Primary Anchor)
         const primaryLink = p.instagram_business_account?.id || p.connected_instagram_account?.id;
         if (primaryLink && authorizedIgIds.has(String(primaryLink))) {
             igId = String(primaryLink);
             source = "primary_metadata_match";
         }
 
-        // 2. Secondary Hierarchy: First candidate that is authorized
+        // 2. Semantic Scoring: Find the BEST name match among authorized candidates
         if (!igId) {
-            igId = candidateIds.find(id => authorizedIgIds.has(id));
-            if (igId) source = "candidate_authorized_match";
-        }
+            const clean = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+            const pageCore = clean(p.name);
 
-        const clean = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, '');
+            let bestScore = -1;
+            let bestId = "";
 
-        // 3. Tertiary Hierarchy: Fuzzy name match (Identity Bloodhound)
-        if (!igId) {
-            const cleanPageName = clean(p.name);
-            const match = authorizedIgs.find(ig => {
-                const cleanIgName = clean(ig.username || '');
-                return cleanIgName && (cleanPageName.includes(cleanIgName) || cleanIgName.includes(cleanPageName));
-            });
-            if (match) {
-                igId = String(match.id);
-                source = "fuzzy_name_match";
+            for (const candId of candidateIds) {
+                if (!authorizedIgIds.has(candId)) continue;
+                const username = clean(authorizedMap.get(candId) || '');
+                if (!username) continue;
+
+                // Score based on overlap and length (closest match wins)
+                let score = 0;
+                if (pageCore.includes(username)) score += 10;
+                if (username.includes(pageCore)) score += 10;
+                if (username === pageCore) score += 100; // Perfect match
+                score -= Math.abs(username.length - pageCore.length); // Penalty for length difference
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestId = candId;
+                }
+            }
+
+            if (bestId) {
+                igId = bestId;
+                source = "semantic_best_match";
             }
         }
 
-        // 4. Emergency: One-to-One context bind
-        if (!igId && authorizedIgs.length === 1 && clean(p.name).includes(clean(authorizedIgs[0].username || ''))) {
-            igId = String(authorizedIgs[0].id);
-            source = "solo_context_bind";
+        // 3. Last Resort Fallback
+        if (!igId) {
+            igId = candidateIds.find(id => authorizedIgIds.has(id));
+            if (igId) source = "first_authorized_fallback";
         }
 
-        // Fallback to first available if everything else fails (to at least try)
-        if (!igId && candidateIds.length > 0) {
-            igId = candidateIds[0];
-            source = "page_discovery_fallback";
+        // Emergency Solo Bind
+        if (!igId && authorizedIgs.length === 1) {
+            igId = String(authorizedIgs[0].id);
+            source = "solo_emergency_bind";
         }
 
         return {
@@ -532,13 +544,15 @@ export async function createAdCreative(adAccountId: string, name: string, object
         if (currentIgId) {
             const igIdStr = String(currentIgId);
 
-            // THE EAGLE EYE LOCK (TESTE15): Structural Binding
-            // We set ONLY the strictly required fields to synchronize the Identity Card.
-            // Redundant fields like root 'user_id' can poison the UI dropdown.
+            // THE APEX BIND (TESTE16): Unified V21/V22 Identity
+            // Redundancy in root anchors is the key to forcing React-based auto-selection.
             body.instagram_actor_id = igIdStr;
+            body.instagram_user_id = igIdStr; // Modern root anchor
+
+            // Spec Anchor (The critical asset-link for modern New Page Experiences)
             body.object_story_spec.instagram_actor_id = igIdStr;
 
-            console.log(`GAGE: [Eagle Eye] Structural Lock Active (IG: ${igIdStr})`);
+            console.log(`GAGE: [Apex Identity] Unified Bind Locked (IG: ${igIdStr})`);
         }
 
         const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
