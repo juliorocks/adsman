@@ -252,6 +252,7 @@ export async function uploadMediaFromUrlAction(item: { type: 'IMAGE' | 'VIDEO', 
 export async function createSmartCampaignAction(formData: {
     objective: string,
     goal: string,
+    knowledgeBaseId?: string,
     budget: string,
     linkUrl?: string,
     pageId?: string,
@@ -315,7 +316,7 @@ export async function createSmartCampaignAction(formData: {
         );
 
         // 2. AI-Powered AdSet parameters Parsing
-        const aiTargeting = await parseTargetingFromGoal(formData.goal);
+        const aiTargeting = await parseTargetingFromGoal(formData.goal, formData.knowledgeBaseId);
 
         let optimization_goal = 'LINK_CLICKS';
         if (safeObjective === 'OUTCOME_AWARENESS') {

@@ -7,7 +7,8 @@ import { Bot, Sparkles, Target, DollarSign, Image as ImageIcon, CheckCircle2, Ch
 import { Button } from "@/components/ui/button";
 import { createSmartCampaignAction, uploadMediaAction, getFacebookPagesAction, updatePreferredIdentityAction, uploadMediaFromUrlAction } from "@/actions/campaign";
 import { GoogleDriveSelector } from "./GoogleDriveSelector";
-import { generateCreativeIdeasAction } from "@/actions/creatives";
+import { generateCreativeIdeasAction, generateCreativeImageAction } from "@/actions/creatives";
+import { getKnowledgeBases } from "@/actions/knowledge";
 
 const OBJECTIVES = [
     { id: 'OUTCOME_SALES', label: 'Vendas', icon: DollarSign, description: 'Encontre pessoas com alta probabilidade de comprar seu produto.' },
@@ -157,10 +158,12 @@ export function SmartCampaignWizard() {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [generatingAI, setGeneratingAI] = useState(false);
+    const [generatingImage, setGeneratingImage] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         objective: '',
         goal: '',
+        knowledgeBaseId: '', // Added Knowledge Base
         budget: '50',
         linkUrl: '',
         pageId: '',
@@ -179,6 +182,21 @@ export function SmartCampaignWizard() {
     const [availablePages, setAvailablePages] = useState<any[]>([]);
     const [activeAccount, setActiveAccount] = useState<{ id: string, name: string } | null>(null);
     const [loadingPages, setLoadingPages] = useState(false);
+
+    // Knowledge Bases State
+    const [knowledgeBases, setKnowledgeBases] = useState<any[]>([]);
+
+    useEffect(() => {
+        const loadKB = async () => {
+            try {
+                const kbs = await getKnowledgeBases();
+                setKnowledgeBases(kbs);
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        loadKB();
+    }, []);
 
     useEffect(() => {
         if (step === 2 && availablePages.length === 0) {
@@ -242,7 +260,7 @@ export function SmartCampaignWizard() {
         setGeneratingAI(true);
         setError(null);
         try {
-            const result = await generateCreativeIdeasAction(formData.goal);
+            const result = await generateCreativeIdeasAction(formData.goal, formData.knowledgeBaseId);
             if (result.success && result.data) {
                 setAiSuggestions(result.data);
             } else {
@@ -252,6 +270,28 @@ export function SmartCampaignWizard() {
             setError("Erro ao conectar com a IA.");
         } finally {
             setGeneratingAI(false);
+        }
+    };
+
+    const handleGenerateImage = async (prompt: string) => {
+        setGeneratingImage(true);
+        setError(null);
+        try {
+            const result = await generateCreativeImageAction(prompt);
+            if (result.success && result.url) {
+                setCloudFiles(prev => [...prev, {
+                    id: `dalle-${Date.now()}`,
+                    name: 'DALL-E Generated Image.png',
+                    url: result.url as string,
+                    type: 'IMAGE'
+                }]);
+            } else {
+                setError(result.error || "Não foi possível gerar a imagem agora.");
+            }
+        } catch (err: any) {
+            setError("Erro ao se comunicar com DALL-E 3.");
+        } finally {
+            setGeneratingImage(false);
         }
     };
 
@@ -376,6 +416,7 @@ export function SmartCampaignWizard() {
             const result = await createSmartCampaignAction({
                 objective: formData.objective,
                 goal: formData.goal,
+                knowledgeBaseId: formData.knowledgeBaseId,
                 budget: formData.budget,
                 linkUrl: formData.linkUrl,
                 pageId: formData.pageId,
@@ -607,6 +648,26 @@ export function SmartCampaignWizard() {
                                 </p>
                             </div>
 
+                            <div className="space-y-3 p-4 bg-primary-50/50 dark:bg-primary-900/10 border border-primary-100 dark:border-primary-900/50 rounded-xl">
+                                <label className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                    <Database className="h-4 w-4 text-primary-500" />
+                                    Base de Conhecimento RAG (Opcional)
+                                </label>
+                                <select
+                                    className="w-full p-3 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary-500 focus:outline-none bg-white dark:bg-slate-950 dark:text-white font-medium text-sm"
+                                    value={formData.knowledgeBaseId}
+                                    onChange={(e) => setFormData({ ...formData, knowledgeBaseId: e.target.value })}
+                                >
+                                    <option value="" className="text-slate-500">Ex: Sem regras pré -definidas</option>
+                                    {knowledgeBases.map((kb) => (
+                                        <option key={kb.id} value={kb.id}>{kb.client_name} - {kb.name}</option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    Conecte o "cérebro" deste cliente. A IA lerá seus PDFs e URLs antes de propor copies e imagens.
+                                </p>
+                            </div>
+
                             <div className="space-y-2">
                                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">URL de Destino (sua Landing Page)</label>
                                 <input
@@ -712,9 +773,25 @@ export function SmartCampaignWizard() {
                                     </div>
                                 </div>
                                 {aiSuggestions.image_prompts?.[0] && (
-                                    <div className="md:col-span-2 space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Sugestão de Visual:</p>
-                                        <p className="text-xs text-slate-500 dark:text-slate-500 italic">{aiSuggestions.image_prompts[0]}</p>
+                                    <div className="md:col-span-2 space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2">
+                                                <ImageIcon className="h-3 w-3" /> Sugestão de Visual
+                                            </p>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handleGenerateImage(aiSuggestions.image_prompts[0])}
+                                                disabled={generatingImage}
+                                                className="h-8 text-xs bg-primary-50 hover:bg-primary-100 text-primary-700 border-primary-200 dark:bg-primary-900/20 dark:hover:bg-primary-900/40 dark:text-primary-400 dark:border-primary-800"
+                                            >
+                                                {generatingImage ? <Loader2 className="h-3 w-3 mr-2 animate-spin" /> : <Sparkles className="h-3 w-3 mr-2" />}
+                                                Gerar Imagem com IA
+                                            </Button>
+                                        </div>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400 italic bg-white dark:bg-slate-950 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                                            {aiSuggestions.image_prompts[0]}
+                                        </p>
                                     </div>
                                 )}
                             </div>
