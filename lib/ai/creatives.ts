@@ -67,12 +67,14 @@ export async function generateCreativeIdeas(goal: string = "Vendas gerais", know
         const openai = new OpenAI({ apiKey });
 
         let systemPrompt = `Você é um copywriter de performance especializado em Meta Ads. 
-Com base no objetivo do usuário, gere:
-- 3 títulos chamativos (curtos).
-- 2 textos principais (descrições longas).
-- 1 prompt para geração de imagem (DALL-E) em inglês que descreva o visual ideal para o anúncio.
+Com base no objetivo do usuário, gere sugestões de copy.
 
-Responda SEMPRE em formato JSON com as chaves exatas: headlines, primary_texts, image_prompts.`;
+Retorne EXATAMENTE o seguinte formato JSON:
+{
+  "headlines": ["titulo 1", "titulo 2", "titulo 3"],
+  "primary_texts": ["texto principal longo 1", "texto principal longo 2"],
+  "image_prompts": ["Um prompt detalhado em inglês para a DALL-E 3 gerar o visual do anúncio"]
+}`;
 
         if (contextText) {
             systemPrompt += `\n\nAqui está o CONTEXTO ESTÚDIO/MARCA do seu cliente. Siga os tons, regras e dores exigidas no material abaixo para gerar as sugestões de cópia:\n${contextText}`;
