@@ -774,24 +774,27 @@ export function SmartCampaignWizard() {
                                 </div>
                                 {aiSuggestions.image_prompts?.[0] && (
                                     <div className="md:col-span-2 space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                                        <div className="flex items-center justify-between">
+                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2">
-                                                <ImageIcon className="h-3 w-3" /> Sugestão de Visual
+                                                <ImageIcon className="h-3 w-3" /> Prompt do Visual (DALL-E)
                                             </p>
                                             <Button
                                                 size="sm"
                                                 variant="outline"
                                                 onClick={() => handleGenerateImage(aiSuggestions.image_prompts[0])}
                                                 disabled={generatingImage}
-                                                className="h-8 text-xs bg-primary-50 hover:bg-primary-100 text-primary-700 border-primary-200 dark:bg-primary-900/20 dark:hover:bg-primary-900/40 dark:text-primary-400 dark:border-primary-800"
+                                                className="h-8 text-xs bg-primary-50 hover:bg-primary-100 text-primary-700 border-primary-200 dark:bg-primary-900/20 dark:hover:bg-primary-900/40 dark:text-primary-400 dark:border-primary-800 shrink-0"
                                             >
                                                 {generatingImage ? <Loader2 className="h-3 w-3 mr-2 animate-spin" /> : <Sparkles className="h-3 w-3 mr-2" />}
-                                                Gerar Imagem com IA
+                                                Gerar Imagem com IA (DALL-E 3)
                                             </Button>
                                         </div>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400 italic bg-white dark:bg-slate-950 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
-                                            {aiSuggestions.image_prompts[0]}
-                                        </p>
+                                        <textarea
+                                            value={aiSuggestions.image_prompts[0]}
+                                            onChange={(e) => setAiSuggestions({ ...aiSuggestions, image_prompts: [e.target.value] })}
+                                            className="w-full text-sm text-slate-600 dark:text-slate-300 italic bg-white dark:bg-slate-950 p-3 rounded-lg border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-primary-500 min-h-[80px]"
+                                            placeholder="Descreva a imagem que deseja gerar..."
+                                        />
                                     </div>
                                 )}
                             </div>
@@ -868,21 +871,46 @@ export function SmartCampaignWizard() {
                                             </button>
                                         </div>
                                     ))}
-                                    {cloudFiles.map((file, idx) => (
-                                        <div key={`cloud-${idx}`} className="flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800">
-                                            <div className="flex items-center gap-3 overflow-hidden">
-                                                <Database className="h-4 w-4 text-blue-400 flex-shrink-0" />
-                                                <span className="text-sm text-blue-900 dark:text-blue-300 truncate">{file.name}</span>
-                                                <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full uppercase font-black tracking-tighter">CLOUD</span>
+                                    {cloudFiles.map((file, idx) => {
+                                        const isDalle = file.id.startsWith('dalle');
+                                        return (
+                                            <div key={`cloud-${idx}`} className={`flex p-3 rounded-lg border ${isDalle ? 'bg-purple-50/30 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800 flex-col gap-4' : 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800 items-center justify-between'}`}>
+                                                {isDalle ? (
+                                                    <>
+                                                        <div className="flex items-center justify-between w-full">
+                                                            <div className="flex items-center gap-2">
+                                                                <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                                                <span className="text-sm font-bold text-purple-900 dark:text-purple-300">Arte Gerada (DALL-E 3)</span>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => setCloudFiles(cloudFiles.filter((_, i) => i !== idx))}
+                                                                className="text-slate-400 hover:text-red-500 transition-colors"
+                                                            >
+                                                                <X className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
+                                                        <div className="w-full relative aspect-square rounded-lg overflow-hidden border border-purple-200 dark:border-purple-800 shadow-sm">
+                                                            <img src={file.url} alt="Gerada por IA" className="object-cover w-full h-full" />
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="flex items-center gap-3 overflow-hidden">
+                                                            <Database className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                                                            <span className="text-sm text-blue-900 dark:text-blue-300 truncate">{file.name}</span>
+                                                            <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full uppercase font-black tracking-tighter">CLOUD</span>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setCloudFiles(cloudFiles.filter((_, i) => i !== idx))}
+                                                            className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                                                        >
+                                                            <X className="h-4 w-4" />
+                                                        </button>
+                                                    </>
+                                                )}
                                             </div>
-                                            <button
-                                                onClick={() => setCloudFiles(cloudFiles.filter((_, i) => i !== idx))}
-                                                className="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
