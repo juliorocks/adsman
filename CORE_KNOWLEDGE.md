@@ -53,6 +53,10 @@ Permitir o upload de arquivos pesados (como vídeos em 4K) diretamente do Google
         1. **Zero Leak**: `getPages` agora rejeita qualquer página que não tenha um vínculo oficial com o Instagram autorizado da conta OU que não passe em uma validação de contexto rigorosa (Fuzzy Name Match entre Ad Account e Página). Impossível a "Faculdade" aparecer na "Carolina".
         2. **Mirroring Universal**: `createAdCreative` agora espelha o ID do Instagram em **todos** os campos possíveis (root, spec, video_data, etc.) para garantir que a UI do Meta reconheça a seleção.
         3. **Identity Guardian**: Se por qualquer motivo de descoberta o ID do Instagram chegar vazio na criação, o sistema auto-seleciona o primeiro Instagram autorizado da conta de anúncios como fallback de segurança, garantindo que o anúncio nunca seja criado sem identidade.
+12. **Instagram UI Selection Bug (Fevereiro 2026)**:
+    - *Problema*: A conta do Instagram não aparecia pré-selecionada ("setada") nos rascunhos de anúncios criados pelo AIOS na interface do Gerenciador de Anúncios da Meta, exigindo seleção manual. Nossos logs não exibiam erro porque a API aceitava a criação, mas falhava no mapeamento interno da UI.
+    - *Causa*: A Meta V21/V22 depreciou o uso isolado de `instagram_actor_id`. A UI moderna agora exige rigorosamente o campo `instagram_user_id` aninhado dentro da raiz do criativo E também do `object_story_spec`.  
+    - *Solução*: Implementado um "Apex Bind" em `lib/meta/api.ts` que força `body.object_story_spec.instagram_user_id = igIdStr` e também injeta o campo root `body.instagram_user_id = igIdStr`. Atualizado também os métodos `createAd` e os mecanismos de fallback para espelhar isso uniformemente. Isso garantiu que todos os Ads gerados aparecessem 100% corretos na UI moderna da Meta.
 
 ---
 

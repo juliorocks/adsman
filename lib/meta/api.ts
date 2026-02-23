@@ -551,6 +551,7 @@ export async function createAdCreative(adAccountId: string, name: string, object
 
             // Spec Anchor (The critical asset-link for modern New Page Experiences)
             body.object_story_spec.instagram_actor_id = igIdStr;
+            body.object_story_spec.instagram_user_id = igIdStr; // CRITICAL: Added for V21/V22 UI compatibility
 
             console.log(`GAGE: [Apex Identity] Unified Bind Locked (IG: ${igIdStr})`);
         }
@@ -589,6 +590,10 @@ export async function createAdCreative(adAccountId: string, name: string, object
                 console.log("GAGE_RETRY: Trying modern-only fallback...");
                 const modernBody = JSON.parse(JSON.stringify(body));
                 delete modernBody.instagram_actor_id;
+                if (modernBody.object_story_spec) {
+                    delete modernBody.object_story_spec.instagram_actor_id;
+                    modernBody.object_story_spec.instagram_user_id = String(currentIgId);
+                }
                 modernBody.instagram_user_id = String(currentIgId);
 
                 const modernRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -603,6 +608,10 @@ export async function createAdCreative(adAccountId: string, name: string, object
                 console.log("GAGE_RETRY: Trying legacy-only fallback...");
                 const legacyBody = JSON.parse(JSON.stringify(body));
                 delete legacyBody.instagram_user_id;
+                if (legacyBody.object_story_spec) {
+                    delete legacyBody.object_story_spec.instagram_user_id;
+                    legacyBody.object_story_spec.instagram_actor_id = String(currentIgId);
+                }
                 legacyBody.instagram_actor_id = String(currentIgId);
 
                 const legacyRes = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adcreatives`, {
@@ -667,6 +676,7 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
     if (instagramActorId) {
         const igIdStr = String(instagramActorId);
         body.instagram_actor_id = igIdStr;
+        body.instagram_user_id = igIdStr; // V21/V22 Identity
         // The 'instagram_id' field is used by some UI versions to bind the dropdown
         (body as any).instagram_id = igIdStr;
     }
