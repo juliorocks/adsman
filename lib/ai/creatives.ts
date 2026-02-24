@@ -123,18 +123,21 @@ export async function generateCreativeImages(prompt: string, count: number = 4):
         // Robustness: Fetch images server-side to bypass browser-side blocking
         const base64Images = await Promise.all(urls.map(async (url) => {
             try {
-                const res = await fetch(url, { cache: 'no-store' });
+                const res = await fetch(url, {
+                    cache: 'no-store',
+                    signal: AbortSignal.timeout(8000) // 8 second timeout
+                });
                 if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
                 const buffer = await res.arrayBuffer();
                 const base64 = Buffer.from(buffer).toString('base64');
                 return `data:image/jpeg;base64,${base64}`;
             } catch (err) {
-                console.error(`[creatives] Failed to fetch image from ${url}:`, err);
-                return null;
+                console.error(`[creatives] Failed to fetch image from ${url}, falling back to direct URL:`, err);
+                return url; // Fallback to direct URL if base64 fetch fails
             }
         }));
 
-        return base64Images.filter(img => img !== null) as string[];
+        return base64Images as string[];
     } catch (error: any) {
         console.error("[creatives] generateCreativeImages error details:", error);
         return [];
