@@ -127,56 +127,11 @@ Crie SOMENTE a resposta exata para o cliente, sem aspas, sem introduções suas.
 
         const finalReply = response.choices[0].message.content || "Olá! Como podemos ajudar?";
 
-        // 4. Send Reply to Meta
-        let metaSuccess = false;
-        let apiErrorLog = "";
-
-        try {
-            if (interaction_type === 'comment') {
-                // Reply to a comment
-                const graphRes = await fetch(`${META_GRAPH_URL}/${external_id}/replies`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: finalReply, access_token: accessToken })
-                });
-                const graphData = await graphRes.json();
-                if (graphData.error) throw new Error(graphData.error.message);
-                metaSuccess = true;
-            } else if (interaction_type === 'message') {
-                // Send DM
-                // The URL is POST to /me/messages or /{page_id}/messages
-                const graphRes = await fetch(`${META_GRAPH_URL}/me/messages`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        recipient: { id: sender_id },
-                        message: { text: finalReply },
-                        messaging_type: "RESPONSE",
-                        access_token: accessToken
-                    })
-                });
-                const graphData = await graphRes.json();
-                if (graphData.error) throw new Error(graphData.error.message);
-                metaSuccess = true;
-            }
-        } catch (metaErr: any) {
-            console.error("Meta Graph API error:", metaErr);
-            apiErrorLog = metaErr.message;
-            // NOTE: Even if it fails, maybe token is expired. Mark as FAILED.
-        }
-
-        if (metaSuccess) {
-            await supabaseAdmin.from('social_interactions').update({
-                status: 'COMPLETED',
-                ai_response: finalReply
-            }).eq('id', id);
-        } else {
-            await supabaseAdmin.from('social_interactions').update({
-                status: 'FAILED',
-                ai_response: finalReply,
-                error_log: apiErrorLog
-            }).eq('id', id);
-        }
+        // Save as DRAFT for Copilot approval
+        await supabaseAdmin.from('social_interactions').update({
+            status: 'DRAFT',
+            ai_response: finalReply
+        }).eq('id', id);
 
         return id;
     } catch (err: any) {

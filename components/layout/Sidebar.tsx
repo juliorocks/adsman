@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, PlusCircle, Settings, BarChart3, Layers, Bot, PanelLeftClose, PanelLeftOpen, Database } from "lucide-react";
+import { LayoutDashboard, PlusCircle, Settings, BarChart3, Layers, Bot, PanelLeftClose, PanelLeftOpen, Database, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ const navigation = [
     { name: "Criar Campanha", href: "/dashboard/create", icon: PlusCircle },
     { name: "Campanhas", href: "/dashboard/campaigns", icon: Layers },
     { name: "Bases de Conhecimento", href: "/dashboard/knowledge", icon: Database },
+    { name: "Caixa de Entrada", href: "/dashboard/inbox", icon: Inbox },
     { name: "Relatórios", href: "/dashboard/reports", icon: BarChart3 },
     { name: "Configurações", href: "/dashboard/settings", icon: Settings },
 ];
