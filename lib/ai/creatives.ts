@@ -73,11 +73,11 @@ Retorne EXATAMENTE o seguinte formato JSON:
 {
   "headlines": ["titulo 1", "titulo 2", "titulo 3"],
   "primary_texts": ["texto principal longo 1", "texto principal longo 2"],
-  "image_prompts": ["A highly converting Meta Ad image for [product]. INCLUDE REAL TEXT on the image saying \\"[Short Punchy Headline]\\". The visual should be vibrant, commercial, and professional, looking like a real sponsored Instagram post."]
+  "image_prompts": ["A detailed English prompt for DALL-E 3. Describe a highly converting, vibrant, commercial photography image related EXACTLY to the product/service in the context. CRITICAL: DO NOT PUT ANY TEXT, WORDS, OR LETTERS IN THE IMAGE! DALL-E struggles with Portuguese text. Focus purely on lighting, mood, people, or objects."]
 }`;
 
         if (contextText) {
-            systemPrompt += `\n\nAqui está o CONTEXTO ESTÚDIO/MARCA do seu cliente. Siga os tons, regras e dores exigidas no material abaixo para gerar as sugestões de cópia:\n${contextText}`;
+            systemPrompt += `\n\nAqui está o CONTEXTO DO NEGÓCIO do seu cliente. Siga os tons, regras e dores no material abaixo para as copies. PARA A IMAGEM, crie um prompt visual que mostre O PRODUTO/SERVIÇO REAL descrito aqui (ex: se for Clube de Leitura, mostre livros, pessoas lendo, ambiente). NUNCA coloque textos na imagem!\n${contextText}`;
         }
 
         const response = await openai.chat.completions.create({
