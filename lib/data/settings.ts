@@ -210,3 +210,47 @@ export async function getModalKey() {
         return process.env.MODAL_API_KEY || null;
     }
 }
+
+export async function getPollinationsKey() {
+    try {
+        const supabase = await createClient();
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+        let user = supabaseUser;
+        try {
+            const devSession = cookies().get("dev_session");
+            if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
+        } catch (e) { }
+
+        // Always try env first if no user or no integration
+        if (!user) return process.env.POLLINATIONS_API_KEY || null;
+
+        let encryptedKey: string | null = null;
+
+        if (user.id === "mock_user_id_dev") {
+            try {
+                encryptedKey = cookies().get("dev_pollinations_token")?.value || null;
+            } catch (e) { }
+        } else {
+            const { data } = await supabase
+                .from("integrations")
+                .select("access_token_ref")
+                .eq("user_id", user.id)
+                .eq("platform", "pollinations")
+                .single();
+
+            encryptedKey = data?.access_token_ref || null;
+        }
+
+        if (!encryptedKey) return process.env.POLLINATIONS_API_KEY || null;
+
+        try {
+            return decrypt(encryptedKey);
+        } catch (e) {
+            return process.env.POLLINATIONS_API_KEY || null;
+        }
+    } catch (err) {
+        console.error("getPollinationsKey unexpected error:", err);
+        return process.env.POLLINATIONS_API_KEY || null;
+    }
+}

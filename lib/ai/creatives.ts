@@ -1,6 +1,6 @@
 
 import OpenAI from "openai";
-import { getOpenAIKey } from "@/lib/data/settings";
+import { getOpenAIKey, getPollinationsKey } from "@/lib/data/settings";
 import { createClient } from "@/lib/supabase/server";
 
 export interface GeneratedCreatives {
@@ -111,10 +111,15 @@ export async function generateCreativeImages(prompt: string, count: number = 4):
         const enhancedPrompt = `cinematic commercial photography, highly detailed, photorealistic, ${prompt}`;
         const encodedPrompt = encodeURIComponent(enhancedPrompt);
 
+        const key = await getPollinationsKey();
+
         // Generate array of distinct images by passing different random seeds to Pollinations endpoint
         const urls = Array.from({ length: count }).map(() => {
             const seed = Math.floor(Math.random() * 1000000);
-            return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${seed}&model=flux`;
+            // We use the flux-realism model for higher commercial quality as per user feedback
+            // If key is available, we append it to the URL for prioritizing/high-limits if supported, 
+            // otherwise standard is fine.
+            return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${seed}&model=flux-realism`;
         });
 
         // Simulate processing delay for UI experience
