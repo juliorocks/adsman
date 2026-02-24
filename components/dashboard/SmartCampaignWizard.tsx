@@ -281,16 +281,16 @@ export function SmartCampaignWizard() {
             if (result.success && result.urls) {
                 const newFiles = result.urls.map((url, i) => ({
                     id: `nanobanana-${Date.now()}-${i}`,
-                    name: `Nano Banana Generated Image ${i + 1}.png`,
+                    name: `AdsAI Generated Image ${i + 1}.png`,
                     url: url,
                     type: 'IMAGE' as const
                 }));
                 setCloudFiles(prev => [...prev, ...newFiles]);
             } else {
-                setError(result.error || "Não foi possível gerar a imagem agora.");
+                setError(result.error || "Não foi possível gerar as imagens agora.");
             }
         } catch (err: any) {
-            setError("Erro ao se comunicar com Nano Banana (Gemini).");
+            setError("Erro ao se comunicar com o Agente Criativo.");
         } finally {
             setGeneratingImage(false);
         }
@@ -782,7 +782,7 @@ export function SmartCampaignWizard() {
                                             <div className="flex flex-col space-y-1">
                                                 <h4 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                                                     <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                                                    Estúdio Nano Banana
+                                                    Estúdio Criativo (AdsAI)
                                                 </h4>
                                                 <p className="text-sm text-slate-500 dark:text-slate-400">
                                                     Nossa IA criou um <i>prompt</i> visual otimizado para o seu anúncio. Você pode editá-lo abaixo e gerar <b>quantas opções quiser</b> até encontrar a imagem perfeita.
@@ -803,7 +803,7 @@ export function SmartCampaignWizard() {
 
                                             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
                                                 <div className="text-xs text-slate-400">
-                                                    <span className="font-semibold text-purple-600 dark:text-purple-400">Dica:</span> O Nano Banana criará fotografias ultra-realistas. Não escreva textos no prompt.
+                                                    <span className="font-semibold text-purple-600 dark:text-purple-400">Dica:</span> Nosso Agente produz fotografias ultra-realistas. Não use textos no prompt.
                                                 </div>
                                                 <Button
                                                     size="lg"
@@ -901,7 +901,7 @@ export function SmartCampaignWizard() {
                                                         <div className="flex items-center justify-between w-full">
                                                             <div className="flex items-center gap-2">
                                                                 <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                                                                <span className="text-sm font-bold text-purple-900 dark:text-purple-300">Arte Gerada (Nano Banana)</span>
+                                                                <span className="text-sm font-bold text-purple-900 dark:text-purple-300">Arte Gerada (Agente Criativo)</span>
                                                             </div>
                                                             <button
                                                                 onClick={() => setCloudFiles(cloudFiles.filter((_, i) => i !== idx))}

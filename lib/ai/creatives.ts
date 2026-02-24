@@ -73,7 +73,7 @@ Retorne EXATAMENTE o seguinte formato JSON:
 {
   "headlines": ["titulo 1", "titulo 2", "titulo 3"],
   "primary_texts": ["texto principal longo 1", "texto principal longo 2"],
-  "image_prompts": ["A detailed English prompt for DALL-E 3. Describe a highly converting, vibrant, commercial photography image related EXACTLY to the product/service in the context. CRITICAL: DO NOT PUT ANY TEXT, WORDS, OR LETTERS IN THE IMAGE! DALL-E struggles with Portuguese text. Focus purely on lighting, mood, people, or objects."]
+  "image_prompts": ["A detailed English prompt for the AdsAI Creative Engine. Describe a highly converting, vibrant, commercial photography image related EXACTLY to the product/service in the context. CRITICAL: DO NOT PUT ANY TEXT, WORDS, OR LETTERS IN THE IMAGE! The visual should focus purely on lighting, mood, people, or objects."]
 }`;
 
         if (contextText) {
@@ -105,7 +105,7 @@ Retorne EXATAMENTE o seguinte formato JSON:
 
 export async function generateCreativeImages(prompt: string, count: number = 4): Promise<string[]> {
     try {
-        console.log(`[creatives] Generating ${count} image variations via Nano Banana (Pollinations.ai)...`);
+        console.log(`[creatives] Generating ${count} image variations via Creative Engine...`);
 
         // Convert to a more cinematic prompt and ensure it is URL-friendly
         const enhancedPrompt = `cinematic commercial photography, highly detailed, photorealistic, ${prompt}`;
