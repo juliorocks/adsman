@@ -1,0 +1,190 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import OpenAI from 'openai';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false }
+});
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const META_GRAPH_URL = "https://graph.facebook.com/v21.0"; // Or the current version you use
+
+export async function GET(request: Request) {
+    // Basic security for CRON (e.g., from Vercel)
+    const authHeader = request.headers.get('authorization');
+    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    try {
+        console.log("Community Manager: Checking for pending social interactions...");
+
+        // 1. Fetch pending interactions in batches (e.g. 10 at a time)
+        const { data: interactions, error: fetchErr } = await supabaseAdmin
+            .from('social_interactions')
+            .select(`
+                *,
+                integration:integrations (
+                    id,
+                    user_id,
+                    access_token_ref,
+                    preferred_page_id,
+                    preferred_instagram_id
+                )
+            `)
+            .eq('status', 'PENDING')
+            .order('created_at', { ascending: true })
+            .limit(10);
+
+        if (fetchErr) throw fetchErr;
+
+        if (!interactions || interactions.length === 0) {
+            return NextResponse.json({ success: true, status: "skipped", message: "No pending interactions" });
+        }
+
+        console.log(`Community Manager: Processing ${interactions.length} interactions...`);
+
+        // Queue for parallel execution (map limit could be applied for larger sets)
+        const processPromises = interactions.map(interaction => processInteraction(interaction, supabaseAdmin));
+        const results = await Promise.allSettled(processPromises);
+
+        const successCount = results.filter(r => r.status === 'fulfilled').length;
+        return NextResponse.json({
+            success: true,
+            status: "executed",
+            processed: successCount,
+            total: interactions.length
+        });
+
+    } catch (error: any) {
+        console.error("Community Manager execution failed:", error);
+        return NextResponse.json({
+            success: false,
+            error: error.message || "Execution failed"
+        }, { status: 500 });
+    }
+}
+
+async function processInteraction(interaction: any, supabaseAdmin: any) {
+    try {
+        const { id, integration_id, message, platform, interaction_type, external_id, sender_id, integration } = interaction;
+
+        // Mark as processing to avoid duplicate runs if triggered twice
+        await supabaseAdmin.from('social_interactions').update({ status: 'PROCESSING' }).eq('id', id);
+
+        const userId = integration.user_id;
+
+        // 1. Decrypt token to reply
+        // Quick decrypt mock. Ideally you import decrypt from vaults.
+        const tokenFallback = process.env.META_ACCESS_TOKEN || "MISSING_TOKEN";
+        // WARNING: Replace this raw access with proper decryption from `@/lib/security/vault` when merging to main systems.
+        // We will assume a valid token for simulation or use a decrypted one.
+        const accessToken = integration.access_token_ref || tokenFallback; // Placeholder for decryption
+
+        // 2. Fetch Knowledge Base for this context (RAG)
+        let contextText = "";
+
+        // Find bases for user
+        const { data: bases } = await supabaseAdmin.from('knowledge_bases').select('id').eq('user_id', userId);
+        const baseIds = bases?.map((b: any) => b.id) || [];
+
+        if (baseIds.length > 0) {
+            const { data: knowledgeDocs } = await supabaseAdmin
+                .from('knowledge_documents')
+                .select('content')
+                .in('knowledge_base_id', baseIds)
+                .limit(3);
+
+            if (knowledgeDocs && knowledgeDocs.length > 0) {
+                contextText = knowledgeDocs.map((k: any) => k.content).join("\n\n");
+            }
+        }
+
+        // 3. AI Generation
+        const aiPrompt = `
+Você é o "Community Manager" Inteligente da marca.
+Seu objetivo é responder a uma interação social (Comentário ou Inbox).
+Responda de forma extremamente humana, curta, simpática e focada na venda/suporte.
+
+CONTEXTO DA MARCA E REGRAS DE NEGÓCIO:
+${contextText || "Ainda sem base de conhecimento específica. Seja genérico e educado."}
+
+TIPO DE INTERAÇÃO: ${interaction_type} (${platform})
+MENSAGEM DO CLIENTE: "${message}"
+
+Crie SOMENTE a resposta exata para o cliente, sem aspas, sem introduções suas. Aja como um humano gerenciando a página.`;
+
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+                { role: "system", content: "Você é um Community Manager sênior atuando em nome de uma marca no social media." },
+                { role: "user", content: aiPrompt }
+            ]
+        });
+
+        const finalReply = response.choices[0].message.content || "Olá! Como podemos ajudar?";
+
+        // 4. Send Reply to Meta
+        let metaSuccess = false;
+        let apiErrorLog = "";
+
+        try {
+            if (interaction_type === 'comment') {
+                // Reply to a comment
+                const graphRes = await fetch(`${META_GRAPH_URL}/${external_id}/replies`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: finalReply, access_token: accessToken })
+                });
+                const graphData = await graphRes.json();
+                if (graphData.error) throw new Error(graphData.error.message);
+                metaSuccess = true;
+            } else if (interaction_type === 'message') {
+                // Send DM
+                // The URL is POST to /me/messages or /{page_id}/messages
+                const graphRes = await fetch(`${META_GRAPH_URL}/me/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        recipient: { id: sender_id },
+                        message: { text: finalReply },
+                        messaging_type: "RESPONSE",
+                        access_token: accessToken
+                    })
+                });
+                const graphData = await graphRes.json();
+                if (graphData.error) throw new Error(graphData.error.message);
+                metaSuccess = true;
+            }
+        } catch (metaErr: any) {
+            console.error("Meta Graph API error:", metaErr);
+            apiErrorLog = metaErr.message;
+            // NOTE: Even if it fails, maybe token is expired. Mark as FAILED.
+        }
+
+        if (metaSuccess) {
+            await supabaseAdmin.from('social_interactions').update({
+                status: 'COMPLETED',
+                ai_response: finalReply
+            }).eq('id', id);
+        } else {
+            await supabaseAdmin.from('social_interactions').update({
+                status: 'FAILED',
+                ai_response: finalReply,
+                error_log: apiErrorLog
+            }).eq('id', id);
+        }
+
+        return id;
+    } catch (err: any) {
+        // Unhandled logic err
+        await supabaseAdmin.from('social_interactions').update({
+            status: 'FAILED',
+            error_log: err.message
+        }).eq('id', interaction?.id);
+        throw err;
+    }
+}
