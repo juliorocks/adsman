@@ -871,7 +871,7 @@ export function SmartCampaignWizard() {
                             </div>
 
                             {(images.length > 0 || cloudFiles.length > 0) && (
-                                <div className="grid grid-cols-1 gap-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {images.map((file, idx) => (
                                         <div key={`local-${idx}`} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700">
                                             <div className="flex items-center gap-3 overflow-hidden">
