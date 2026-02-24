@@ -42,111 +42,113 @@ function AgentSquadOverlay({ activeMessage }: { activeMessage: { agent: string, 
     if (!activeMessage || !activeMessage.agent) return null;
 
     return (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-end bg-slate-950 overflow-hidden rounded-2xl border border-slate-800">
-            {/* Background Effects */}
-            <div className="absolute inset-0 opacity-20 pointer-events-none">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_70%)]" />
-            </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <div className="relative w-full max-w-2xl h-[400px] flex flex-col items-center justify-end bg-slate-950 overflow-hidden rounded-3xl border border-slate-800 shadow-2xl">
+                {/* Background Effects */}
+                <div className="absolute inset-0 opacity-20 pointer-events-none">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_70%)]" />
+                </div>
 
-            {/* Neural Scanner Line */}
-            <motion.div
-                animate={{ y: ["0%", "100%", "0%"] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                className="absolute inset-x-0 h-px bg-primary-500/50 shadow-[0_0_15px_rgba(59,130,246,0.5)] z-40 pointer-events-none"
-            />
-
-            {/* Header Status */}
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-[10px] font-black text-slate-500 tracking-[0.3em] uppercase whitespace-nowrap">Orquestração em Tempo Real</span>
-            </div>
-
-            {/* Robot Squad */}
-            <div className="relative w-full flex justify-center items-end gap-2 px-6 pb-20 z-10 max-w-lg mx-auto">
-                {AGENTS.map((agent) => {
-                    const isActive = activeMessage.agent === agent.id;
-                    return (
-                        <div key={agent.id} className="relative w-1/3 flex flex-col items-center">
-                            {/* Label */}
-                            <div className={`mb-2 px-2 py-0.5 rounded-full bg-slate-900 border border-slate-800 z-20`}>
-                                <span className={`text-[7px] font-black tracking-widest uppercase ${agent.glow}`}>{agent.name}</span>
-                            </div>
-
-                            {/* Sprite */}
-                            <motion.div
-                                className="relative w-16 h-16"
-                                animate={{
-                                    y: isActive ? [-4, 4, -4] : [-2, 2, -2],
-                                    rotate: isActive ? [-1, 1, -1] : 0
-                                }}
-                                transition={{ duration: isActive ? 1.5 : 4, repeat: Infinity, ease: "easeInOut" }}
-                            >
-                                <img src={agent.img} alt={agent.name} className="w-full h-full object-contain" />
-                                <RobotBlink color={agent.eye} />
-                                {isActive && (
-                                    <motion.div
-                                        initial={{ scale: 1, opacity: 0.5 }}
-                                        animate={{ scale: 1.5, opacity: 0 }}
-                                        transition={{ duration: 1.2, repeat: Infinity }}
-                                        className="absolute inset-0 rounded-full border border-white/20"
-                                    />
-                                )}
-                            </motion.div>
-
-                            {/* Speech Bubble */}
-                            <AnimatePresence mode="wait">
-                                {isActive && (
-                                    <motion.div
-                                        initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                        exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                                        className="absolute bottom-full mb-20 w-40 z-50 pointer-events-none"
-                                    >
-                                        <div className="bg-slate-900 border border-slate-700 p-2.5 rounded-xl shadow-2xl">
-                                            <div className="flex items-center gap-1.5 mb-1 opacity-50">
-                                                <Activity className="w-2.5 h-2.5 text-green-400" />
-                                                <span className="text-[7px] font-bold uppercase tracking-wider text-slate-400">Ativo</span>
-                                            </div>
-                                            <p className="text-[10px] font-medium text-white leading-tight">
-                                                {activeMessage.text}
-                                            </p>
-                                        </div>
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-900" />
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </div>
-                    );
-                })}
-            </div>
-
-            {/* Conveyor Belt */}
-            <div className="absolute bottom-0 w-full h-16 bg-slate-900 border-t border-slate-800 flex items-center shadow-[inset_0_10px_30px_rgba(0,0,0,0.5)] z-20">
+                {/* Neural Scanner Line */}
                 <motion.div
-                    className="flex w-[200%] h-full opacity-10"
-                    animate={{ x: ["0%", "-50%"] }}
-                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                >
-                    {Array.from({ length: 20 }).map((_, i) => (
-                        <div key={i} className="w-[5%] border-r border-slate-700 h-full skew-x-12" />
-                    ))}
-                </motion.div>
+                    animate={{ y: ["0%", "100%", "0%"] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                    className="absolute inset-x-0 h-px bg-primary-500/50 shadow-[0_0_15px_rgba(59,130,246,0.5)] z-40 pointer-events-none"
+                />
 
-                {/* Moving Packages */}
-                <div className="absolute inset-0 flex items-center">
-                    {[1, 2, 3].map((i) => (
-                        <motion.div
-                            key={i}
-                            className="absolute"
-                            initial={{ left: "-10%" }}
-                            animate={{ left: "110%" }}
-                            transition={{ duration: 8, repeat: Infinity, ease: "linear", delay: i * 2.5 }}
-                        >
-                            <div className="w-8 h-8 bg-slate-800 border border-slate-700 rounded-lg flex items-center justify-center rotate-12 shadow-lg">
-                                <Box className="w-4 h-4 text-slate-500" />
+                {/* Header Status */}
+                <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-[10px] font-black text-slate-500 tracking-[0.3em] uppercase whitespace-nowrap">Orquestração em Tempo Real</span>
+                </div>
+
+                {/* Robot Squad */}
+                <div className="relative w-full flex justify-center items-end gap-2 px-6 pb-20 z-10 max-w-lg mx-auto">
+                    {AGENTS.map((agent) => {
+                        const isActive = activeMessage.agent === agent.id;
+                        return (
+                            <div key={agent.id} className="relative w-1/3 flex flex-col items-center">
+                                {/* Label */}
+                                <div className={`mb-2 px-2 py-0.5 rounded-full bg-slate-900 border border-slate-800 z-20`}>
+                                    <span className={`text-[7px] font-black tracking-widest uppercase ${agent.glow}`}>{agent.name}</span>
+                                </div>
+
+                                {/* Sprite */}
+                                <motion.div
+                                    className="relative w-16 h-16"
+                                    animate={{
+                                        y: isActive ? [-4, 4, -4] : [-2, 2, -2],
+                                        rotate: isActive ? [-1, 1, -1] : 0
+                                    }}
+                                    transition={{ duration: isActive ? 1.5 : 4, repeat: Infinity, ease: "easeInOut" }}
+                                >
+                                    <img src={agent.img} alt={agent.name} className="w-full h-full object-contain" />
+                                    <RobotBlink color={agent.eye} />
+                                    {isActive && (
+                                        <motion.div
+                                            initial={{ scale: 1, opacity: 0.5 }}
+                                            animate={{ scale: 1.5, opacity: 0 }}
+                                            transition={{ duration: 1.2, repeat: Infinity }}
+                                            className="absolute inset-0 rounded-full border border-white/20"
+                                        />
+                                    )}
+                                </motion.div>
+
+                                {/* Speech Bubble */}
+                                <AnimatePresence mode="wait">
+                                    {isActive && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                                            className="absolute bottom-full mb-20 w-40 z-50 pointer-events-none"
+                                        >
+                                            <div className="bg-slate-900 border border-slate-700 p-2.5 rounded-xl shadow-2xl">
+                                                <div className="flex items-center gap-1.5 mb-1 opacity-50">
+                                                    <Activity className="w-2.5 h-2.5 text-green-400" />
+                                                    <span className="text-[7px] font-bold uppercase tracking-wider text-slate-400">Ativo</span>
+                                                </div>
+                                                <p className="text-[10px] font-medium text-white leading-tight">
+                                                    {activeMessage.text}
+                                                </p>
+                                            </div>
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-900" />
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
-                        </motion.div>
-                    ))}
+                        );
+                    })}
+                </div>
+
+                {/* Conveyor Belt */}
+                <div className="absolute bottom-0 w-full h-16 bg-slate-900 border-t border-slate-800 flex items-center shadow-[inset_0_10px_30px_rgba(0,0,0,0.5)] z-20">
+                    <motion.div
+                        className="flex w-[200%] h-full opacity-10"
+                        animate={{ x: ["0%", "-50%"] }}
+                        transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                    >
+                        {Array.from({ length: 20 }).map((_, i) => (
+                            <div key={i} className="w-[5%] border-r border-slate-700 h-full skew-x-12" />
+                        ))}
+                    </motion.div>
+
+                    {/* Moving Packages */}
+                    <div className="absolute inset-0 flex items-center">
+                        {[1, 2, 3].map((i) => (
+                            <motion.div
+                                key={i}
+                                className="absolute"
+                                initial={{ left: "-10%" }}
+                                animate={{ left: "110%" }}
+                                transition={{ duration: 8, repeat: Infinity, ease: "linear", delay: i * 2.5 }}
+                            >
+                                <div className="w-8 h-8 bg-slate-800 border border-slate-700 rounded-lg flex items-center justify-center rotate-12 shadow-lg">
+                                    <Box className="w-4 h-4 text-slate-500" />
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>
@@ -483,7 +485,7 @@ export function SmartCampaignWizard() {
                 </div>
             )}
 
-            <div className="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden min-h-[460px]">
+            <div className="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                 <AnimatePresence>
                     {activeMessage && <AgentSquadOverlay activeMessage={activeMessage} />}
                 </AnimatePresence>
