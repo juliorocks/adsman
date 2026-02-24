@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     auth: { persistSession: false }
 });
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy_for_build' });
 const META_GRAPH_URL = "https://graph.facebook.com/v21.0"; // Or the current version you use
 
 export async function GET(request: Request) {
