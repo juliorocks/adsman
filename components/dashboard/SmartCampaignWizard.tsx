@@ -280,8 +280,8 @@ export function SmartCampaignWizard() {
             const result = await generateCreativeImageAction(prompt);
             if (result.success && result.url) {
                 setCloudFiles(prev => [...prev, {
-                    id: `dalle-${Date.now()}`,
-                    name: 'DALL-E Generated Image.png',
+                    id: `nanobanana-${Date.now()}`,
+                    name: 'Nano Banana Generated Image.png',
                     url: result.url as string,
                     type: 'IMAGE'
                 }]);
@@ -289,7 +289,7 @@ export function SmartCampaignWizard() {
                 setError(result.error || "Não foi possível gerar a imagem agora.");
             }
         } catch (err: any) {
-            setError("Erro ao se comunicar com DALL-E 3.");
+            setError("Erro ao se comunicar com Nano Banana (Gemini).");
         } finally {
             setGeneratingImage(false);
         }
@@ -781,7 +781,7 @@ export function SmartCampaignWizard() {
                                             <div className="flex flex-col space-y-1">
                                                 <h4 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                                                     <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                                                    Estúdio DALL-E 3
+                                                    Estúdio Nano Banana
                                                 </h4>
                                                 <p className="text-sm text-slate-500 dark:text-slate-400">
                                                     Nossa IA criou um <i>prompt</i> visual otimizado para o seu anúncio. Você pode editá-lo abaixo e gerar <b>quantas opções quiser</b> até encontrar a imagem perfeita.
@@ -790,7 +790,7 @@ export function SmartCampaignWizard() {
 
                                             <div className="space-y-3">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2">
-                                                    Prompt da Imagem (Em Inglês)
+                                                    Prompt Fotográfico (Em Inglês)
                                                 </p>
                                                 <textarea
                                                     value={aiSuggestions.image_prompts[0]}
@@ -802,7 +802,7 @@ export function SmartCampaignWizard() {
 
                                             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
                                                 <div className="text-xs text-slate-400">
-                                                    <span className="font-semibold text-purple-600 dark:text-purple-400">Dica:</span> A IA adicionará textos (overlay) se especificado.
+                                                    <span className="font-semibold text-purple-600 dark:text-purple-400">Dica:</span> O Nano Banana criará fotografias ultra-realistas. Não escreva textos no prompt.
                                                 </div>
                                                 <Button
                                                     size="lg"
@@ -892,7 +892,7 @@ export function SmartCampaignWizard() {
                                         </div>
                                     ))}
                                     {cloudFiles.map((file, idx) => {
-                                        const isDalle = file.id.startsWith('dalle');
+                                        const isDalle = file.id.startsWith('nanobanana');
                                         return (
                                             <div key={`cloud-${idx}`} className={`flex p-3 rounded-lg border ${isDalle ? 'bg-purple-50/30 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800 flex-col gap-4' : 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800 items-center justify-between'}`}>
                                                 {isDalle ? (
@@ -900,7 +900,7 @@ export function SmartCampaignWizard() {
                                                         <div className="flex items-center justify-between w-full">
                                                             <div className="flex items-center gap-2">
                                                                 <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                                                                <span className="text-sm font-bold text-purple-900 dark:text-purple-300">Arte Gerada (DALL-E 3)</span>
+                                                                <span className="text-sm font-bold text-purple-900 dark:text-purple-300">Arte Gerada (Nano Banana)</span>
                                                             </div>
                                                             <button
                                                                 onClick={() => setCloudFiles(cloudFiles.filter((_, i) => i !== idx))}
