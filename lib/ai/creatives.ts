@@ -105,41 +105,50 @@ Retorne EXATAMENTE o seguinte formato JSON:
 
 export async function generateCreativeImages(prompt: string, count: number = 4): Promise<string[]> {
     try {
-        console.log(`[creatives] Generating ${count} image variations via Creative Engine (Pollinations-Base64)...`);
+        console.log(`[creatives] Generating ${count} image variations via Creative Engine (Google Imagen/Nano Banana)...`);
 
-        // Note: Gemini Imagen 3 (Nano Banana) requires billing/credit card enabled on Google AI Studio.
-        // We use Pollinations as a high-quality alternate that doesn't trigger billing errors.
+        let apiKey = process.env.GEMINI_API_KEY;
+
+        if (!apiKey) {
+            throw new Error("GEMINI_API_KEY não configurada no servidor.");
+        }
+
+        const { GoogleGenAI } = await import("@google/genai");
+        const ai = new GoogleGenAI({ apiKey });
 
         const cleanPrompt = prompt.slice(0, 400).replace(/\n/g, ' ');
         const enhancedPrompt = `cinematic commercial photography, highly detailed, photorealistic, ${cleanPrompt}`;
-        const encodedPrompt = encodeURIComponent(enhancedPrompt);
 
-        const urls = Array.from({ length: count }).map(() => {
-            const seed = Math.floor(Math.random() * 999999);
-            // Using flux model via pollinations
-            return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${seed}&model=flux`;
+        const response = await ai.models.generateImages({
+            model: 'imagen-4.0-generate-001',
+            prompt: enhancedPrompt,
+            config: {
+                numberOfImages: count,
+                outputMimeType: 'image/jpeg',
+                aspectRatio: '1:1',
+            }
         });
 
-        // Robustness: Fetch images server-side to bypass browser-side blocking
-        const base64Images = await Promise.all(urls.map(async (url) => {
-            try {
-                const res = await fetch(url, {
-                    cache: 'no-store',
-                    signal: AbortSignal.timeout(8000) // 8 second timeout
-                });
-                if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-                const buffer = await res.arrayBuffer();
-                const base64 = Buffer.from(buffer).toString('base64');
-                return `data:image/jpeg;base64,${base64}`;
-            } catch (err) {
-                console.error(`[creatives] Failed to fetch image from ${url}, falling back to direct URL:`, err);
-                return url; // Fallback to direct URL if base64 fetch fails
-            }
-        }));
+        if (!response.generatedImages || response.generatedImages.length === 0) {
+            throw new Error("O Google Gemini não retornou imagens.");
+        }
 
-        return base64Images as string[];
+        const urls = response.generatedImages.map((img: any) => {
+            const base64Data = img.image.imageBytes;
+            return `data:image/jpeg;base64,${base64Data}`;
+        });
+
+        return urls;
+
     } catch (error: any) {
-        console.error("[creatives] generateCreativeImages error details:", error);
-        return [];
+        console.error("[creatives] Google Gemini error details:", error);
+
+        let errorMsg = error.message || "Erro desconhecido.";
+
+        if (errorMsg.includes("billed users at this time") || errorMsg.includes("400")) {
+            throw new Error("API Google Gemini: A geração de imagens com o seu modelo Nano Banana / Imagen requer faturamento ativado na sua chave de API do Google AI Studio.");
+        }
+
+        throw new Error(`Erro Gemini: ${errorMsg}`);
     }
 }
