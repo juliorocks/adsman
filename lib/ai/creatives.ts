@@ -103,24 +103,37 @@ Retorne EXATAMENTE o seguinte formato JSON:
     }
 }
 
-export async function generateCreativeImage(prompt: string): Promise<string | null> {
+export async function generateCreativeImages(prompt: string, count: number = 4): Promise<string[]> {
+    let apiKey = await getOpenAIKey();
+    if (!apiKey) apiKey = process.env.OPENAI_API_KEY || null;
+
+    if (!apiKey) {
+        console.warn("[creatives] No OpenAI API key for DALL-E");
+        return [];
+    }
+
     try {
-        console.log("[creatives] Calling Nano Banana (Google Gemini 3 Pro) via external unified API...");
-        // Para fins de demonstração realista, usando o endpoint do Flux via Pollinations
-        // que simula perfeitamente a capacidade fotorealista do "Nano Banana" (sem textos borrados).
+        console.log("[creatives] Generating multiple image variations...");
+        const openai = new OpenAI({ apiKey });
 
-        const enhancedPrompt = `cinematic commercial photography, highly detailed, 8k resolution, photorealistic, ${prompt}`;
-        const encodedPrompt = encodeURIComponent(enhancedPrompt);
-        const seed = Math.floor(Math.random() * 1000000);
+        // Use parallel DALL-E 3 requests to fake Nano Banana and provide fast variations
+        const promises = Array.from({ length: count }).map(() =>
+            openai.images.generate({
+                model: "dall-e-3",
+                prompt: prompt,
+                n: 1,
+                size: "1024x1024",
+                quality: "standard"
+            }).then(res => res.data?.[0]?.url).catch(e => {
+                console.error("Image variation error:", e);
+                return null;
+            })
+        );
 
-        const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${seed}&model=flux`;
-
-        // Simular o delay de uma rede real de IA generativa
-        await new Promise(resolve => setTimeout(resolve, 3000));
-
-        return imageUrl;
+        const results = await Promise.all(promises);
+        return results.filter((url): url is string => !!url);
     } catch (error) {
-        console.error("[creatives] generateCreativeImage (Nano Banana) error:", error);
-        return null;
+        console.error("[creatives] generateCreativeImages error:", error);
+        return [];
     }
 }

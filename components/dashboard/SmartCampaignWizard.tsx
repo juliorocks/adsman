@@ -7,7 +7,7 @@ import { Bot, Sparkles, Target, DollarSign, Image as ImageIcon, CheckCircle2, Ch
 import { Button } from "@/components/ui/button";
 import { createSmartCampaignAction, uploadMediaAction, getFacebookPagesAction, updatePreferredIdentityAction, uploadMediaFromUrlAction } from "@/actions/campaign";
 import { GoogleDriveSelector } from "./GoogleDriveSelector";
-import { generateCreativeIdeasAction, generateCreativeImageAction } from "@/actions/creatives";
+import { generateCreativeIdeasAction, generateCreativeImagesAction } from "@/actions/creatives";
 import { getKnowledgeBases } from "@/actions/knowledge";
 
 const OBJECTIVES = [
@@ -277,14 +277,15 @@ export function SmartCampaignWizard() {
         setGeneratingImage(true);
         setError(null);
         try {
-            const result = await generateCreativeImageAction(prompt);
-            if (result.success && result.url) {
-                setCloudFiles(prev => [...prev, {
-                    id: `nanobanana-${Date.now()}`,
-                    name: 'Nano Banana Generated Image.png',
-                    url: result.url as string,
-                    type: 'IMAGE'
-                }]);
+            const result = await generateCreativeImagesAction(prompt, 4); // Ask for 4 options
+            if (result.success && result.urls) {
+                const newFiles = result.urls.map((url, i) => ({
+                    id: `nanobanana-${Date.now()}-${i}`,
+                    name: `Nano Banana Generated Image ${i + 1}.png`,
+                    url: url,
+                    type: 'IMAGE' as const
+                }));
+                setCloudFiles(prev => [...prev, ...newFiles]);
             } else {
                 setError(result.error || "Não foi possível gerar a imagem agora.");
             }
@@ -811,7 +812,7 @@ export function SmartCampaignWizard() {
                                                     className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0 shadow-lg shadow-purple-500/25 transition-all"
                                                 >
                                                     {generatingImage ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Sparkles className="h-5 w-5 mr-2" />}
-                                                    {generatingImage ? "Criando Arte..." : "Criar Imagem Profissional"}
+                                                    {generatingImage ? "Criando Arte..." : "Gerar 4 Opções Profissionais"}
                                                 </Button>
                                             </div>
                                         </div>
@@ -894,7 +895,7 @@ export function SmartCampaignWizard() {
                                     {cloudFiles.map((file, idx) => {
                                         const isDalle = file.id.startsWith('nanobanana');
                                         return (
-                                            <div key={`cloud-${idx}`} className={`flex p-3 rounded-lg border ${isDalle ? 'bg-purple-50/30 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800 flex-col gap-4' : 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800 items-center justify-between'}`}>
+                                            <div key={file.id || `cloud-${idx}`} className={`flex p-3 rounded-lg border ${isDalle ? 'bg-purple-50/30 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800 flex-col gap-4' : 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800 items-center justify-between'}`}>
                                                 {isDalle ? (
                                                     <>
                                                         <div className="flex items-center justify-between w-full">

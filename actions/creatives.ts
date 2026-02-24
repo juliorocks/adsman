@@ -1,7 +1,7 @@
 
 "use server";
 
-import { generateCreativeIdeas, GeneratedCreatives, generateCreativeImage } from "@/lib/ai/creatives";
+import { generateCreativeIdeas, GeneratedCreatives, generateCreativeImages } from "@/lib/ai/creatives";
 
 export async function generateCreativeIdeasAction(goal: string, knowledgeBaseId?: string): Promise<{ success: boolean; data?: GeneratedCreatives; error?: string }> {
     try {
@@ -13,11 +13,11 @@ export async function generateCreativeIdeasAction(goal: string, knowledgeBaseId?
     }
 }
 
-export async function generateCreativeImageAction(prompt: string): Promise<{ success: boolean; url?: string; error?: string }> {
+export async function generateCreativeImagesAction(prompt: string, count: number = 4): Promise<{ success: boolean; urls?: string[]; error?: string }> {
     try {
-        const url = await generateCreativeImage(prompt);
-        if (url) return { success: true, url };
-        return { success: false, error: "Failed to generate image." };
+        const urls = await generateCreativeImages(prompt, count);
+        if (urls && urls.length > 0) return { success: true, urls };
+        return { success: false, error: "Failed to generate images." };
     } catch (error: any) {
         return { success: false, error: error.message };
     }
