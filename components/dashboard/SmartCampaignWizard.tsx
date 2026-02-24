@@ -163,6 +163,7 @@ export function SmartCampaignWizard() {
     const [generatingImage, setGeneratingImage] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [formData, setFormData] = useState({
+        campaignName: '',
         objective: '',
         goal: '',
         knowledgeBaseId: '', // Added Knowledge Base
@@ -171,6 +172,8 @@ export function SmartCampaignWizard() {
         pageId: '',
         instagramId: '',
         pixelId: '',
+        headline: '',
+        primaryText: '',
         status: 'PAUSED' as 'ACTIVE' | 'PAUSED',
     });
     const [images, setImages] = useState<File[]>([]);
@@ -278,6 +281,11 @@ export function SmartCampaignWizard() {
             const result = await generateCreativeIdeasAction(formData.goal, formData.knowledgeBaseId);
             if (result.success && result.data) {
                 setAiSuggestions(result.data);
+                setFormData(prev => ({
+                    ...prev,
+                    headline: prev.headline || result.data!.headlines[0] || '',
+                    primaryText: prev.primaryText || result.data!.primary_texts[0] || ''
+                }));
             } else {
                 setError(result.error || "Não foi possível gerar sugestões agora.");
             }
@@ -430,6 +438,7 @@ export function SmartCampaignWizard() {
             setActiveMessage({ agent: 'strategist', text: 'Solicitando autorização de voo para os servidores do Meta Ads. Quase lá!' });
 
             const result = await createSmartCampaignAction({
+                campaignName: formData.campaignName,
                 objective: formData.objective,
                 goal: formData.goal,
                 knowledgeBaseId: formData.knowledgeBaseId,
@@ -438,6 +447,8 @@ export function SmartCampaignWizard() {
                 pageId: formData.pageId,
                 instagramId: formData.instagramId,
                 pixelId: formData.pixelId,
+                headline: formData.headline,
+                primaryText: formData.primaryText,
                 status: formData.status,
                 mediaReferences,
             });
@@ -457,7 +468,7 @@ export function SmartCampaignWizard() {
         }
     };
 
-    if (step === 5) {
+    if (step === 6) {
         return (
             <div className="flex flex-col items-center justify-center py-12 text-center space-y-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
                 <div className="h-20 w-20 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center animate-bounce">
@@ -481,13 +492,13 @@ export function SmartCampaignWizard() {
         <div className="max-w-4xl mx-auto space-y-8">
             {/* Progress Bar */}
             <div className="flex items-center justify-between px-2">
-                {[1, 2, 3, 4].map((s) => (
+                {[1, 2, 3, 4, 5].map((s) => (
                     <div key={s} className="flex items-center">
                         <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${step >= s ? 'bg-primary-600 text-white shadow-lg shadow-primary-200 dark:shadow-none' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
                             }`}>
                             {s}
                         </div>
-                        {s < 4 && <div className={`h-1 w-16 mx-1 rounded ${step > s ? 'bg-primary-600' : 'bg-slate-100 dark:bg-slate-800'}`} />}
+                        {s < 5 && <div className={`h-1 w-10 sm:w-16 mx-1 rounded ${step > s ? 'bg-primary-600' : 'bg-slate-100 dark:bg-slate-800'}`} />}
                     </div>
                 ))}
             </div>
@@ -668,15 +679,27 @@ export function SmartCampaignWizard() {
                     </div>
                 )}
 
-                {/* Step 3: AI Config */}
+                {/* Step 3: Configuração */}
                 {step === 3 && (
                     <div className="p-8 space-y-6">
                         <div className="space-y-2">
-                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Configuração Inteligente</h3>
-                            <p className="text-slate-500 dark:text-slate-400">Dê as instruções para a nossa IA configurar seu público e copies.</p>
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Configuração Básica</h3>
+                            <p className="text-slate-500 dark:text-slate-400">Dê as instruções principais para nossa IA ou configure manualmente.</p>
                         </div>
 
                         <div className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Nome da Campanha (Opcional)</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ex: Campanha Especial Promo..."
+                                    className="w-full p-3 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary-500 focus:outline-none bg-slate-50 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500"
+                                    value={formData.campaignName}
+                                    onChange={(e) => setFormData({ ...formData, campaignName: e.target.value })}
+                                />
+                                <p className="text-xs text-slate-400 dark:text-slate-500 italic">O nome que aparecerá no seu Gerenciador de Anúncios.</p>
+                            </div>
+
                             <div className="space-y-2">
                                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">O que você está vendendo/promovendo?</label>
                                 <textarea
@@ -761,19 +784,19 @@ export function SmartCampaignWizard() {
                         <div className="flex justify-between pt-6">
                             <Button variant="ghost" onClick={prevStep} className="dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800">Voltar</Button>
                             <Button onClick={nextStep} disabled={!formData.goal} className="bg-primary-600 hover:bg-primary-700 text-white">
-                                Próximo: Criativos <ChevronRight className="ml-2 h-4 w-4" />
+                                Próximo: Copies e Textos <ChevronRight className="ml-2 h-4 w-4" />
                             </Button>
                         </div>
                     </div>
                 )}
 
-                {/* Step 4: Creatives */}
+                {/* Step 4: Copies */}
                 {step === 4 && (
                     <div className="p-8 space-y-8">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="space-y-2">
-                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Criativos da Campanha</h3>
-                                <p className="text-slate-500 dark:text-slate-400">Suba suas imagens ou deixe nossa IA cuidar da estratégia.</p>
+                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Copies e Textos da Campanha</h3>
+                                <p className="text-slate-500 dark:text-slate-400">Escreva o título e texto do seu anúncio, ou use nossa IA para criar variações persuasivas baseadas no seu produto.</p>
                             </div>
                             <Button
                                 variant="outline"
@@ -782,21 +805,48 @@ export function SmartCampaignWizard() {
                                 className="border-primary-200 dark:border-primary-900/50 hover:bg-primary-50 dark:hover:bg-primary-900/10 text-primary-600 dark:text-primary-400 gap-2"
                             >
                                 {generatingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                                Gerar Sugestões com IA
+                                {aiSuggestions ? "Gerar Novamente" : "Gerar Sugestões com IA"}
                             </Button>
                         </div>
 
-                        {/* AI Suggestions Panel */}
+                        {/* IA Auto-Fill & Manual Edit */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+                            <div className="space-y-2">
+                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Título do Anúncio (Headline)</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ex: Oferta Imperdível de Inverno!"
+                                    className="w-full p-3 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary-500 focus:outline-none bg-slate-50 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500"
+                                    value={formData.headline}
+                                    onChange={(e) => setFormData({ ...formData, headline: e.target.value })}
+                                />
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Texto Principal (Primary Text)</label>
+                                <textarea
+                                    placeholder="Ex: Garanta hoje mesmo a sua peça da nova coleção..."
+                                    className="w-full h-24 p-3 rounded-lg border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary-500 focus:outline-none bg-slate-50 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500"
+                                    value={formData.primaryText}
+                                    onChange={(e) => setFormData({ ...formData, primaryText: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        {/* AI Suggestions Review Panel */}
                         {aiSuggestions && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-4 duration-500">
                                 <div className="space-y-4">
                                     <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
                                         <Bot className="h-3 w-3" />
-                                        Títulos Sugeridos
+                                        Títulos Sugeridos (Clique para usar)
                                     </h4>
                                     <div className="space-y-2">
                                         {aiSuggestions.headlines.map((h, i) => (
-                                            <div key={i} className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 shadow-sm">
+                                            <div
+                                                key={i}
+                                                onClick={() => setFormData({ ...formData, headline: h })}
+                                                className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 shadow-sm cursor-pointer hover:border-primary-500 transition-colors"
+                                            >
                                                 {h}
                                             </div>
                                         ))}
@@ -805,61 +855,85 @@ export function SmartCampaignWizard() {
                                 <div className="space-y-4">
                                     <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
                                         <Sparkles className="h-3 w-3" />
-                                        Textos Principais
+                                        Textos Principais (Clique para usar)
                                     </h4>
                                     <div className="space-y-2">
                                         {aiSuggestions.primary_texts.map((t, i) => (
-                                            <div key={i} className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400 shadow-sm italic leading-relaxed">
+                                            <div
+                                                key={i}
+                                                onClick={() => setFormData({ ...formData, primaryText: t })}
+                                                className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400 shadow-sm italic leading-relaxed cursor-pointer hover:border-primary-500 transition-colors"
+                                            >
                                                 "{t}"
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-                                {aiSuggestions.image_prompts?.[0] && (
-                                    <div className="md:col-span-2 mt-6 p-6 rounded-2xl bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5 border border-purple-200/50 dark:border-purple-900/50 shadow-sm relative overflow-hidden">
-                                        {/* Background decoration */}
-                                        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-purple-500/10 dark:bg-purple-900/20 rounded-full blur-3xl pointer-events-none" />
+                            </div>
+                        )}
 
-                                        <div className="relative z-10 space-y-4">
-                                            <div className="flex flex-col space-y-1">
-                                                <h4 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                                    <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                                                    Estúdio Criativo (AdsAI)
-                                                </h4>
-                                                <p className="text-sm text-slate-500 dark:text-slate-400">
-                                                    Nossa IA criou um <i>prompt</i> visual otimizado para o seu anúncio. Você pode editá-lo abaixo e gerar <b>quantas opções quiser</b> até encontrar a imagem perfeita.
-                                                </p>
-                                            </div>
+                        <div className="flex justify-between pt-6">
+                            <Button variant="ghost" onClick={prevStep} className="dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800">Voltar</Button>
+                            <Button onClick={nextStep} className="bg-primary-600 hover:bg-primary-700 text-white">
+                                Próximo: Criativos (Imagens) <ChevronRight className="ml-2 h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
 
-                                            <div className="space-y-3">
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2">
-                                                    Prompt Fotográfico (Em Inglês)
-                                                </p>
-                                                <textarea
-                                                    value={aiSuggestions.image_prompts[0]}
-                                                    onChange={(e) => setAiSuggestions({ ...aiSuggestions, image_prompts: [e.target.value] })}
-                                                    className="w-full text-sm text-slate-700 dark:text-slate-300 bg-white/80 dark:bg-slate-950/80 p-4 rounded-xl border border-purple-200 dark:border-purple-800 focus:ring-2 focus:ring-purple-500 min-h-[100px] resize-y shadow-inner"
-                                                    placeholder="Descreva a imagem que deseja gerar..."
-                                                />
-                                            </div>
+                {/* Step 5: Images & Media */}
+                {step === 5 && (
+                    <div className="p-8 space-y-8">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="space-y-2">
+                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Criativos da Campanha</h3>
+                                <p className="text-slate-500 dark:text-slate-400">Suba suas imagens, vincule de uma nuvem ou crie através da Inteligência Artificial do AdsAI Engine.</p>
+                            </div>
+                        </div>
 
-                                            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
-                                                <div className="text-xs text-slate-400">
-                                                    <span className="font-semibold text-purple-600 dark:text-purple-400">Dica:</span> Nosso Agente produz fotografias ultra-realistas. Não use textos no prompt.
-                                                </div>
-                                                <Button
-                                                    size="lg"
-                                                    onClick={() => handleGenerateImage(aiSuggestions.image_prompts[0])}
-                                                    disabled={generatingImage}
-                                                    className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0 shadow-lg shadow-purple-500/25 transition-all"
-                                                >
-                                                    {generatingImage ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Sparkles className="h-5 w-5 mr-2" />}
-                                                    {generatingImage ? "Criando Arte..." : "Gerar 4 Opções Profissionais"}
-                                                </Button>
-                                            </div>
-                                        </div>
+                        {/* Image AI Prompt Panel */}
+                        {aiSuggestions?.image_prompts?.[0] && (
+                            <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5 border border-purple-200/50 dark:border-purple-900/50 shadow-sm relative overflow-hidden animate-in fade-in duration-500">
+                                <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-purple-500/10 dark:bg-purple-900/20 rounded-full blur-3xl pointer-events-none" />
+
+                                <div className="relative z-10 space-y-4">
+                                    <div className="flex flex-col space-y-1">
+                                        <h4 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                            <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                                            Estúdio Criativo (AdsAI)
+                                        </h4>
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                                            Nossa IA criou um <i>prompt</i> visual otimizado baseado no seu objetivo. Edite ou gere agora mesmo.
+                                        </p>
                                     </div>
-                                )}
+
+                                    <div className="space-y-3">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2">
+                                            Prompt Fotográfico (Em Inglês)
+                                        </p>
+                                        <textarea
+                                            value={aiSuggestions.image_prompts[0]}
+                                            onChange={(e) => setAiSuggestions({ ...aiSuggestions, image_prompts: [e.target.value] })}
+                                            className="w-full text-sm text-slate-700 dark:text-slate-300 bg-white/80 dark:bg-slate-950/80 p-4 rounded-xl border border-purple-200 dark:border-purple-800 focus:ring-2 focus:ring-purple-500 min-h-[100px] resize-y shadow-inner"
+                                            placeholder="Descreva a imagem que deseja gerar..."
+                                        />
+                                    </div>
+
+                                    <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                        <div className="text-xs text-slate-400">
+                                            <span className="font-semibold text-purple-600 dark:text-purple-400">Dica:</span> Nosso Agente produz fotografias. Não use textos no prompt.
+                                        </div>
+                                        <Button
+                                            size="lg"
+                                            onClick={() => handleGenerateImage(aiSuggestions.image_prompts[0])}
+                                            disabled={generatingImage}
+                                            className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0 shadow-lg shadow-purple-500/25 transition-all"
+                                        >
+                                            {generatingImage ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Sparkles className="h-5 w-5 mr-2" />}
+                                            {generatingImage ? "Criando Arte..." : "Gerar Imagens por IA"}
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
                         )}
 

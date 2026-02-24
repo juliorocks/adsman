@@ -269,6 +269,7 @@ export async function uploadMediaFromUrlAction(item: { type: 'IMAGE' | 'VIDEO', 
 }
 
 export async function createSmartCampaignAction(formData: {
+    campaignName?: string,
     objective: string,
     goal: string,
     knowledgeBaseId?: string,
@@ -277,6 +278,8 @@ export async function createSmartCampaignAction(formData: {
     pageId?: string,
     instagramId?: string,
     pixelId?: string,
+    headline?: string,
+    primaryText?: string,
     status?: 'ACTIVE' | 'PAUSED',
     mediaReferences?: { type: 'IMAGE' | 'VIDEO', ref: string }[]
 }) {
@@ -327,9 +330,11 @@ export async function createSmartCampaignAction(formData: {
 
         // 1. Create Campaign
         const initialStatus = formData.status || 'PAUSED';
+        const finalCampaignName = formData.campaignName?.trim() || `Smart AI: ${formData.goal.substring(0, 30)}...`;
+
         const campaign = await createCampaign(
             adAccountId,
-            `Smart AI: ${formData.goal.substring(0, 30)}...`,
+            finalCampaignName,
             safeObjective,
             accessToken,
             initialStatus
@@ -367,7 +372,7 @@ export async function createSmartCampaignAction(formData: {
         endTime.setDate(endTime.getDate() + 30);
 
         const adSetParams = {
-            name: `AI Optimized: ${formData.goal.substring(0, 20)}...`,
+            name: `Conjunto - ${finalCampaignName}`,
             billing_event: 'IMPRESSIONS' as const,
             daily_budget: Math.max(500, parseInt(formData.budget) * 100),
             targeting,
@@ -385,8 +390,8 @@ export async function createSmartCampaignAction(formData: {
         const uploadedMedia = formData.mediaReferences || [];
 
         // 5. Create Ad Creatives + Ads
-        const headline = (aiTargeting.headline || formData.goal).substring(0, 40);
-        const primaryText = formData.goal.substring(0, 1000);
+        const headline = (formData.headline || aiTargeting.headline || formData.goal).substring(0, 50);
+        const primaryText = (formData.primaryText || aiTargeting.primary_text || formData.goal).substring(0, 2000);
 
         // Safety: Ensure linkUrl has a protocol
         let linkUrl = (formData.linkUrl?.trim() || aiTargeting.link_url || 'https://www.facebook.com/').trim();
@@ -445,9 +450,11 @@ export async function createSmartCampaignAction(formData: {
 
             try {
                 console.log(`GAGE: Creating creative ${idx + 1}/${adsToCreate.length} (IG ID: ${isFbOnlyNow ? 'STRIPPED' : (instagramId || 'None')})`);
+
+                let creativeName = `Creative ${finalCampaignName.substring(0, 20)}${suffix}`;
                 const creativeResult = await createAdCreative(
                     adAccountId,
-                    `Creative ${formData.goal.substring(0, 15)}${suffix}`,
+                    creativeName,
                     objectStorySpec,
                     accessToken,
                     isFbOnlyNow ? undefined : instagramId,
@@ -461,11 +468,12 @@ export async function createSmartCampaignAction(formData: {
                     }
                 ] : undefined;
 
+                let adName = `Ad ${finalCampaignName.substring(0, 20)}${suffix}`;
                 await createAd(
                     adAccountId,
                     adSet.id,
                     creativeResult.id,
-                    `Ad ${formData.goal.substring(0, 20)}${suffix}`,
+                    adName,
                     accessToken,
                     initialStatus,
                     creativeResult.ig_id, // Universal Identity injection at Ad level
