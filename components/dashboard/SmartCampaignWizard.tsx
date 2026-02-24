@@ -437,6 +437,7 @@ export function SmartCampaignWizard() {
                 linkUrl: formData.linkUrl,
                 pageId: formData.pageId,
                 instagramId: formData.instagramId,
+                pixelId: formData.pixelId,
                 status: formData.status,
                 mediaReferences,
             });
