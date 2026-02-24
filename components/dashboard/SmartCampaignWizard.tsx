@@ -5,7 +5,7 @@ import { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bot, Sparkles, Target, DollarSign, Image as ImageIcon, CheckCircle2, ChevronRight, Loader2, AlertCircle, X, Box, Activity, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createSmartCampaignAction, uploadMediaAction, getFacebookPagesAction, updatePreferredIdentityAction, uploadMediaFromUrlAction } from "@/actions/campaign";
+import { createSmartCampaignAction, uploadMediaAction, getFacebookPagesAction, updatePreferredIdentityAction, uploadMediaFromUrlAction, getPixelsAction } from "@/actions/campaign";
 import { GoogleDriveSelector } from "./GoogleDriveSelector";
 import { generateCreativeIdeasAction, generateCreativeImagesAction } from "@/actions/creatives";
 import { getKnowledgeBases } from "@/actions/knowledge";
@@ -170,6 +170,7 @@ export function SmartCampaignWizard() {
         linkUrl: '',
         pageId: '',
         instagramId: '',
+        pixelId: '',
         status: 'PAUSED' as 'ACTIVE' | 'PAUSED',
     });
     const [images, setImages] = useState<File[]>([]);
@@ -182,6 +183,7 @@ export function SmartCampaignWizard() {
     } | null>(null);
     const [activeMessage, setActiveMessage] = useState<{ agent: string, text: string } | null>(null);
     const [availablePages, setAvailablePages] = useState<any[]>([]);
+    const [availablePixels, setAvailablePixels] = useState<{ id: string, name: string }[]>([]);
     const [activeAccount, setActiveAccount] = useState<{ id: string, name: string } | null>(null);
     const [loadingPages, setLoadingPages] = useState(false);
 
@@ -212,7 +214,18 @@ export function SmartCampaignWizard() {
     const handleFetchPages = async () => {
         setLoadingPages(true);
         try {
-            const result = await getFacebookPagesAction() as any;
+            const [result, pixelsResult] = await Promise.all([
+                getFacebookPagesAction() as any,
+                getPixelsAction() as any
+            ]);
+
+            if (pixelsResult.success && pixelsResult.data) {
+                setAvailablePixels(pixelsResult.data);
+                if (pixelsResult.data.length > 0) {
+                    setFormData(prev => ({ ...prev, pixelId: pixelsResult.data[0].id }));
+                }
+            }
+
             if (result.success && result.data) {
                 setAvailablePages(result.data);
                 if (result.accountName) {
@@ -545,9 +558,9 @@ export function SmartCampaignWizard() {
                         <div className="space-y-2">
                             <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                                 <Bot className="h-6 w-6 text-primary-600 dark:text-primary-400" />
-                                Confirme sua Identidade
+                                Identidade & Rastreamento
                             </h3>
-                            <p className="text-slate-500 dark:text-slate-400">Em qual página do Facebook e Instagram este anúncio será veiculado?</p>
+                            <p className="text-slate-500 dark:text-slate-400">Escolha onde o anúncio será veiculado e o Pixel para rastrear conversões.</p>
                         </div>
 
                         {activeAccount && (
@@ -616,6 +629,32 @@ export function SmartCampaignWizard() {
                                     <AlertCircle className="h-4 w-4" />
                                     Atenção: A escolha errada da identidade resultará em anúncios veiculados na página errada.
                                 </p>
+
+                                {availablePixels.length > 0 && (
+                                    <div className="mt-8 space-y-3">
+                                        <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                            <Target className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                                            Meta Pixel (Opcional)
+                                        </h4>
+                                        <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                                            <select
+                                                value={formData.pixelId}
+                                                onChange={(e) => setFormData({ ...formData, pixelId: e.target.value })}
+                                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm rounded-lg p-3 outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer text-slate-700 dark:text-slate-300"
+                                            >
+                                                <option value="">Nenhum Pixel selecionado</option>
+                                                {availablePixels.map((pixel) => (
+                                                    <option key={pixel.id} value={pixel.id}>
+                                                        {pixel.name} (ID: {pixel.id})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                                                Recomendado para otimização e mensuração de resultados no site.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 

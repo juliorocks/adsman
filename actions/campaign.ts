@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getIntegration } from "@/lib/data/settings";
 import { decrypt } from "@/lib/security/vault";
-import { createCampaign, createAdSet, createAdCreative, createAd, getPages, uploadAdImage, uploadAdVideo, updateObjectStatus, getAdSetsForCampaign, getAdsForAdSet, uploadAdImageFromUrl, uploadAdVideoFromUrl } from "@/lib/meta/api";
+import { createCampaign, createAdSet, createAdCreative, createAd, getPages, uploadAdImage, uploadAdVideo, updateObjectStatus, getAdSetsForCampaign, getAdsForAdSet, uploadAdImageFromUrl, uploadAdVideoFromUrl, getPixels } from "@/lib/meta/api";
 import { parseTargetingFromGoal } from "@/lib/ai/openai";
 import { createLog } from "@/lib/data/logs";
 import { getGoogleAccessToken } from "@/actions/google-drive";
@@ -60,6 +60,25 @@ export async function getFacebookPagesAction() {
         };
     } catch (error: any) {
         console.error("getFacebookPagesAction error:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getPixelsAction() {
+    try {
+        const integration = await getIntegration();
+        if (!integration || !integration.access_token_ref || !integration.ad_account_id) {
+            throw new Error("No Meta integration found");
+        }
+        const accessToken = decrypt(integration.access_token_ref);
+        const adAccountId = integration.ad_account_id.startsWith('act_')
+            ? integration.ad_account_id
+            : `act_${integration.ad_account_id}`;
+
+        const pixels = await getPixels(adAccountId, accessToken);
+        return { success: true, data: pixels };
+    } catch (error: any) {
+        console.error("getPixelsAction error:", error);
         return { success: false, error: error.message };
     }
 }
@@ -257,6 +276,7 @@ export async function createSmartCampaignAction(formData: {
     linkUrl?: string,
     pageId?: string,
     instagramId?: string,
+    pixelId?: string,
     status?: 'ACTIVE' | 'PAUSED',
     mediaReferences?: { type: 'IMAGE' | 'VIDEO', ref: string }[]
 }) {
@@ -434,6 +454,13 @@ export async function createSmartCampaignAction(formData: {
                     isFbOnlyNow ? [] : (bestPage as any).alternative_instagram_ids
                 );
 
+                const trackingSpecs = formData.pixelId ? [
+                    {
+                        "action.type": ["offsite_conversion"],
+                        "fb_pixel": [formData.pixelId]
+                    }
+                ] : undefined;
+
                 await createAd(
                     adAccountId,
                     adSet.id,
@@ -441,7 +468,8 @@ export async function createSmartCampaignAction(formData: {
                     `Ad ${formData.goal.substring(0, 20)}${suffix}`,
                     accessToken,
                     initialStatus,
-                    creativeResult.ig_id // Universal Identity injection at Ad level
+                    creativeResult.ig_id, // Universal Identity injection at Ad level
+                    trackingSpecs
                 );
                 creativeResults.push(creativeResult);
 

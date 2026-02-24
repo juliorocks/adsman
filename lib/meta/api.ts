@@ -75,6 +75,17 @@ export async function getAdAccounts(accessToken: string): Promise<AdAccount[]> {
     return Array.from(new Map(accounts.map(acc => [acc.id, acc])).values());
 }
 
+export async function getPixels(adAccountId: string, accessToken: string): Promise<{ id: string; name: string }[]> {
+    try {
+        const response = await fetch(`${META_GRAPH_URL}/${META_API_VERSION}/${adAccountId}/adspixels?fields=id,name&access_token=${accessToken}`);
+        const data = await response.json();
+        return data.data || [];
+    } catch (e) {
+        console.error("Failed to fetch pixels:", e);
+        return [];
+    }
+}
+
 // Fetch Facebook Pages that can be used for ads (tries multiple sources)
 export async function getPages(accessToken: string, adAccountId?: string): Promise<{ pages: { id: string; name: string; connected_instagram_account?: { id: string }, alternative_instagram_ids?: { id: string, username: string }[] }[], debug: string }> {
     let rawPages: any[] = [];
@@ -664,7 +675,7 @@ export async function createAdCreative(adAccountId: string, name: string, object
 
     return executeAttempt(0);
 }
-export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED', instagramActorId?: string) {
+export async function createAd(adAccountId: string, adSetId: string, creativeId: string, name: string, accessToken: string, status: 'ACTIVE' | 'PAUSED' = 'PAUSED', instagramActorId?: string, trackingSpecs?: any[]) {
     const body: any = {
         name,
         adset_id: adSetId,
@@ -672,6 +683,10 @@ export async function createAd(adAccountId: string, adSetId: string, creativeId:
         status: status,
         access_token: accessToken
     };
+
+    if (trackingSpecs && trackingSpecs.length > 0) {
+        body.tracking_specs = trackingSpecs;
+    }
 
     if (instagramActorId) {
         const igIdStr = String(instagramActorId);
