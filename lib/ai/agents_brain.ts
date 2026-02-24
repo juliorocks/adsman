@@ -22,6 +22,7 @@ export const getAgentVerdict = async (context: {
     metrics: any;
     currentBudget: number;
     objective: string;
+    createdTime?: string;
 }): Promise<AgentVerdict[]> => {
     // Create a unique key for cache based on metrics (rounded to avoid noise)
     const cacheKey = `agent-verdict-${context.campaignName}-${Math.round(context.metrics.spend)}-${Math.round(context.metrics.roas * 10)}`;
@@ -77,11 +78,15 @@ export const getAgentVerdict = async (context: {
                             CONTEXTO DO NEGÓCIO (Use estas informações para validar suas decisões):
                             ${contextString || "Nenhum contexto adicional fornecido."}
                             
+                            ATITUDE: Aja como um Analista de Performance SÊNIOR com vasta experiência. Dê atenção máxima aos detalhes. 
+                            MUITO IMPORTANTE: Verifique a DATA DE CRIAÇÃO da campanha. O Meta Ads tem uma "Learning Phase" (Fase de Aprendizado). 
+                            NUNCA sugira pausar (CRITICAL) uma campanha ou anúncio que foi criado há menos de 48 horas. Campanhas recém-criadas NÃO DEVEM ser pausadas, pois ainda estão otimizando. Para campanhas novas, o status deve ser "OPTIMAL" ou "WARNING" no máximo, com a recomendação explícita de "Aguardar o término da fase de aprendizado".
+
                             1. AUDITOR: Focus on anomaly detection and technical health (CTR, High CPC). 
-                               - If status is CRITICAL: Performance is so bad that the ad SHOULD BE PAUSED immediately. Recommendation MUST justify the PAUSE.
-                               - If status is WARNING: Performance is sub-optimal but fixable. Recommendation must suggest a specific optimization (Copy, Audience, etc.).
+                               - If status is CRITICAL: Performance is terrible (AND campaign is NOT new). Suggest PAUSE.
+                               - If status is WARNING: Performance is sub-optimal but fixable. Suggest specific optimization.
                             2. STRATEGIST: Focus on ROI, Profitability, and Scaling (ROAS, CPA).
-                               - If status is CRITICAL: Budget is being wasted without return. Suggest pausing or massive budget cut.
+                               - If status is CRITICAL: Budget is wasted (AND campaign is NOT new). Suggest pause/cut.
                                - If status is WARNING: Performance is okay but has room for scaling.
                             3. CREATIVE: Focus on creative fatigue and new copy angles.
 
@@ -107,6 +112,7 @@ export const getAgentVerdict = async (context: {
                             role: "user",
                             content: `Analise a campanha "${context.campaignName}" e responda em PT-BR:
                             - Objetivo: ${context.objective}
+                            - Data de Criação: ${context.createdTime || "Desconhecida"}
                             - Orçamento Atual: R$ ${context.currentBudget}
                             - Gasto: R$ ${context.metrics.spend}
                             - Cliques: ${context.metrics.clicks}

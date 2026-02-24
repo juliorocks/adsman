@@ -53,7 +53,8 @@ export const runScaleStrategy = cache(async function (metrics?: DashboardMetrics
                         ctr: impressions > 0 ? (clicks / impressions * 100) : 0
                     },
                     currentBudget,
-                    objective: "SALES"
+                    objective: "SALES",
+                    createdTime: adSet.created_time
                 });
 
                 const verdict = brainVerdicts.find(v => v.agent === 'strategist');
