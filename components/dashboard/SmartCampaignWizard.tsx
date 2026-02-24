@@ -922,7 +922,7 @@ export function SmartCampaignWizard() {
                                                             </button>
                                                         </div>
                                                         <div className="w-full relative aspect-square rounded-lg overflow-hidden border border-purple-200 dark:border-purple-800 shadow-sm">
-                                                            <img src={file.url} alt="Gerada por IA" className="object-cover w-full h-full" />
+                                                            <img src={file.url} alt="Gerada por IA" className="object-cover w-full h-full" referrerPolicy="no-referrer" />
                                                         </div>
                                                     </>
                                                 ) : (
