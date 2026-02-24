@@ -840,10 +840,10 @@ export function SmartCampaignWizard() {
                                 }}
                             />
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-8 text-center space-y-3 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-primary-50/10 dark:hover:bg-primary-900/10 transition-colors cursor-pointer group"
+                                    className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-center space-y-3 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-primary-50/10 dark:hover:bg-primary-900/10 transition-colors cursor-pointer group"
                                 >
                                     <div className="h-12 w-12 bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-full mx-auto flex items-center justify-center group-hover:bg-primary-50 dark:group-hover:bg-primary-900/20 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-all">
                                         <ImageIcon className="h-6 w-6" />
@@ -856,16 +856,27 @@ export function SmartCampaignWizard() {
 
                                 <div
                                     onClick={() => setShowDriveSelector(true)}
-                                    className="border-2 border-dashed border-blue-200 dark:border-blue-900/50 rounded-2xl p-8 text-center space-y-3 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/10 dark:hover:bg-blue-900/10 transition-colors cursor-pointer group"
+                                    className="border-2 border-dashed border-blue-200 dark:border-blue-900/50 rounded-2xl p-6 text-center space-y-3 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/10 dark:hover:bg-blue-900/10 transition-colors cursor-pointer group"
                                 >
                                     <div className="h-12 w-12 bg-blue-50 dark:bg-blue-900/20 text-blue-400 dark:text-blue-500 rounded-full mx-auto flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-all">
                                         <Database className="h-6 w-6" />
                                     </div>
                                     <div>
                                         <p className="text-sm font-semibold text-slate-900 dark:text-white">Google Drive / Vault</p>
-                                        <p className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1">
-                                            Recomendado para vídeos HD <Sparkles className="h-2 w-2 text-blue-400" />
-                                        </p>
+                                        <p className="text-[10px] text-slate-400 dark:text-slate-500">Vincular arquivos das nuvens</p>
+                                    </div>
+                                </div>
+
+                                <div
+                                    onClick={handleGenerateAI}
+                                    className="border-2 border-dashed border-purple-200 dark:border-purple-900/50 rounded-2xl p-6 text-center space-y-3 hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50/10 dark:hover:bg-purple-900/10 transition-colors cursor-pointer group"
+                                >
+                                    <div className="h-12 w-12 bg-purple-50 dark:bg-purple-900/20 text-purple-400 dark:text-purple-500 rounded-full mx-auto flex items-center justify-center group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-all">
+                                        <Sparkles className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">Criar com IA</p>
+                                        <p className="text-[10px] text-slate-400 dark:text-slate-500">Gerar sugestões profissionais</p>
                                     </div>
                                 </div>
                             </div>

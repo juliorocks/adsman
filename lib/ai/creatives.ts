@@ -107,23 +107,20 @@ export async function generateCreativeImages(prompt: string, count: number = 4):
     try {
         console.log(`[creatives] Generating ${count} image variations via Creative Engine...`);
 
-        // Convert to a more cinematic prompt and ensure it is URL-friendly
-        const enhancedPrompt = `cinematic commercial photography, highly detailed, photorealistic, ${prompt}`;
+        // Limit prompt length to avoid 414/404 errors from long URLs
+        const cleanPrompt = prompt.slice(0, 300).replace(/\n/g, ' ');
+        const enhancedPrompt = `cinematic photography, ${cleanPrompt}`;
         const encodedPrompt = encodeURIComponent(enhancedPrompt);
 
-        const key = await getPollinationsKey();
-
-        // Generate array of distinct images by passing different random seeds to Pollinations endpoint
+        // Generate array of distinct images by passing different random seeds
         const urls = Array.from({ length: count }).map(() => {
-            const seed = Math.floor(Math.random() * 1000000);
-            // We use the flux-realism model for higher commercial quality as per user feedback
-            // If key is available, we append it to the URL for prioritizing/high-limits if supported, 
-            // otherwise standard is fine.
-            return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${seed}&model=flux-realism`;
+            const seed = Math.floor(Math.random() * 999999);
+            // Using 'flux' model for better compatibility/speed as realism might be stricter
+            return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&nologo=true&seed=${seed}&model=flux`;
         });
 
         // Simulate processing delay for UI experience
-        await new Promise(resolve => setTimeout(resolve, 2500));
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         return urls;
     } catch (error) {
