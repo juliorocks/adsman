@@ -42,7 +42,7 @@ export async function getInteractions() {
             integration_id
         `)
         .in("integration_id", integrationIds)
-        .in("status", ["DRAFT", "COMPLETED", "FAILED"])
+        .in("status", ["PENDING", "DRAFT", "COMPLETED", "FAILED"])
         .order("created_at", { ascending: false })
         .limit(50);
 

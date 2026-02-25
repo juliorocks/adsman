@@ -11,8 +11,9 @@ export function InboxList({ records }: { records: any[] }) {
     const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
     const [editedTexts, setEditedTexts] = useState<Record<string, string>>({});
 
-    const handleApprove = async (interactionId: string, currentStatus: string) => {
-        if (currentStatus === "COMPLETED") return; // Safety
+    const handleApprove = async (interactionId: string) => {
+        const record = records.find(r => r.id === interactionId);
+        if (!record || record.status === "COMPLETED") return; // Safety
 
         const textToApprove = editedTexts[interactionId] || records.find(r => r.id === interactionId)?.ai_response || "";
 
@@ -41,8 +42,8 @@ export function InboxList({ records }: { records: any[] }) {
         }
     };
 
-    const pending = records.filter(r => r.status === "DRAFT" || r.status === "FAILED");
-    const completed = records.filter(r => r.status === "COMPLETED");
+    const pending = records.filter(r => ["DRAFT", "FAILED", "PENDING"].includes(r.status));
+    const completed = records.filter(r => ["COMPLETED", "IGNORED"].includes(r.status));
 
     return (
         <div className="space-y-8">
@@ -81,6 +82,11 @@ export function InboxList({ records }: { records: any[] }) {
                                                     <AlertCircle className="h-3 w-3" /> Falhou no Envio
                                                 </span>
                                             )}
+                                            {record.status === 'PENDING' && (
+                                                <span className="text-xs font-semibold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                                                    Gerando Resposta IA...
+                                                </span>
+                                            )}
                                         </div>
                                         <p className="text-sm font-medium text-slate-900 dark:text-slate-200 line-clamp-2">
                                             "{record.message}"
@@ -97,9 +103,9 @@ export function InboxList({ records }: { records: any[] }) {
                                     </div>
                                     <textarea
                                         className="w-full relative rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 pt-4 pb-2 px-3 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-50 transition-colors"
-                                        value={editedTexts[record.id] ?? record.ai_response ?? ""}
+                                        value={record.status === 'PENDING' ? "O agente de IA está processando esta mensagem e criando uma resposta..." : (editedTexts[record.id] ?? record.ai_response ?? "")}
                                         onChange={(e: any) => setEditedTexts(prev => ({ ...prev, [record.id]: e.target.value }))}
-                                        disabled={loadingMap[record.id]}
+                                        disabled={loadingMap[record.id] || record.status === 'PENDING'}
                                     />
                                 </div>
                                 {record.error_log && record.status === 'FAILED' && (
@@ -120,12 +126,12 @@ export function InboxList({ records }: { records: any[] }) {
                                     </Button>
                                     <Button
                                         size="sm"
-                                        className="bg-primary-600 hover:bg-primary-700"
-                                        onClick={() => handleApprove(record.id, record.status)}
-                                        disabled={loadingMap[record.id]}
+                                        className="bg-primary-600 hover:bg-primary-700 text-white"
+                                        onClick={() => handleApprove(record.id)}
+                                        disabled={loadingMap[record.id] || record.status === 'PENDING'}
                                     >
                                         <Send className="h-4 w-4 mr-2" />
-                                        {loadingMap[record.id] ? "Enviando..." : "Aprovar e Enviar"}
+                                        {loadingMap[record.id] ? "Enviando..." : (record.status === 'PENDING' ? "Processando..." : "Aprovar e Enviar")}
                                     </Button>
                                 </div>
                             </motion.div>
