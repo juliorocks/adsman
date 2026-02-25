@@ -33,7 +33,8 @@ export async function GET(request: Request) {
                     user_id,
                     access_token_ref,
                     preferred_page_id,
-                    preferred_instagram_id
+                    preferred_instagram_id,
+                    agent_context
                 )
             `)
             .eq('status', 'PENDING')
@@ -151,10 +152,12 @@ MENSAGEM DO CLIENTE: "${message}"
 
 Crie SOMENTE a resposta exata para o cliente, sem aspas, sem introduções suas. Aja como a própria Carolina Michelini.`;
 
+        const systemPersona = integration.agent_context || "Você é a Carolina Michelini. Você responde seus seguidores de forma calorosa, em primeira pessoa e com muita autenticidade.";
+
         const response = await openaiClient.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
-                { role: "system", content: "Você é a Carolina Michelini. Você responde seus seguidores de forma calorosa, em primeira pessoa e com muita autenticidade." },
+                { role: "system", content: systemPersona },
                 { role: "user", content: aiPrompt }
             ]
         });

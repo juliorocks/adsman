@@ -189,3 +189,39 @@ export async function toggleAutonomousMode(enabled: boolean) {
     revalidatePath("/dashboard/agents");
     return { success: true };
 }
+
+export async function saveAgentContext(integrationId: string, context: string) {
+    const supabase = await createClient();
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+    let user = supabaseUser;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
+    if (!user) throw new Error("Unauthorized");
+
+    let error;
+    if (user.id === "de70c0de-ad00-4000-8000-000000000000") {
+        const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        const { error: autError } = await supabaseAdmin
+            .from("integrations")
+            .update({ agent_context: context })
+            .eq("id", integrationId)
+            .eq("user_id", user.id);
+        error = autError;
+    } else {
+        const { error: autError } = await supabase
+            .from("integrations")
+            .update({ agent_context: context })
+            .eq("id", integrationId)
+            .eq("user_id", user.id);
+        error = autError;
+    }
+
+    if (error) {
+        console.error(error);
+        throw new Error("Failed to save agent context");
+    }
+
+    revalidatePath("/dashboard/knowledge");
+    return { success: true };
+}
