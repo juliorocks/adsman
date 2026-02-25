@@ -47,7 +47,7 @@ export async function POST(request: Request) {
                 .or(`preferred_page_id.eq.${pageIdOrIgId},preferred_instagram_id.eq.${pageIdOrIgId}`)
                 .eq('status', 'active')
                 .limit(1)
-                .single();
+                .maybeSingle();
 
             if (!matchedIntegration) {
                 console.warn(`No exact matching integration found for ID: ${pageIdOrIgId}. Falling back to default active Meta integration.`);
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
                     .eq('platform', 'meta')
                     .eq('status', 'active')
                     .limit(1)
-                    .single();
+                    .maybeSingle();
 
                 if (fallbackIntegration) {
                     matchedIntegration = fallbackIntegration;
