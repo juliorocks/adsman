@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { approveAndSendInteraction, ignoreInteraction } from "@/actions/interactions";
+import { approveAndSendInteraction, ignoreInteraction, regenerateInteraction } from "@/actions/interactions";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, ThumbsUp, Trash2, Send, CheckCircle2, AlertCircle } from "lucide-react";
+import { MessageSquare, ThumbsUp, Trash2, Send, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -38,6 +38,24 @@ export function InboxList({ records }: { records: any[] }) {
             const { success } = await ignoreInteraction(interactionId);
             if (success) {
                 toast.info("Interação descartada.");
+            }
+        } finally {
+            setLoadingMap(prev => ({ ...prev, [interactionId]: false }));
+        }
+    };
+
+    const handleRegenerate = async (interactionId: string) => {
+        setLoadingMap(prev => ({ ...prev, [interactionId]: true }));
+        try {
+            const { success } = await regenerateInteraction(interactionId);
+            if (success) {
+                // Clear any manual edits
+                setEditedTexts(prev => {
+                    const next = { ...prev };
+                    delete next[interactionId];
+                    return next;
+                });
+                toast.success("Resposta enviada para reprocessamento.");
             }
         } finally {
             setLoadingMap(prev => ({ ...prev, [interactionId]: false }));
@@ -209,6 +227,16 @@ export function InboxList({ records }: { records: any[] }) {
 
                                             {/* ACTION BUTTONS & TIME */}
                                             <div className="flex items-center gap-1 flex-shrink-0 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-1 border border-slate-100 dark:border-slate-800">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                                    onClick={() => handleRegenerate(record.id)}
+                                                    disabled={loadingMap[record.id] || record.status === 'PENDING'}
+                                                    title="Regerar Resposta (IA)"
+                                                >
+                                                    <RefreshCw className={`h-4 w-4 ${loadingMap[record.id] ? "animate-spin" : ""}`} />
+                                                </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"

@@ -238,3 +238,45 @@ export async function ignoreInteraction(interactionId: string) {
     revalidatePath("/dashboard/inbox");
     return { success: true };
 }
+
+export async function regenerateInteraction(interactionId: string) {
+    const supabase = await createClient();
+    const { data: userAuth } = await supabase.auth.getUser();
+
+    let user = userAuth?.user as any;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
+
+    if (!user) {
+        return { success: false, error: "Não autorizado" };
+    }
+
+    const db = getDbClient(user, supabase);
+
+    // Reset status to PENDING
+    const { error } = await db.from("social_interactions").update({
+        status: "PENDING",
+        ai_response: null,
+        error_log: null
+    }).eq("id", interactionId).in("status", ["DRAFT", "FAILED"]);
+
+    if (error) {
+        return { success: false, error: error.message };
+    }
+
+    // Ping the cron endpoint to process it faster
+    try {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adsman.vercel.app';
+        fetch(`${appUrl}/api/cron/community-manager`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${process.env.CRON_SECRET || ''}`
+            }
+        }).catch(() => { }); // fire and forget
+    } catch (e) {
+        // ignore
+    }
+
+    revalidatePath("/dashboard/inbox");
+    return { success: true };
+}
