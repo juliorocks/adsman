@@ -14,24 +14,23 @@ export async function selectAdAccount(accountId: string, formData: FormData) {
     const devSession = cookies().get("dev_session");
 
     if (!user && devSession) {
-        user = { id: "mock_user_id_dev" } as any;
+        user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
     }
 
     if (!user) throw new Error("Unauthorized");
 
-    if (user.id !== "mock_user_id_dev") {
-        const { error } = await supabase
-            .from("integrations")
-            .update({ ad_account_id: accountId })
-            .eq("user_id", user.id)
-            .eq("platform", "meta");
+    const { error } = await supabase
+        .from("integrations")
+        .update({ ad_account_id: accountId })
+        .eq("user_id", user.id)
+        .eq("platform", "meta");
 
-        if (error) {
-            console.error(error);
-            throw new Error("Failed to update account");
-        }
-    } else {
-        // Save to cookie for mock user session
+    if (error) {
+        console.error(error);
+        throw new Error("Failed to update account");
+    }
+
+    if (user.id === "de70c0de-ad00-4000-8000-000000000000") {
         cookies().set("dev_ad_account_id", accountId, { httpOnly: true, path: "/" });
     }
 
@@ -47,22 +46,20 @@ export async function disconnectMeta() {
     const devSession = cookies().get("dev_session");
 
     if (!user && devSession) {
-        user = { id: "mock_user_id_dev" } as any;
+        user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
     }
 
     if (!user) throw new Error("Unauthorized");
 
-    if (user.id !== "mock_user_id_dev") {
-        const { error } = await supabase
-            .from("integrations")
-            .delete()
-            .eq("user_id", user.id)
-            .eq("platform", "meta");
+    const { error } = await supabase
+        .from("integrations")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("platform", "meta");
 
-        if (error) {
-            console.error(error);
-            throw new Error("Failed to disconnect");
-        }
+    if (error) {
+        console.error(error);
+        throw new Error("Failed to disconnect");
     }
 
     // Clear all possible mock/dev cookies
@@ -80,31 +77,30 @@ export async function saveOpenAIKey(key: string) {
 
     let user = supabaseUser;
     const devSession = cookies().get("dev_session");
-    if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
+    if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
     if (!user) throw new Error("Unauthorized");
 
     const encryptedKey = encrypt(key.trim());
 
-    if (user.id === "mock_user_id_dev") {
-        // Save to cookie for dev/mock mode to avoid UUID database error
-        cookies().set("dev_openai_token", encryptedKey, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 30 });
-    } else {
-        const { error } = await supabase
-            .from("integrations")
-            .upsert({
-                user_id: user.id,
-                platform: "openai",
-                access_token_ref: encryptedKey,
-                status: "active",
-                updated_at: new Date().toISOString()
-            }, {
-                onConflict: "user_id,platform"
-            });
+    const { error } = await supabase
+        .from("integrations")
+        .upsert({
+            user_id: user.id,
+            platform: "openai",
+            access_token_ref: encryptedKey,
+            status: "active",
+            updated_at: new Date().toISOString()
+        }, {
+            onConflict: "user_id,platform"
+        });
 
-        if (error) {
-            console.error("Supabase error saving OpenAI key:", error);
-            throw new Error(error.message);
-        }
+    if (error) {
+        console.error("Supabase error saving OpenAI key:", error);
+        throw new Error(error.message);
+    }
+
+    if (user.id === "de70c0de-ad00-4000-8000-000000000000") {
+        cookies().set("dev_openai_token", encryptedKey, { httpOnly: true, path: "/", maxAge: 60 * 60 * 24 * 30 });
     }
 
     revalidatePath("/dashboard/settings");
@@ -117,21 +113,21 @@ export async function toggleAutonomousMode(enabled: boolean) {
 
     let user = supabaseUser;
     const devSession = cookies().get("dev_session");
-    if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
+    if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
     if (!user) throw new Error("Unauthorized");
 
-    if (user.id !== "mock_user_id_dev") {
-        const { error } = await supabase
-            .from("integrations")
-            .update({ is_autonomous: enabled })
-            .eq("user_id", user.id)
-            .eq("platform", "meta");
+    const { error } = await supabase
+        .from("integrations")
+        .update({ is_autonomous: enabled })
+        .eq("user_id", user.id)
+        .eq("platform", "meta");
 
-        if (error) {
-            console.error(error);
-            throw new Error("Failed to update autonomous mode");
-        }
-    } else {
+    if (error) {
+        console.error(error);
+        throw new Error("Failed to update autonomous mode");
+    }
+
+    if (user.id === "de70c0de-ad00-4000-8000-000000000000") {
         cookies().set("dev_is_autonomous", enabled ? "true" : "false", { httpOnly: true, path: "/" });
     }
 

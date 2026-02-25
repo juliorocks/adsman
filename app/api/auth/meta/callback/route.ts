@@ -19,10 +19,10 @@ export async function GET(request: NextRequest) {
         const supabase = await createClient();
         let { data: { user } } = await supabase.auth.getUser();
 
-        // Silent support for dev_session to prevent loop
+        // Support for dev_session with real mock UUID to allow DB writes for webhooks
         const devSession = cookies().get("dev_session");
         if (!user && devSession) {
-            user = { id: "mock_user_id_dev" } as any;
+            user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
         }
 
         if (!user) {
@@ -36,20 +36,20 @@ export async function GET(request: NextRequest) {
         const encryptedToken = encrypt(accessToken);
 
         // 3. Save Integration
-        if (user.id !== "mock_user_id_dev") {
-            const { error: dbError } = await supabase
-                .from("integrations")
-                .upsert({
-                    user_id: user.id,
-                    platform: "meta",
-                    access_token_ref: encryptedToken,
-                    status: "active",
-                    updated_at: new Date().toISOString()
-                }, { onConflict: "user_id, platform" });
+        const { error: dbError } = await supabase
+            .from("integrations")
+            .upsert({
+                user_id: user.id,
+                platform: "meta",
+                access_token_ref: encryptedToken,
+                status: "active",
+                updated_at: new Date().toISOString()
+            }, { onConflict: "user_id, platform" });
 
-            if (dbError) throw dbError;
-        } else {
-            // Store real token in cookie for dev user session
+        if (dbError) throw dbError;
+
+        // Keep cookie strictly for dev UI edge cases if needed
+        if (user.id === "de70c0de-ad00-4000-8000-000000000000") {
             cookies().set("dev_meta_token", encryptedToken, { httpOnly: true, path: "/" });
         }
 
