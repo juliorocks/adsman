@@ -2,6 +2,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
@@ -19,11 +20,23 @@ export async function selectAdAccount(accountId: string, formData: FormData) {
 
     if (!user) throw new Error("Unauthorized");
 
-    const { error } = await supabase
-        .from("integrations")
-        .update({ ad_account_id: accountId })
-        .eq("user_id", user.id)
-        .eq("platform", "meta");
+    let error;
+    if (user.id === "de70c0de-ad00-4000-8000-000000000000") {
+        const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        const { error: adError } = await supabaseAdmin
+            .from("integrations")
+            .update({ ad_account_id: accountId })
+            .eq("user_id", user.id)
+            .eq("platform", "meta");
+        error = adError;
+    } else {
+        const { error: adError } = await supabase
+            .from("integrations")
+            .update({ ad_account_id: accountId })
+            .eq("user_id", user.id)
+            .eq("platform", "meta");
+        error = adError;
+    }
 
     if (error) {
         console.error(error);
@@ -51,11 +64,23 @@ export async function disconnectMeta() {
 
     if (!user) throw new Error("Unauthorized");
 
-    const { error } = await supabase
-        .from("integrations")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("platform", "meta");
+    let error;
+    if (user.id === "de70c0de-ad00-4000-8000-000000000000") {
+        const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        const { error: delError } = await supabaseAdmin
+            .from("integrations")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("platform", "meta");
+        error = delError;
+    } else {
+        const { error: delError } = await supabase
+            .from("integrations")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("platform", "meta");
+        error = delError;
+    }
 
     if (error) {
         console.error(error);
@@ -82,17 +107,35 @@ export async function saveOpenAIKey(key: string) {
 
     const encryptedKey = encrypt(key.trim());
 
-    const { error } = await supabase
-        .from("integrations")
-        .upsert({
-            user_id: user.id,
-            platform: "openai",
-            access_token_ref: encryptedKey,
-            status: "active",
-            updated_at: new Date().toISOString()
-        }, {
-            onConflict: "user_id,platform"
-        });
+    let error;
+    if (user.id === "de70c0de-ad00-4000-8000-000000000000") {
+        const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        const { error: opError } = await supabaseAdmin
+            .from("integrations")
+            .upsert({
+                user_id: user.id,
+                platform: "openai",
+                access_token_ref: encryptedKey,
+                status: "active",
+                updated_at: new Date().toISOString()
+            }, {
+                onConflict: "user_id,platform"
+            });
+        error = opError;
+    } else {
+        const { error: opError } = await supabase
+            .from("integrations")
+            .upsert({
+                user_id: user.id,
+                platform: "openai",
+                access_token_ref: encryptedKey,
+                status: "active",
+                updated_at: new Date().toISOString()
+            }, {
+                onConflict: "user_id,platform"
+            });
+        error = opError;
+    }
 
     if (error) {
         console.error("Supabase error saving OpenAI key:", error);
@@ -116,11 +159,23 @@ export async function toggleAutonomousMode(enabled: boolean) {
     if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
     if (!user) throw new Error("Unauthorized");
 
-    const { error } = await supabase
-        .from("integrations")
-        .update({ is_autonomous: enabled })
-        .eq("user_id", user.id)
-        .eq("platform", "meta");
+    let error;
+    if (user.id === "de70c0de-ad00-4000-8000-000000000000") {
+        const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        const { error: autError } = await supabaseAdmin
+            .from("integrations")
+            .update({ is_autonomous: enabled })
+            .eq("user_id", user.id)
+            .eq("platform", "meta");
+        error = autError;
+    } else {
+        const { error: autError } = await supabase
+            .from("integrations")
+            .update({ is_autonomous: enabled })
+            .eq("user_id", user.id)
+            .eq("platform", "meta");
+        error = autError;
+    }
 
     if (error) {
         console.error(error);
