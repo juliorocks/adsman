@@ -30,10 +30,10 @@ export function AgentContextForm({ integration }: { integration: any }) {
                 <div className="h-8 w-8 rounded-full bg-primary-900/50 flex flex-shrink-0 items-center justify-center">
                     <Bot className="h-4 w-4 text-primary-400" />
                 </div>
-                <h3 className="text-md font-semibold text-white">Personalidade: Conta {integration.platform.toUpperCase()}</h3>
+                <h3 className="text-md font-semibold text-white">Personalidade da Assistente (Redes Sociais)</h3>
             </div>
             <p className="text-xs text-slate-400 mb-4">
-                Descreva como a sua inteligência artificial deve se portar, nome, tom de voz, persona, e qualificação exclusiva para quem vem desta integração ({integration.preferred_instagram_id || integration.preferred_page_id || 'Principal'}).
+                Descreva como a sua inteligência artificial deve se portar, nome, tom de voz, persona, e qualificação exclusiva para quando for responder clientes no Instagram e Facebook.
             </p>
             <textarea
                 value={context}

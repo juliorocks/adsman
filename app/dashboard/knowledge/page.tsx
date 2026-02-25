@@ -31,7 +31,9 @@ export default async function KnowledgeBasesPage() {
                 .from("integrations")
                 .select("id, platform, preferred_instagram_id, preferred_page_id, agent_context")
                 .eq("user_id", user.id)
-                .eq("status", "active");
+                .eq("platform", "meta")
+                .eq("status", "active")
+                .limit(1);
 
             integrations = intgData || [];
         }
