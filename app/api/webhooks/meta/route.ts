@@ -112,6 +112,17 @@ export async function POST(request: Request) {
         // Fire and forget (actually awaiting parallel inserts but they are fast)
         if (interactionPromises.length > 0) {
             await Promise.allSettled(interactionPromises);
+
+            // Asynchronously trigger the AI Community Manager worker
+            // We do not await this, we just fire it so it starts processing in the background immediately
+            // Requires the absolute URL, assuming window or env hostname. We will use a standard env check or hardcode for now.
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adsman.vercel.app';
+            fetch(`${appUrl}/api/cron/community-manager`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${process.env.CRON_SECRET || ''}`
+                }
+            }).catch(e => console.error("Failed to trigger background AI worker", e));
         }
 
         // MUST return 200 OK within 20 seconds to keep Meta happy
