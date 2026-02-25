@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { approveAndSendInteraction, ignoreInteraction, regenerateInteraction } from "@/actions/interactions";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, ThumbsUp, Trash2, Send, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
@@ -12,6 +13,21 @@ export function InboxList({ records }: { records: any[] }) {
     const [editedTexts, setEditedTexts] = useState<Record<string, string>>({});
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isBulkApproving, setIsBulkApproving] = useState(false);
+    const router = useRouter();
+
+    const hasPending = records.some(r => r.status === "PENDING");
+
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (hasPending) {
+            interval = setInterval(() => {
+                router.refresh();
+            }, 3000);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [hasPending, router]);
 
     const handleApprove = async (interactionId: string) => {
         const record = records.find(r => r.id === interactionId);
