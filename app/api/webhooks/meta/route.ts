@@ -72,7 +72,7 @@ export async function POST(request: Request) {
                 for (const event of entry.messaging) {
                     if (event.message && !event.message.is_echo && event.sender.id !== pageIdOrIgId) {
                         interactionPromises.push(
-                            supabaseAdmin.from('social_interactions').insert({
+                            supabaseAdmin.from('social_interactions').upsert({
                                 integration_id: matchedIntegration.id,
                                 platform: (body.object === 'instagram' ? 'instagram' : 'facebook'),
                                 interaction_type: 'message',
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
                                     page_id: pageIdOrIgId,
                                     sender_name: event.sender.name || 'Usuário'
                                 }
-                            })
+                            }, { onConflict: 'integration_id,external_id', ignoreDuplicates: true })
                         );
                     }
                 }
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
 
                         if (isAdd && !val.is_hidden && !isFromSelf) {
                             interactionPromises.push(
-                                supabaseAdmin.from('social_interactions').insert({
+                                supabaseAdmin.from('social_interactions').upsert({
                                     integration_id: matchedIntegration.id,
                                     platform: (isInstagram ? 'instagram' : 'facebook'),
                                     interaction_type: 'comment',
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
                                         raw: val,
                                         page_id: pageIdOrIgId
                                     }
-                                })
+                                }, { onConflict: 'integration_id,external_id', ignoreDuplicates: true })
                             );
                         }
                     }

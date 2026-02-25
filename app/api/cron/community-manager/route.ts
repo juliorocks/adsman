@@ -210,20 +210,29 @@ Crie SOMENTE a resposta exata para o cliente, sem aspas, sem introduções suas.
                 }
 
                 // Fetch Sender Details (optional/best effort)
-                if (!enrichedContext.sender_name || !enrichedContext.sender_pic) {
-                    if (platform === 'facebook') {
-                        const senderRes = await fetch(`https://graph.facebook.com/v21.0/${interaction.sender_id}?fields=name,profile_pic,first_name,last_name&access_token=${pageAccessToken}`);
-                        const senderData = await senderRes.json();
-                        if (!senderData.error) {
-                            enrichedContext.sender_name = senderData.name || `${senderData.first_name || ''} ${senderData.last_name || ''}`.trim() || enrichedContext.sender_name;
-                            enrichedContext.sender_pic = senderData.profile_pic || enrichedContext.sender_pic;
+                if (!enrichedContext.sender_name || !enrichedContext.sender_pic || enrichedContext.sender_name === 'Usuário') {
+                    try {
+                        if (platform === 'facebook' || interaction.interaction_type === 'message') {
+                            const senderRes = await fetch(`https://graph.facebook.com/v21.0/${interaction.sender_id}?fields=name,profile_pic,first_name,last_name,username&access_token=${pageAccessToken}`);
+                            const senderData = await senderRes.json();
+                            if (!senderData.error) {
+                                const resolvedName = senderData.name || senderData.username || `${senderData.first_name || ''} ${senderData.last_name || ''}`.trim();
+                                if (resolvedName) enrichedContext.sender_name = resolvedName;
+                                enrichedContext.sender_pic = senderData.profile_pic || enrichedContext.sender_pic;
+                            } else {
+                                console.warn(`Sender fetch error for ${platform} ${interaction.interaction_type}:`, senderData.error.message);
+                            }
+                        } else if (platform === 'instagram' && enrichedContext.sender_name && igBusinessAccountId) {
+                            const senderRes = await fetch(`https://graph.facebook.com/v21.0/${igBusinessAccountId}?fields=business_discovery.username(${enrichedContext.sender_name}){profile_picture_url}&access_token=${pageAccessToken}`);
+                            const senderData = await senderRes.json();
+                            if (!senderData.error && senderData.business_discovery) {
+                                enrichedContext.sender_pic = senderData.business_discovery.profile_picture_url || enrichedContext.sender_pic;
+                            } else {
+                                console.warn(`IG Business Discovery error:`, senderData.error?.message);
+                            }
                         }
-                    } else if (platform === 'instagram' && enrichedContext.sender_name && igBusinessAccountId) {
-                        const senderRes = await fetch(`https://graph.facebook.com/v21.0/${igBusinessAccountId}?fields=business_discovery.username(${enrichedContext.sender_name}){profile_picture_url}&access_token=${pageAccessToken}`);
-                        const senderData = await senderRes.json();
-                        if (!senderData.error && senderData.business_discovery) {
-                            enrichedContext.sender_pic = senderData.business_discovery.profile_picture_url || enrichedContext.sender_pic;
-                        }
+                    } catch (e) {
+                        console.warn("Sender fetch threw exception:", e);
                     }
                 }
             }
