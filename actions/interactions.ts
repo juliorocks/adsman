@@ -109,12 +109,40 @@ export async function approveAndSendInteraction(interactionId: string, editedRes
     }
 
     // 2. Map data and Decrypt Token
-    let accessToken;
+    let userAccessToken;
     try {
-        accessToken = decrypt(interaction.integration.access_token_ref);
+        userAccessToken = decrypt(interaction.integration.access_token_ref);
     } catch (e) {
         // Fallback or handle missing 
-        accessToken = process.env.META_ACCESS_TOKEN || "";
+        userAccessToken = process.env.META_ACCESS_TOKEN || "";
+    }
+
+    let accessToken = userAccessToken;
+
+    let pageIdOrIgId = interaction.context?.page_id;
+    if (!pageIdOrIgId && interaction.interaction_type === 'message') {
+        pageIdOrIgId = interaction.context?.raw?.recipient?.id;
+    }
+
+    if (pageIdOrIgId && userAccessToken) {
+        try {
+            const accRes = await fetch(`${META_GRAPH_URL}/me/accounts?fields=id,access_token,instagram_business_account,connected_instagram_account&access_token=${userAccessToken}`);
+            const accData = await accRes.json();
+            if (accData.data) {
+                for (const page of accData.data) {
+                    if (
+                        page.id === pageIdOrIgId ||
+                        page.instagram_business_account?.id === pageIdOrIgId ||
+                        page.connected_instagram_account?.id === pageIdOrIgId
+                    ) {
+                        accessToken = page.access_token;
+                        break;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Failed to fetch dynamically bound page token", e);
+        }
     }
 
     let metaSuccess = false;
@@ -132,7 +160,11 @@ export async function approveAndSendInteraction(interactionId: string, editedRes
             if (graphData.error) throw new Error(graphData.error.message);
             metaSuccess = true;
         } else if (interaction.interaction_type === 'message') {
-            const graphRes = await fetch(`${META_GRAPH_URL}/me/messages`, {
+            const endpoint = interaction.platform === 'instagram'
+                ? `${META_GRAPH_URL}/${pageIdOrIgId}/messages`
+                : `${META_GRAPH_URL}/me/messages`;
+
+            const graphRes = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

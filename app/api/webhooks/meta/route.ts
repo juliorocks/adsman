@@ -79,7 +79,7 @@ export async function POST(request: Request) {
                                 external_id: event.message.mid,
                                 sender_id: event.sender.id,
                                 message: event.message.text || '[Media Attachment]',
-                                context: { raw: event }
+                                context: { raw: event, page_id: pageIdOrIgId }
                             })
                         );
                     }
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
                                     external_id: val.comment_id,
                                     sender_id: val.from?.id || 'unknown',
                                     message: val.text || val.message,
-                                    context: { post_id: val.post_id, raw: val }
+                                    context: { post_id: val.post_id, raw: val, page_id: pageIdOrIgId }
                                 })
                             );
                         }
