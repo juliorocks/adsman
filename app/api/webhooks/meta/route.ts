@@ -41,7 +41,7 @@ export async function POST(request: Request) {
             const pageIdOrIgId = entry.id; // Usually the object ID receiving the message
 
             // Resolve integration by page id or ig id
-            const { data: matchedIntegration } = await supabaseAdmin
+            let { data: matchedIntegration } = await supabaseAdmin
                 .from('integrations')
                 .select('id, platform')
                 .or(`preferred_page_id.eq.${pageIdOrIgId},preferred_instagram_id.eq.${pageIdOrIgId}`)
@@ -50,8 +50,21 @@ export async function POST(request: Request) {
                 .single();
 
             if (!matchedIntegration) {
-                console.warn(`No active integration found for ID: ${pageIdOrIgId}`);
-                continue;
+                console.warn(`No exact matching integration found for ID: ${pageIdOrIgId}. Falling back to default active Meta integration.`);
+                const { data: fallbackIntegration } = await supabaseAdmin
+                    .from('integrations')
+                    .select('id, platform')
+                    .eq('platform', 'meta')
+                    .eq('status', 'active')
+                    .limit(1)
+                    .single();
+
+                if (fallbackIntegration) {
+                    matchedIntegration = fallbackIntegration;
+                } else {
+                    console.warn(`No active Meta integration available at all.`);
+                    continue;
+                }
             }
 
             // Handle Messaging (Inbox)
