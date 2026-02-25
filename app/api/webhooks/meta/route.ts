@@ -86,21 +86,34 @@ export async function POST(request: Request) {
                 }
             }
 
-            // Handle Changes (Comments/Feed)
+            // Handle Changes (Comments/Feed) - Facebook uses 'changes', Instagram uses 'changes' too for comments
             if (entry.changes) {
                 for (const change of entry.changes) {
+                    // Instagram uses field 'comments', Facebook uses 'comments' or 'feed'
                     if (change.field === 'comments' || change.field === 'feed') {
                         const val = change.value;
-                        if (val.item === 'comment' && val.verb === 'add' && !val.is_hidden) {
+
+                        // Instagram comments are often simpler: { id, from, text }
+                        // Facebook feed changes are: { item, verb, comment_id, etc }
+                        const isInstagram = body.object === 'instagram' || val.media_id;
+
+                        // Determine if it's an 'add' verb (Instagram comments from webhooks are mostly additions)
+                        const isAdd = val.verb === 'add' || (!val.verb && val.id);
+
+                        if (isAdd && !val.is_hidden) {
                             interactionPromises.push(
                                 supabaseAdmin.from('social_interactions').insert({
                                     integration_id: matchedIntegration.id,
-                                    platform: (body.object === 'instagram' ? 'instagram' : 'facebook'),
+                                    platform: (isInstagram ? 'instagram' : 'facebook'),
                                     interaction_type: 'comment',
-                                    external_id: val.comment_id,
+                                    external_id: val.comment_id || val.id,
                                     sender_id: val.from?.id || 'unknown',
                                     message: val.text || val.message,
-                                    context: { post_id: val.post_id, raw: val, page_id: pageIdOrIgId }
+                                    context: {
+                                        post_id: val.post_id || val.media_id,
+                                        raw: val,
+                                        page_id: pageIdOrIgId
+                                    }
                                 })
                             );
                         }
