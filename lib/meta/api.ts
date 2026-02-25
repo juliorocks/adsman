@@ -17,7 +17,7 @@ export function getAuthUrl(state: string) {
         client_id: appId,
         redirect_uri: redirectUri,
         state: state,
-        scope: "email,ads_management,ads_read,business_management,pages_show_list,pages_manage_metadata,pages_read_engagement,pages_messaging",
+        scope: "email,ads_management,ads_read,business_management,pages_show_list,pages_manage_metadata,pages_read_engagement,pages_messaging,instagram_basic,instagram_manage_comments,instagram_manage_messages",
         response_type: "code",
     });
 

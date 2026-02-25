@@ -136,6 +136,7 @@ export async function approveAndSendInteraction(interactionId: string, editedRes
                         page.connected_instagram_account?.id === pageIdOrIgId
                     ) {
                         accessToken = page.access_token;
+                        // For Instagram, we must use the PAGE's scope for the 'me/messages' endpoint to work correctly
                         break;
                     }
                 }
@@ -161,9 +162,8 @@ export async function approveAndSendInteraction(interactionId: string, editedRes
             metaSuccess = true;
         } else if (interaction.interaction_type === 'message') {
             const isInstagram = interaction.platform === 'instagram';
-            const endpoint = isInstagram
-                ? `${META_GRAPH_URL}/${pageIdOrIgId}/messages`
-                : `${META_GRAPH_URL}/me/messages`;
+            // With a Page Access Token, 'me/messages' is the standard for both platforms
+            const endpoint = `${META_GRAPH_URL}/me/messages`;
 
             const payload: any = {
                 recipient: { id: interaction.sender_id },
@@ -171,6 +171,7 @@ export async function approveAndSendInteraction(interactionId: string, editedRes
                 access_token: accessToken
             };
 
+            // Instagram requires no messaging_type, Facebook Messenger prefers RESPONSE
             if (!isInstagram) {
                 payload.messaging_type = "RESPONSE";
             }
