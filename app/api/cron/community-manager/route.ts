@@ -171,6 +171,8 @@ Crie SOMENTE a resposta exata para o cliente, sem aspas, sem introduções suas.
             if (pageIdOrIgId) {
                 const accRes = await fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=id,access_token,instagram_business_account&access_token=${userAccessToken}`);
                 const accData = await accRes.json();
+                let igBusinessAccountId: string | null = null;
+
                 if (accData.data) {
                     // Try to find as a direct Facebook Page
                     let page = accData.data.find((p: any) => p.id === pageIdOrIgId);
@@ -180,29 +182,48 @@ Crie SOMENTE a resposta exata para o cliente, sem aspas, sem introduções suas.
                         page = accData.data.find((p: any) => p.instagram_business_account?.id === pageIdOrIgId);
                     }
 
-                    if (page) pageAccessToken = page.access_token;
+                    if (page) {
+                        pageAccessToken = page.access_token;
+                        if (page.instagram_business_account?.id) {
+                            igBusinessAccountId = page.instagram_business_account.id;
+                        }
+                    }
                 }
 
                 // Fetch Post Details
                 const postId = interaction.context?.post_id;
                 if (postId) {
-                    const postRes = await fetch(`https://graph.facebook.com/v21.0/${postId}?fields=message,full_picture,permalink_url,caption&access_token=${pageAccessToken}`);
+                    const fields = platform === 'instagram'
+                        ? 'caption,media_url,permalink'
+                        : 'message,full_picture,permalink_url';
+
+                    const postRes = await fetch(`https://graph.facebook.com/v21.0/${postId}?fields=${fields}&access_token=${pageAccessToken}`);
                     const postData = await postRes.json();
+
                     if (!postData.error) {
                         enrichedContext.post_preview = postData.message || postData.caption || "[Sem texto]";
-                        enrichedContext.post_image = postData.full_picture;
-                        enrichedContext.post_link = postData.permalink_url;
+                        enrichedContext.post_image = postData.full_picture || postData.media_url;
+                        enrichedContext.post_link = postData.permalink_url || postData.permalink;
+                    } else {
+                        console.warn(`Post fetch error for ${platform}:`, postData.error.message);
                     }
                 }
 
                 // Fetch Sender Details (optional/best effort)
-                // Note: For Instagram followers, this works better via the Page Access Token
                 if (!enrichedContext.sender_name || !enrichedContext.sender_pic) {
-                    const senderRes = await fetch(`https://graph.facebook.com/v21.0/${interaction.sender_id}?fields=name,profile_pic,first_name,last_name,username&access_token=${pageAccessToken}`);
-                    const senderData = await senderRes.json();
-                    if (!senderData.error) {
-                        enrichedContext.sender_name = senderData.name || senderData.username || `${senderData.first_name || ''} ${senderData.last_name || ''}`.trim() || enrichedContext.sender_name;
-                        enrichedContext.sender_pic = senderData.profile_pic || enrichedContext.sender_pic;
+                    if (platform === 'facebook') {
+                        const senderRes = await fetch(`https://graph.facebook.com/v21.0/${interaction.sender_id}?fields=name,profile_pic,first_name,last_name&access_token=${pageAccessToken}`);
+                        const senderData = await senderRes.json();
+                        if (!senderData.error) {
+                            enrichedContext.sender_name = senderData.name || `${senderData.first_name || ''} ${senderData.last_name || ''}`.trim() || enrichedContext.sender_name;
+                            enrichedContext.sender_pic = senderData.profile_pic || enrichedContext.sender_pic;
+                        }
+                    } else if (platform === 'instagram' && enrichedContext.sender_name && igBusinessAccountId) {
+                        const senderRes = await fetch(`https://graph.facebook.com/v21.0/${igBusinessAccountId}?fields=business_discovery.username(${enrichedContext.sender_name}){profile_picture_url}&access_token=${pageAccessToken}`);
+                        const senderData = await senderRes.json();
+                        if (!senderData.error && senderData.business_discovery) {
+                            enrichedContext.sender_pic = senderData.business_discovery.profile_picture_url || enrichedContext.sender_pic;
+                        }
                     }
                 }
             }
