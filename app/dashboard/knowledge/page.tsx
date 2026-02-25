@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { AgentContextForm } from "@/components/dashboard/AgentContextForm";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +23,11 @@ export default async function KnowledgeBasesPage() {
         if (user) {
             bases = await getKnowledgeBases();
 
-            const { data: intgData } = await supabase
+            const db = user.id === "de70c0de-ad00-4000-8000-000000000000"
+                ? createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+                : supabase;
+
+            const { data: intgData } = await db
                 .from("integrations")
                 .select("id, platform, preferred_instagram_id, preferred_page_id, agent_context")
                 .eq("user_id", user.id)
