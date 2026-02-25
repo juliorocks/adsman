@@ -71,30 +71,53 @@ export function InboxList({ records }: { records: any[] }) {
                                 exit={{ opacity: 0, scale: 0.95, height: 0 }}
                                 className="border rounded-xl p-5 bg-white dark:bg-slate-900 dark:border-slate-800 shadow-sm space-y-4"
                             >
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400 px-2 py-0.5 rounded-full">
-                                                {record.platform} • {record.interaction_type}
-                                            </span>
-                                            {record.status === 'FAILED' && (
-                                                <span className="text-xs font-semibold text-red-600 bg-red-100 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                    <AlertCircle className="h-3 w-3" /> Falhou no Envio
-                                                </span>
-                                            )}
-                                            {record.status === 'PENDING' && (
-                                                <span className="text-xs font-semibold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
-                                                    Gerando Resposta IA...
+                                <div className="flex gap-4 items-start">
+                                    <div className="flex-shrink-0">
+                                        <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700">
+                                            {record.context?.sender_pic ? (
+                                                <img src={record.context.sender_pic} alt="" className="h-full w-full object-cover" />
+                                            ) : (
+                                                <span className="text-xs font-bold text-slate-400">
+                                                    {(record.context?.sender_name?.[0] || record.platform?.[0])?.toUpperCase()}
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-200 line-clamp-2">
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+                                                {record.context?.sender_name || 'Usuário'}
+                                            </span>
+                                            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-400 px-1.5 py-0.5 rounded">
+                                                {record.platform} • {record.interaction_type}
+                                            </span>
+                                            {record.status === 'FAILED' && (
+                                                <span className="text-[10px] font-semibold text-red-600 bg-red-100 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                                    <AlertCircle className="h-2.5 w-2.5" /> Falha
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-sm text-slate-600 dark:text-slate-400 italic mb-2">
                                             "{record.message}"
                                         </p>
+
+                                        {record.context?.post_preview && (
+                                            <div className="mt-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex gap-3 items-center">
+                                                {record.context.post_image && (
+                                                    <img src={record.context.post_image} className="h-12 w-12 rounded object-cover flex-shrink-0" />
+                                                )}
+                                                <div className="min-w-0">
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase">Post Relacionado</p>
+                                                    <p className="text-xs text-slate-600 dark:text-slate-400 truncate">
+                                                        {record.context.post_preview}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                    <span className="text-xs text-slate-400">
+                                    <div className="text-[10px] text-slate-400 whitespace-nowrap">
                                         {new Date(record.created_at).toLocaleDateString()}
-                                    </span>
+                                    </div>
                                 </div>
 
                                 <div className="relative">

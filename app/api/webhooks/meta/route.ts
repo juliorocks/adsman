@@ -70,7 +70,7 @@ export async function POST(request: Request) {
             // Handle Messaging (Inbox)
             if (entry.messaging) {
                 for (const event of entry.messaging) {
-                    if (event.message && !event.message.is_echo) {
+                    if (event.message && !event.message.is_echo && event.sender.id !== pageIdOrIgId) {
                         interactionPromises.push(
                             supabaseAdmin.from('social_interactions').insert({
                                 integration_id: matchedIntegration.id,
@@ -79,7 +79,11 @@ export async function POST(request: Request) {
                                 external_id: event.message.mid,
                                 sender_id: event.sender.id,
                                 message: event.message.text || '[Media Attachment]',
-                                context: { raw: event, page_id: pageIdOrIgId }
+                                context: {
+                                    raw: event,
+                                    page_id: pageIdOrIgId,
+                                    sender_name: event.sender.name || 'Usuário'
+                                }
                             })
                         );
                     }
@@ -100,7 +104,9 @@ export async function POST(request: Request) {
                         // Determine if it's an 'add' verb (Instagram comments from webhooks are mostly additions)
                         const isAdd = val.verb === 'add' || (!val.verb && val.id);
 
-                        if (isAdd && !val.is_hidden) {
+                        const isFromSelf = val.from?.id === pageIdOrIgId;
+
+                        if (isAdd && !val.is_hidden && !isFromSelf) {
                             interactionPromises.push(
                                 supabaseAdmin.from('social_interactions').insert({
                                     integration_id: matchedIntegration.id,
@@ -111,6 +117,7 @@ export async function POST(request: Request) {
                                     message: val.text || val.message,
                                     context: {
                                         post_id: val.post_id || val.media_id,
+                                        sender_name: val.from?.name || val.from?.username || 'Seguidor',
                                         raw: val,
                                         page_id: pageIdOrIgId
                                     }

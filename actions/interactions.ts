@@ -54,6 +54,7 @@ export async function getInteractions() {
             ai_response,
             error_log,
             created_at,
+            context,
             integration_id
         `)
         .in("integration_id", integrationIds)

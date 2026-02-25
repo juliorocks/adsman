@@ -150,10 +150,52 @@ Crie SOMENTE a resposta exata para o cliente, sem aspas, sem introduções suas.
 
         const finalReply = response.choices[0].message.content || "Olá! Como podemos ajudar?";
 
+        // 4. Metadata Enrichment (Optional info for UI)
+        let enrichedContext = { ...interaction.context };
+        try {
+            const userAccessToken = decrypt(integration.access_token_ref);
+            let pageAccessToken = userAccessToken;
+            const pageIdOrIgId = interaction.context?.page_id;
+
+            if (pageIdOrIgId) {
+                const accRes = await fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=id,access_token&access_token=${userAccessToken}`);
+                const accData = await accRes.json();
+                if (accData.data) {
+                    const page = accData.data.find((p: any) => p.id === pageIdOrIgId);
+                    if (page) pageAccessToken = page.access_token;
+                }
+
+                // Fetch Post Details
+                const postId = interaction.context?.post_id;
+                if (postId) {
+                    const postRes = await fetch(`https://graph.facebook.com/v21.0/${postId}?fields=message,full_picture,permalink_url&access_token=${pageAccessToken}`);
+                    const postData = await postRes.json();
+                    if (!postData.error) {
+                        enrichedContext.post_preview = postData.message || "[Sem texto]";
+                        enrichedContext.post_image = postData.full_picture;
+                        enrichedContext.post_link = postData.permalink_url;
+                    }
+                }
+
+                // Fetch Sender Details (optional/best effort)
+                if (interaction.interaction_type === 'message' && !enrichedContext.sender_name) {
+                    const senderRes = await fetch(`https://graph.facebook.com/v21.0/${interaction.sender_id}?fields=name,profile_pic&access_token=${pageAccessToken}`);
+                    const senderData = await senderRes.json();
+                    if (!senderData.error) {
+                        enrichedContext.sender_name = senderData.name;
+                        enrichedContext.sender_pic = senderData.profile_pic;
+                    }
+                }
+            }
+        } catch (enrErr) {
+            console.warn("Metadata enrichment failed:", enrErr);
+        }
+
         // Save as DRAFT for Copilot approval
         await supabaseAdmin.from('social_interactions').update({
             status: 'DRAFT',
-            ai_response: finalReply
+            ai_response: finalReply,
+            context: enrichedContext
         }).eq('id', id);
 
         return id;
