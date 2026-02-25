@@ -160,19 +160,25 @@ export async function approveAndSendInteraction(interactionId: string, editedRes
             if (graphData.error) throw new Error(graphData.error.message);
             metaSuccess = true;
         } else if (interaction.interaction_type === 'message') {
-            const endpoint = interaction.platform === 'instagram'
+            const isInstagram = interaction.platform === 'instagram';
+            const endpoint = isInstagram
                 ? `${META_GRAPH_URL}/${pageIdOrIgId}/messages`
                 : `${META_GRAPH_URL}/me/messages`;
+
+            const payload: any = {
+                recipient: { id: interaction.sender_id },
+                message: { text: editedResponse },
+                access_token: accessToken
+            };
+
+            if (!isInstagram) {
+                payload.messaging_type = "RESPONSE";
+            }
 
             const graphRes = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    recipient: { id: interaction.sender_id },
-                    message: { text: editedResponse },
-                    messaging_type: "RESPONSE",
-                    access_token: accessToken
-                })
+                body: JSON.stringify(payload)
             });
             const graphData = await graphRes.json();
             if (graphData.error) throw new Error(graphData.error.message);
