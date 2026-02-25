@@ -324,7 +324,10 @@ export async function createSmartCampaignAction(formData: {
         }
 
         let safeObjective = formData.objective;
-        if (safeObjective === 'OUTCOME_SALES' || safeObjective === 'OUTCOME_LEADS') {
+
+        // Safety Fallback: if they want Sales/Leads but don't have a pixel, push as Traffic to avoid Meta API blockers mapping without destination
+        if ((safeObjective === 'OUTCOME_SALES' || safeObjective === 'OUTCOME_LEADS') && !formData.pixelId) {
+            console.warn("WARNING: Sales/Leads objective requested but no Pixel ID provided. Falling back to Traffic to avoid API hard block.");
             safeObjective = 'OUTCOME_TRAFFIC';
         }
 
@@ -346,6 +349,8 @@ export async function createSmartCampaignAction(formData: {
         let optimization_goal = 'LINK_CLICKS';
         if (safeObjective === 'OUTCOME_AWARENESS') {
             optimization_goal = 'REACH';
+        } else if (safeObjective === 'OUTCOME_SALES' || safeObjective === 'OUTCOME_LEADS') {
+            optimization_goal = 'OFFSITE_CONVERSIONS';
         }
 
         const publisher_platforms = ['facebook'];
@@ -371,9 +376,9 @@ export async function createSmartCampaignAction(formData: {
         const endTime = new Date(startTime);
         endTime.setDate(endTime.getDate() + 30);
 
-        const adSetParams = {
+        const adSetParams: any = {
             name: `Conjunto - ${finalCampaignName}`,
-            billing_event: 'IMPRESSIONS' as const,
+            billing_event: 'IMPRESSIONS',
             daily_budget: Math.max(500, parseInt(formData.budget) * 100),
             targeting,
             optimization_goal: optimization_goal,
@@ -381,6 +386,13 @@ export async function createSmartCampaignAction(formData: {
             start_time: startTime.toISOString(),
             end_time: endTime.toISOString(),
         };
+
+        if (safeObjective === 'OUTCOME_SALES' || safeObjective === 'OUTCOME_LEADS') {
+            adSetParams.promoted_object = {
+                pixel_id: formData.pixelId,
+                custom_event_type: safeObjective === 'OUTCOME_SALES' ? 'PURCHASE' : 'LEAD'
+            };
+        }
 
         const adSet = await createAdSet(adAccountId, campaign.id, adSetParams, accessToken, initialStatus);
 
