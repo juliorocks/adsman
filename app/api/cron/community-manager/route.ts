@@ -104,6 +104,17 @@ async function processInteraction(interaction: any, supabaseAdmin: any) {
             }
         }
 
+        // 2.1 Fetch Business Context (quick rules/links)
+        const { data: bContext } = await supabaseAdmin
+            .from('business_context')
+            .select('content, category')
+            .eq('user_id', userId);
+
+        if (bContext && bContext.length > 0) {
+            const bText = bContext.map((bc: any) => `[${bc.category}]: ${bc.content}`).join("\n");
+            contextText += `\n\nREGRAS E LINKS ADICIONAIS:\n${bText}`;
+        }
+
         // 3. AI Generation setup and Key Decryption
         let openaiClient = defaultOpenai;
         const { data: openAiIntegration } = await supabaseAdmin
@@ -158,32 +169,40 @@ Crie SOMENTE a resposta exata para o cliente, sem aspas, sem introduções suas.
             const pageIdOrIgId = interaction.context?.page_id;
 
             if (pageIdOrIgId) {
-                const accRes = await fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=id,access_token&access_token=${userAccessToken}`);
+                const accRes = await fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=id,access_token,instagram_business_account&access_token=${userAccessToken}`);
                 const accData = await accRes.json();
                 if (accData.data) {
-                    const page = accData.data.find((p: any) => p.id === pageIdOrIgId);
+                    // Try to find as a direct Facebook Page
+                    let page = accData.data.find((p: any) => p.id === pageIdOrIgId);
+
+                    // If not found, try to find a page linked to the target Instagram account
+                    if (!page) {
+                        page = accData.data.find((p: any) => p.instagram_business_account?.id === pageIdOrIgId);
+                    }
+
                     if (page) pageAccessToken = page.access_token;
                 }
 
                 // Fetch Post Details
                 const postId = interaction.context?.post_id;
                 if (postId) {
-                    const postRes = await fetch(`https://graph.facebook.com/v21.0/${postId}?fields=message,full_picture,permalink_url&access_token=${pageAccessToken}`);
+                    const postRes = await fetch(`https://graph.facebook.com/v21.0/${postId}?fields=message,full_picture,permalink_url,caption&access_token=${pageAccessToken}`);
                     const postData = await postRes.json();
                     if (!postData.error) {
-                        enrichedContext.post_preview = postData.message || "[Sem texto]";
+                        enrichedContext.post_preview = postData.message || postData.caption || "[Sem texto]";
                         enrichedContext.post_image = postData.full_picture;
                         enrichedContext.post_link = postData.permalink_url;
                     }
                 }
 
                 // Fetch Sender Details (optional/best effort)
-                if (interaction.interaction_type === 'message' && !enrichedContext.sender_name) {
-                    const senderRes = await fetch(`https://graph.facebook.com/v21.0/${interaction.sender_id}?fields=name,profile_pic&access_token=${pageAccessToken}`);
+                // Note: For Instagram followers, this works better via the Page Access Token
+                if (!enrichedContext.sender_name || !enrichedContext.sender_pic) {
+                    const senderRes = await fetch(`https://graph.facebook.com/v21.0/${interaction.sender_id}?fields=name,profile_pic,first_name,last_name,username&access_token=${pageAccessToken}`);
                     const senderData = await senderRes.json();
                     if (!senderData.error) {
-                        enrichedContext.sender_name = senderData.name;
-                        enrichedContext.sender_pic = senderData.profile_pic;
+                        enrichedContext.sender_name = senderData.name || senderData.username || `${senderData.first_name || ''} ${senderData.last_name || ''}`.trim() || enrichedContext.sender_name;
+                        enrichedContext.sender_pic = senderData.profile_pic || enrichedContext.sender_pic;
                     }
                 }
             }

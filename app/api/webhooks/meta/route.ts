@@ -116,7 +116,7 @@ export async function POST(request: Request) {
                                     sender_id: val.from?.id || 'unknown',
                                     message: val.text || val.message,
                                     context: {
-                                        post_id: val.post_id || val.media_id,
+                                        post_id: val.post_id || val.media_id || val.media?.id,
                                         sender_name: val.from?.name || val.from?.username || 'Seguidor',
                                         raw: val,
                                         page_id: pageIdOrIgId

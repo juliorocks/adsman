@@ -102,17 +102,25 @@ export function InboxList({ records }: { records: any[] }) {
                                         </p>
 
                                         {record.context?.post_preview && (
-                                            <div className="mt-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex gap-3 items-center">
+                                            <a
+                                                href={record.context.post_link || "#"}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="mt-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 flex gap-3 items-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
+                                            >
                                                 {record.context.post_image && (
                                                     <img src={record.context.post_image} className="h-12 w-12 rounded object-cover flex-shrink-0" />
                                                 )}
-                                                <div className="min-w-0">
-                                                    <p className="text-[10px] text-slate-400 font-bold uppercase">Post Relacionado</p>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-[10px] text-slate-400 font-bold uppercase">Post Relacionado</p>
+                                                        {record.context.post_link && <p className="text-[10px] text-primary-500 opacity-0 group-hover:opacity-100 transition-opacity">Ver no {record.platform}</p>}
+                                                    </div>
                                                     <p className="text-xs text-slate-600 dark:text-slate-400 truncate">
                                                         {record.context.post_preview}
                                                     </p>
                                                 </div>
-                                            </div>
+                                            </a>
                                         )}
                                     </div>
                                     <div className="text-[10px] text-slate-400 whitespace-nowrap">
