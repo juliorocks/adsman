@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
+import { decrypt } from '@/lib/security/vault';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -9,7 +10,7 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     auth: { persistSession: false }
 });
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy_for_build' });
+const defaultOpenai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy_for_build' });
 const META_GRAPH_URL = "https://graph.facebook.com/v21.0"; // Or the current version you use
 
 export async function GET(request: Request) {
@@ -103,7 +104,26 @@ async function processInteraction(interaction: any, supabaseAdmin: any) {
             }
         }
 
-        // 3. AI Generation
+        // 3. AI Generation setup and Key Decryption
+        let openaiClient = defaultOpenai;
+        const { data: openAiIntegration } = await supabaseAdmin
+            .from('integrations')
+            .select('access_token_ref')
+            .eq('user_id', userId)
+            .eq('platform', 'openai')
+            .limit(1)
+            .single();
+
+        if (openAiIntegration?.access_token_ref) {
+            try {
+                const decKey = decrypt(openAiIntegration.access_token_ref);
+                if (decKey) {
+                    openaiClient = new OpenAI({ apiKey: decKey });
+                }
+            } catch (kErr) {
+                console.error("User OpenAI key could not be decrypted:", kErr);
+            }
+        }
         const aiPrompt = `
 Você é o "Community Manager" Inteligente da marca.
 Seu objetivo é responder a uma interação social (Comentário ou Inbox).
@@ -117,7 +137,7 @@ MENSAGEM DO CLIENTE: "${message}"
 
 Crie SOMENTE a resposta exata para o cliente, sem aspas, sem introduções suas. Aja como um humano gerenciando a página.`;
 
-        const response = await openai.chat.completions.create({
+        const response = await openaiClient.chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
                 { role: "system", content: "Você é um Community Manager sênior atuando em nome de uma marca no social media." },
