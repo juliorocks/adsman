@@ -74,7 +74,7 @@ export async function POST(request: Request) {
                         interactionPromises.push(
                             supabaseAdmin.from('social_interactions').insert({
                                 integration_id: matchedIntegration.id,
-                                platform: matchedIntegration.platform || (body.object === 'instagram' ? 'instagram' : 'facebook'),
+                                platform: (body.object === 'instagram' ? 'instagram' : 'facebook'),
                                 interaction_type: 'message',
                                 external_id: event.message.mid,
                                 sender_id: event.sender.id,
