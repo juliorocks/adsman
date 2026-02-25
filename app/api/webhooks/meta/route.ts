@@ -113,16 +113,26 @@ export async function POST(request: Request) {
         if (interactionPromises.length > 0) {
             await Promise.allSettled(interactionPromises);
 
-            // Asynchronously trigger the AI Community Manager worker
-            // We do not await this, we just fire it so it starts processing in the background immediately
-            // Requires the absolute URL, assuming window or env hostname. We will use a standard env check or hardcode for now.
+            // Trigger the AI Community Manager worker
+            // We await this, because Vercel serverless functions kill background logic once response is returned
+            // We use an internal timeout of 10s to ensure we don't break Meta's 20s rule
             const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adsman.vercel.app';
-            fetch(`${appUrl}/api/cron/community-manager`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${process.env.CRON_SECRET || ''}`
-                }
-            }).catch(e => console.error("Failed to trigger background AI worker", e));
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                await fetch(`${appUrl}/api/cron/community-manager`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${process.env.CRON_SECRET || ''}`
+                    },
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+            } catch (triggerErr: any) {
+                console.warn("AI Worker triggered but taking too long. Will complete in background or next Cron run:", triggerErr.message);
+            }
         }
 
         // MUST return 200 OK within 20 seconds to keep Meta happy
