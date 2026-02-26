@@ -31,7 +31,9 @@ export async function GET(request: NextRequest) {
         }
 
         // 1. Exchange Code for Long-Lived Token
-        const accessToken = await exchangeCodeForToken(code);
+        const origin = new URL(request.url).origin;
+        const redirectUri = `${origin}/api/auth/meta/callback`;
+        const accessToken = await exchangeCodeForToken(code, redirectUri);
 
         // 2. Encrypt Token
         const encryptedToken = encrypt(accessToken);

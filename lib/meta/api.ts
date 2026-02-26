@@ -9,9 +9,9 @@ export interface AdAccount {
     currency: string;
 }
 
-export function getAuthUrl(state: string) {
+export function getAuthUrl(state: string, redirectUriOverride?: string) {
     const appId = process.env.META_APP_ID?.trim() || "";
-    const redirectUri = process.env.META_REDIRECT_URI?.trim() || "";
+    const redirectUri = redirectUriOverride || process.env.META_REDIRECT_URI?.trim() || "";
 
     const params = new URLSearchParams({
         client_id: appId,
@@ -24,10 +24,10 @@ export function getAuthUrl(state: string) {
     return `https://www.facebook.com/${META_API_VERSION}/dialog/oauth?${params.toString()}`;
 }
 
-export async function exchangeCodeForToken(code: string) {
+export async function exchangeCodeForToken(code: string, redirectUriOverride?: string) {
     const appId = process.env.META_APP_ID?.trim() || "";
     const appSecret = process.env.META_APP_SECRET?.trim() || "";
-    const redirectUri = process.env.META_REDIRECT_URI?.trim() || "";
+    const redirectUri = redirectUriOverride || process.env.META_REDIRECT_URI?.trim() || "";
 
     const params = new URLSearchParams({
         client_id: appId,

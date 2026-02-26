@@ -15,7 +15,9 @@ export async function GET(request: Request) {
         return Response.json({ error: "Configuração da Meta ausente (App ID não configurado)" }, { status: 500 });
     }
 
-    const url = getAuthUrl(state);
+    const origin = new URL(request.url).origin;
+    const redirectUri = `${origin}/api/auth/meta/callback`;
+    const url = getAuthUrl(state, redirectUri);
 
     return Response.redirect(url);
 }
