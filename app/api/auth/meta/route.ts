@@ -1,12 +1,19 @@
-
 import { getAuthUrl } from "@/lib/meta/api";
-import { randomBytes } from "crypto";
+import { getCurrentUserId } from "@/lib/data/settings";
+import { encrypt } from "@/lib/security/vault";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-    // Generate state for CSRF protection
-    const state = randomBytes(16).toString("hex");
+    const userId = await getCurrentUserId();
+    const origin = new URL(request.url).origin;
+
+    if (!userId) {
+        return Response.redirect(`${origin}/login?error=not_logged_in_for_meta`);
+    }
+
+    // Encrypt the userId to act as the state string so we persist it through the cross-site redirect
+    const state = encrypt(userId);
 
     const appId = process.env.META_APP_ID;
 
@@ -15,7 +22,6 @@ export async function GET(request: Request) {
         return Response.json({ error: "Configuração da Meta ausente (App ID não configurado)" }, { status: 500 });
     }
 
-    const origin = new URL(request.url).origin;
     const redirectUri = `${origin}/api/auth/meta/callback`;
     const url = getAuthUrl(state, redirectUri);
 
