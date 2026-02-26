@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { decrypt } from '@/lib/security/vault';
 
 const META_VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || 'AdsAI_Secure_Webhook_2026';
 
@@ -50,19 +51,49 @@ export async function POST(request: Request) {
                 .maybeSingle();
 
             if (!matchedIntegration) {
-                console.warn(`No exact matching integration found for ID: ${pageIdOrIgId}. Falling back to default active Meta integration.`);
-                const { data: fallbackIntegration } = await supabaseAdmin
+                console.warn(`No exact matching integration found for ID: ${pageIdOrIgId}. Searching across all active integrations...`);
+                // Find all active Meta integrations
+                const { data: allIntegrations } = await supabaseAdmin
                     .from('integrations')
-                    .select('id, platform')
+                    .select('id, access_token_ref')
                     .eq('platform', 'meta')
-                    .eq('status', 'active')
-                    .limit(1)
-                    .maybeSingle();
+                    .eq('status', 'active');
 
-                if (fallbackIntegration) {
-                    matchedIntegration = fallbackIntegration;
+                let foundIntegration = null;
+
+                for (const integ of allIntegrations || []) {
+                    try {
+                        const token = decrypt(integ.access_token_ref);
+                        const res = await fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=id,instagram_business_account&access_token=${token}`);
+                        const data = await res.json();
+
+                        if (data.data) {
+                            const isMine = data.data.find((p: any) =>
+                                p.id === pageIdOrIgId ||
+                                p.instagram_business_account?.id === pageIdOrIgId
+                            );
+
+                            if (isMine) {
+                                foundIntegration = { id: integ.id, platform: 'meta' };
+
+                                // Auto-link to speed up future webhooks for this page
+                                const columnToUpdate = body.object === 'instagram' ? 'preferred_instagram_id' : 'preferred_page_id';
+                                await supabaseAdmin.from('integrations').update({
+                                    [columnToUpdate]: pageIdOrIgId
+                                }).eq('id', integ.id);
+
+                                break;
+                            }
+                        }
+                    } catch (e) {
+                        // Decrypt failed or API error, skip user
+                    }
+                }
+
+                if (foundIntegration) {
+                    matchedIntegration = foundIntegration as any;
                 } else {
-                    console.warn(`No active Meta integration available at all.`);
+                    console.warn(`No active Meta integration claims Page/IG ID: ${pageIdOrIgId}. Ignoring.`);
                     continue;
                 }
             }
@@ -73,7 +104,7 @@ export async function POST(request: Request) {
                     if (event.message && !event.message.is_echo && event.sender.id !== pageIdOrIgId) {
                         interactionPromises.push(
                             supabaseAdmin.from('social_interactions').upsert({
-                                integration_id: matchedIntegration.id,
+                                integration_id: matchedIntegration!.id,
                                 platform: (body.object === 'instagram' ? 'instagram' : 'facebook'),
                                 interaction_type: 'message',
                                 external_id: event.message.mid,
@@ -109,7 +140,7 @@ export async function POST(request: Request) {
                         if (isAdd && !val.is_hidden && !isFromSelf) {
                             interactionPromises.push(
                                 supabaseAdmin.from('social_interactions').upsert({
-                                    integration_id: matchedIntegration.id,
+                                    integration_id: matchedIntegration!.id,
                                     platform: (isInstagram ? 'instagram' : 'facebook'),
                                     interaction_type: 'comment',
                                     external_id: val.comment_id || val.id,
