@@ -19,7 +19,7 @@ export default function LoginPage() {
                 provider: 'facebook',
                 options: {
                     redirectTo: `${window.location.origin}/auth/callback`,
-                    scopes: 'pages_show_list,ads_read,ads_management,pages_read_engagement,pages_manage_metadata,pages_read_user_content,pages_manage_posts,pages_messaging'
+                    scopes: 'email,ads_management,ads_read,business_management,pages_show_list,pages_manage_metadata,pages_read_engagement,pages_messaging,instagram_basic,instagram_manage_comments,instagram_manage_messages'
                 }
             });
             if (error) throw error;
