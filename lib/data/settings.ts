@@ -136,16 +136,26 @@ export async function getOpenAIKey() {
         let user = supabaseUser;
         try {
             const devSession = cookies().get("dev_session");
-            if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
+            if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
         } catch (e) { }
         if (!user) return process.env.OPENAI_API_KEY || null;
 
         let encryptedKey: string | null = null;
 
-        if (user.id === "mock_user_id_dev") {
+        if (user.id === "de70c0de-ad00-4000-8000-000000000000") {
             try {
+                const adminClient = createAdminClient();
+                const { data } = await adminClient
+                    .from("integrations")
+                    .select("access_token_ref")
+                    .eq("user_id", user.id)
+                    .eq("platform", "openai")
+                    .single();
+                encryptedKey = data?.access_token_ref || null;
+            } catch (e) {
+                // fallback to cookie if DB fails
                 encryptedKey = cookies().get("dev_openai_token")?.value || null;
-            } catch (e) { }
+            }
         } else {
             const { data } = await supabase
                 .from("integrations")
@@ -177,16 +187,25 @@ export async function getModalKey() {
         let user = supabaseUser;
         try {
             const devSession = cookies().get("dev_session");
-            if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
+            if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
         } catch (e) { }
         if (!user) return process.env.MODAL_API_KEY || null;
 
         let encryptedKey: string | null = null;
 
-        if (user.id === "mock_user_id_dev") {
+        if (user.id === "de70c0de-ad00-4000-8000-000000000000") {
             try {
+                const adminClient = createAdminClient();
+                const { data } = await adminClient
+                    .from("integrations")
+                    .select("access_token_ref")
+                    .eq("user_id", user.id)
+                    .eq("platform", "modal")
+                    .single();
+                encryptedKey = data?.access_token_ref || null;
+            } catch (e) {
                 encryptedKey = cookies().get("dev_modal_token")?.value || null;
-            } catch (e) { }
+            }
         } else {
             const { data } = await supabase
                 .from("integrations")
@@ -219,7 +238,7 @@ export async function getPollinationsKey() {
         let user = supabaseUser;
         try {
             const devSession = cookies().get("dev_session");
-            if (!user && devSession) user = { id: "mock_user_id_dev" } as any;
+            if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
         } catch (e) { }
 
         // Always try env first if no user or no integration
@@ -227,10 +246,19 @@ export async function getPollinationsKey() {
 
         let encryptedKey: string | null = null;
 
-        if (user.id === "mock_user_id_dev") {
+        if (user.id === "de70c0de-ad00-4000-8000-000000000000") {
             try {
+                const adminClient = createAdminClient();
+                const { data } = await adminClient
+                    .from("integrations")
+                    .select("access_token_ref")
+                    .eq("user_id", user.id)
+                    .eq("platform", "pollinations")
+                    .single();
+                encryptedKey = data?.access_token_ref || null;
+            } catch (e) {
                 encryptedKey = cookies().get("dev_pollinations_token")?.value || null;
-            } catch (e) { }
+            }
         } else {
             const { data } = await supabase
                 .from("integrations")
