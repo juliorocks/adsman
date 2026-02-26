@@ -69,14 +69,14 @@ export async function disconnectMeta() {
         const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
         const { error: delError } = await supabaseAdmin
             .from("integrations")
-            .delete()
+            .update({ status: "inactive" })
             .eq("user_id", user.id)
             .eq("platform", "meta");
         error = delError;
     } else {
         const { error: delError } = await supabase
             .from("integrations")
-            .delete()
+            .update({ status: "inactive" })
             .eq("user_id", user.id)
             .eq("platform", "meta");
         error = delError;
