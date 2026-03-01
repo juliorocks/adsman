@@ -48,6 +48,7 @@ export async function selectAdAccount(accountId: string, formData: FormData) {
     }
 
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/inbox");
     redirect("/dashboard");
 }
 

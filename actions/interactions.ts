@@ -15,44 +15,42 @@ const getDbClient = (user: any, defaultClient: any) => {
 
 const META_GRAPH_URL = "https://graph.facebook.com/v21.0";
 
-import { getIntegration } from "@/lib/data/settings";
 import { createAdminClient as createAdminSupabase } from "@/lib/supabase/admin";
 
+const MOCK_USER_ID = "de70c0de-ad00-4000-8000-000000000000";
+
 export async function getInteractions() {
-    const integration = await getIntegration();
+    const supabase = await createClient();
+    const { data: userAuth } = await supabase.auth.getUser();
 
-    // Determinar o ad_account_id ativo com segurança
-    // Esta é a âncora de segurança: filtramos sempre pelo ad_account_id
-    // do client ativo no Dashboard, nunca pelo user_id do session que pode
-    // corresponder ao cliente errado.
-    const activeAdAccountId = integration?.ad_account_id;
+    let user = userAuth?.user as any;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: MOCK_USER_ID } as any;
 
-    if (!activeAdAccountId) {
-        console.log("getInteractions: no active ad_account_id found");
-        return [];
+    if (!user) {
+        throw new Error("Não autorizado");
     }
 
-    // Usa admin client para buscar as integrations que têm esse ad_account_id
-    // e depois filtra as interações por elas.
-    // Isso garante que ao mudar de cliente no Dashboard a Inbox acompanha.
+    // Usa sempre o admin client para buscar — o RLS da tabela pode
+    // falhar para o mock user. Filtramos manualmente pelo user_id correto.
     const adminDb = createAdminSupabase();
 
-    // 1. Encontrar TODOS os integration_ids que pertencem ao ad_account_id ativo
-    const { data: matchingIntegrations, error: intErr } = await adminDb
+    // 1. Busca as integrations do usuário logado (apenas Meta ativas)
+    const { data: userIntegrations, error: intErr } = await adminDb
         .from("integrations")
         .select("id")
-        .eq("ad_account_id", activeAdAccountId)
+        .eq("user_id", user.id)
         .eq("platform", "meta")
         .eq("status", "active");
 
-    if (intErr || !matchingIntegrations || matchingIntegrations.length === 0) {
-        console.log("getInteractions: no matching integrations for", activeAdAccountId);
+    if (intErr || !userIntegrations || userIntegrations.length === 0) {
+        console.log("getInteractions: no active meta integrations for user", user.id);
         return [];
     }
 
-    const integrationIds = matchingIntegrations.map((i: any) => i.id);
+    const integrationIds = userIntegrations.map((i: any) => i.id);
 
-    // 2. Buscar interactions filtradas por esses integration_ids
+    // 2. Busca interações SOMENTE dessas integrations do usuário
     const { data: interactions, error } = await adminDb
         .from("social_interactions")
         .select(`
@@ -80,6 +78,8 @@ export async function getInteractions() {
 
     return interactions;
 }
+
+
 
 export async function approveAndSendInteraction(interactionId: string, editedResponse: string) {
     const supabase = await createClient();
