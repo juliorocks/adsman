@@ -35,16 +35,17 @@ export async function getInteractions() {
     // falhar para o mock user. Filtramos manualmente pelo user_id correto.
     const adminDb = createAdminSupabase();
 
-    // 1. Busca as integrations do usuário logado (apenas Meta ativas)
+    // 1. Busca as integrations Meta do usuário logado
+    // Não filtra por status — o histórico de mensagens deve aparecer
+    // mesmo se o usuário desconectou a integração temporariamente.
     const { data: userIntegrations, error: intErr } = await adminDb
         .from("integrations")
         .select("id")
         .eq("user_id", user.id)
-        .eq("platform", "meta")
-        .eq("status", "active");
+        .eq("platform", "meta");
 
     if (intErr || !userIntegrations || userIntegrations.length === 0) {
-        console.log("getInteractions: no active meta integrations for user", user.id);
+        console.log("getInteractions: no meta integrations found for user", user.id);
         return [];
     }
 
