@@ -2,6 +2,7 @@
 
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, PlusCircle, Settings, BarChart3, Layers, Bot, PanelLeftClose, PanelLeftOpen, Database, Inbox } from "lucide-react";
@@ -20,7 +21,7 @@ const navigation = [
     { name: "Configurações", href: "/dashboard/settings", icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({ clientSelector }: { clientSelector?: React.ReactNode }) {
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -55,6 +56,7 @@ export function Sidebar() {
             </div>
 
             <nav className="flex-1 space-y-1.5 px-3 py-6">
+                {!isCollapsed && clientSelector}
                 {!isCollapsed && <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">Menu Principal</p>}
 
                 {navigation.map((item) => {

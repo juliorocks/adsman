@@ -31,27 +31,44 @@ export async function getInteractions() {
         throw new Error("Não autorizado");
     }
 
-    // Usa sempre o admin client para buscar — o RLS da tabela pode
-    // falhar para o mock user. Filtramos manualmente pelo user_id correto.
     const adminDb = createAdminSupabase();
 
-    // 1. Busca as integrations Meta do usuário logado
-    // Não filtra por status — o histórico de mensagens deve aparecer
-    // mesmo se o usuário desconectou a integração temporariamente.
-    const { data: userIntegrations, error: intErr } = await adminDb
-        .from("integrations")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("platform", "meta");
+    // Prioridade 1: cliente explicitamente selecionado via cookie (selectClient)
+    const activeIntegrationId = cookies().get("active_integration_id")?.value;
 
-    if (intErr || !userIntegrations || userIntegrations.length === 0) {
+    let integrationIds: string[] = [];
+
+    if (activeIntegrationId) {
+        // Valida que esse integration_id pertence ao usuário logado (segurança)
+        const { data: integCheck } = await adminDb
+            .from("integrations")
+            .select("id")
+            .eq("id", activeIntegrationId)
+            .eq("user_id", user.id)
+            .single();
+
+        if (integCheck) {
+            integrationIds = [activeIntegrationId];
+        }
+    }
+
+    // Prioridade 2: se não tiver cookie ou não pertencer ao usuário, usa todas as integrations Meta do usuário
+    if (integrationIds.length === 0) {
+        const { data: userIntegrations } = await adminDb
+            .from("integrations")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("platform", "meta");
+
+        integrationIds = (userIntegrations || []).map((i: any) => i.id);
+    }
+
+    if (integrationIds.length === 0) {
         console.log("getInteractions: no meta integrations found for user", user.id);
         return [];
     }
 
-    const integrationIds = userIntegrations.map((i: any) => i.id);
-
-    // 2. Busca interações SOMENTE dessas integrations do usuário
+    // Busca interações SOMENTE das integrations do cliente selecionado
     const { data: interactions, error } = await adminDb
         .from("social_interactions")
         .select(`

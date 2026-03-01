@@ -7,6 +7,24 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
+// Salva o cliente (integration_id) ativo em cookie para que o Inbox filtre pelo cliente correto
+export async function selectClient(integrationId: string) {
+    cookies().set("active_integration_id", integrationId, {
+        httpOnly: true,
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30 // 30 dias
+    });
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/inbox");
+    redirect("/dashboard");
+}
+
+// Retorna o integration_id do cliente ativo no cookie ou o padrão do usuário logado
+export async function getActiveIntegrationId(): Promise<string | null> {
+    return cookies().get("active_integration_id")?.value || null;
+}
+
+
 export async function selectAdAccount(accountId: string, formData: FormData) {
     const supabase = await createClient();
     const { data: { user: supabaseUser } } = await supabase.auth.getUser();
