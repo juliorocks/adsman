@@ -16,26 +16,44 @@ const getDbClient = (user: any, defaultClient: any) => {
 const META_GRAPH_URL = "https://graph.facebook.com/v21.0";
 
 import { getIntegration } from "@/lib/data/settings";
+import { createAdminClient as createAdminSupabase } from "@/lib/supabase/admin";
 
 export async function getInteractions() {
     const integration = await getIntegration();
-    if (!integration || !integration.id || integration.id === 'mock_int_real') {
+
+    // Determinar o ad_account_id ativo com segurança
+    // Esta é a âncora de segurança: filtramos sempre pelo ad_account_id
+    // do client ativo no Dashboard, nunca pelo user_id do session que pode
+    // corresponder ao cliente errado.
+    const activeAdAccountId = integration?.ad_account_id;
+
+    if (!activeAdAccountId) {
+        console.log("getInteractions: no active ad_account_id found");
         return [];
     }
 
-    const supabase = await createClient();
-    const { data: userAuth } = await supabase.auth.getUser();
+    // Usa admin client para buscar as integrations que têm esse ad_account_id
+    // e depois filtra as interações por elas.
+    // Isso garante que ao mudar de cliente no Dashboard a Inbox acompanha.
+    const adminDb = createAdminSupabase();
 
-    let user = userAuth?.user as any;
-    const devSession = cookies().get("dev_session");
-    if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
+    // 1. Encontrar TODOS os integration_ids que pertencem ao ad_account_id ativo
+    const { data: matchingIntegrations, error: intErr } = await adminDb
+        .from("integrations")
+        .select("id")
+        .eq("ad_account_id", activeAdAccountId)
+        .eq("platform", "meta")
+        .eq("status", "active");
 
-    if (!user) throw new Error("Não autorizado");
+    if (intErr || !matchingIntegrations || matchingIntegrations.length === 0) {
+        console.log("getInteractions: no matching integrations for", activeAdAccountId);
+        return [];
+    }
 
-    const db = getDbClient(user, supabase);
+    const integrationIds = matchingIntegrations.map((i: any) => i.id);
 
-    // Fetch DRAFT (to be approved) and COMPLETED/FAILED/IGNORED for history
-    const { data: interactions, error } = await db
+    // 2. Buscar interactions filtradas por esses integration_ids
+    const { data: interactions, error } = await adminDb
         .from("social_interactions")
         .select(`
             id,
@@ -50,7 +68,7 @@ export async function getInteractions() {
             context,
             integration_id
         `)
-        .eq("integration_id", integration.id)
+        .in("integration_id", integrationIds)
         .in("status", ["PENDING", "DRAFT", "COMPLETED", "FAILED"])
         .order("created_at", { ascending: false })
         .limit(50);
