@@ -52,14 +52,24 @@ export async function getIntegration() {
             const selectedAccountId = cookies().get("dev_ad_account_id")?.value;
 
             if (devToken) {
+                // Try to find the real record in DB for this MOCK_USER and platform Meta
+                const adminClient = createAdminClient();
+                const { data: dbInt } = await adminClient
+                    .from("integrations")
+                    .select("*")
+                    .eq("user_id", MOCK_USER_ID)
+                    .eq("platform", "meta")
+                    .single();
+
                 return {
-                    id: "mock_int_real",
+                    id: dbInt?.id || "mock_int_real",
                     user_id: MOCK_USER_ID,
                     platform: "meta",
                     status: "active",
-                    ad_account_id: selectedAccountId || null,
+                    ad_account_id: selectedAccountId || dbInt?.ad_account_id || null,
                     access_token_ref: devToken,
-                    updated_at: new Date().toISOString()
+                    updated_at: new Date().toISOString(),
+                    agent_context: dbInt?.agent_context || null
                 };
             }
             return null;

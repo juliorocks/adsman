@@ -15,31 +15,24 @@ const getDbClient = (user: any, defaultClient: any) => {
 
 const META_GRAPH_URL = "https://graph.facebook.com/v21.0";
 
+import { getIntegration } from "@/lib/data/settings";
+
 export async function getInteractions() {
+    const integration = await getIntegration();
+    if (!integration || !integration.id || integration.id === 'mock_int_real') {
+        return [];
+    }
+
     const supabase = await createClient();
-    const { data: userAuth, error: authErr } = await supabase.auth.getUser();
+    const { data: userAuth } = await supabase.auth.getUser();
 
     let user = userAuth?.user as any;
     const devSession = cookies().get("dev_session");
     if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
 
-    if (!user) {
-        throw new Error("Não autorizado");
-    }
+    if (!user) throw new Error("Não autorizado");
 
     const db = getDbClient(user, supabase);
-
-    const { data: integrations } = await db
-        .from("integrations")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("status", "active");
-
-    if (!integrations || integrations.length === 0) {
-        return [];
-    }
-
-    const integrationIds = integrations.map((i: any) => i.id);
 
     // Fetch DRAFT (to be approved) and COMPLETED/FAILED/IGNORED for history
     const { data: interactions, error } = await db
@@ -57,7 +50,7 @@ export async function getInteractions() {
             context,
             integration_id
         `)
-        .in("integration_id", integrationIds)
+        .eq("integration_id", integration.id)
         .in("status", ["PENDING", "DRAFT", "COMPLETED", "FAILED"])
         .order("created_at", { ascending: false })
         .limit(50);
