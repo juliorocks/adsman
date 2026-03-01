@@ -20,10 +20,10 @@ export function ConnectMetaButton({ isConnected }: { isConnected: boolean }) {
         setIsDisconnecting(true);
         try {
             await disconnectMeta();
-            router.refresh();
+            // Força navegação completa para descartar o cache do roteador Next.js
+            window.location.href = "/dashboard/settings";
         } catch (error) {
             alert("Erro ao desconectar conta.");
-        } finally {
             setIsDisconnecting(false);
         }
     };

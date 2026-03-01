@@ -82,6 +82,7 @@ export async function getIntegration() {
             .select("*")
             .eq("user_id", user.id)
             .eq("platform", "meta")
+            .eq("status", "active")  // só retorna integração ativa — desconectar apaga o dashboard
             .single();
 
         if (error) {

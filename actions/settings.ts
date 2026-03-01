@@ -106,11 +106,14 @@ export async function disconnectMeta() {
         throw new Error("Failed to disconnect");
     }
 
-    // Clear all possible mock/dev cookies
+    // Clear all possible mock/dev cookies + cliente ativo
     cookies().delete("dev_meta_token");
     cookies().delete("dev_ad_account_id");
+    cookies().delete("active_integration_id");
 
-    revalidatePath("/dashboard/settings");
+    // Invalida cache de TODAS as páginas — o dashboard deve mostrar zero imediatamente
+    revalidatePath("/dashboard", "layout");
+
     return { success: true };
 }
 import { encrypt } from "@/lib/security/vault";
