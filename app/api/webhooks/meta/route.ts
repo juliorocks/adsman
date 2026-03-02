@@ -36,21 +36,19 @@ export async function POST(request: Request) {
         }
 
         // Fast tracking and processing array of entries
-        const interactionPromises = [];
+        const interactionPromises: Promise<any>[] = [];
 
         for (const entry of body.entry) {
             const pageIdOrIgId = entry.id; // Usually the object ID receiving the message
 
-            // Resolve integration by page id or ig id
-            let { data: matchedIntegration } = await supabaseAdmin
+            // Resolve all integrations matching the incoming page id or ig id
+            const { data: matchedIntegrations } = await supabaseAdmin
                 .from('integrations')
                 .select('id, platform')
                 .or(`preferred_page_id.eq.${pageIdOrIgId},preferred_instagram_id.eq.${pageIdOrIgId}`)
-                .eq('status', 'active')
-                .limit(1)
-                .maybeSingle();
+                .eq('status', 'active');
 
-            if (!matchedIntegration) {
+            if (!matchedIntegrations || matchedIntegrations.length === 0) {
                 console.warn(`No exact matching integration found for ID: ${pageIdOrIgId}. Searching across all active integrations...`);
                 // Find all active Meta integrations
                 const { data: allIntegrations } = await supabaseAdmin
@@ -59,7 +57,7 @@ export async function POST(request: Request) {
                     .eq('platform', 'meta')
                     .eq('status', 'active');
 
-                let foundIntegration = null;
+                let foundIntegrations = [];
 
                 for (const integ of allIntegrations || []) {
                     try {
@@ -74,15 +72,13 @@ export async function POST(request: Request) {
                             );
 
                             if (isMine) {
-                                foundIntegration = { id: integ.id, platform: 'meta' };
+                                foundIntegrations.push({ id: integ.id, platform: 'meta' });
 
                                 // Auto-link to speed up future webhooks for this page
                                 const columnToUpdate = body.object === 'instagram' ? 'preferred_instagram_id' : 'preferred_page_id';
                                 await supabaseAdmin.from('integrations').update({
                                     [columnToUpdate]: pageIdOrIgId
                                 }).eq('id', integ.id);
-
-                                break;
                             }
                         }
                     } catch (e) {
@@ -90,73 +86,19 @@ export async function POST(request: Request) {
                     }
                 }
 
-                if (foundIntegration) {
-                    matchedIntegration = foundIntegration as any;
+                if (foundIntegrations.length > 0) {
+                    for (const integ of foundIntegrations) {
+                        processEntryForIntegration(integ, entry, body.object, pageIdOrIgId, interactionPromises);
+                    }
                 } else {
                     console.warn(`No active Meta integration claims Page/IG ID: ${pageIdOrIgId}. Ignoring.`);
-                    continue;
                 }
+                continue;
             }
 
-            // Handle Messaging (Inbox)
-            if (entry.messaging) {
-                for (const event of entry.messaging) {
-                    if (event.message && !event.message.is_echo && event.sender.id !== pageIdOrIgId) {
-                        interactionPromises.push(
-                            supabaseAdmin.from('social_interactions').upsert({
-                                integration_id: matchedIntegration!.id,
-                                platform: (body.object === 'instagram' ? 'instagram' : 'facebook'),
-                                interaction_type: 'message',
-                                external_id: event.message.mid,
-                                sender_id: event.sender.id,
-                                message: event.message.text || '[Media Attachment]',
-                                context: {
-                                    raw: event,
-                                    page_id: pageIdOrIgId,
-                                    sender_name: event.sender.name || 'Usuário'
-                                }
-                            }, { onConflict: 'integration_id,external_id', ignoreDuplicates: true })
-                        );
-                    }
-                }
-            }
-
-            // Handle Changes (Comments/Feed) - Facebook uses 'changes', Instagram uses 'changes' too for comments
-            if (entry.changes) {
-                for (const change of entry.changes) {
-                    // Instagram uses field 'comments', Facebook uses 'comments' or 'feed'
-                    if (change.field === 'comments' || change.field === 'feed') {
-                        const val = change.value;
-
-                        // Instagram comments are often simpler: { id, from, text }
-                        // Facebook feed changes are: { item, verb, comment_id, etc }
-                        const isInstagram = body.object === 'instagram' || val.media_id;
-
-                        // Determine if it's an 'add' verb (Instagram comments from webhooks are mostly additions)
-                        const isAdd = val.verb === 'add' || (!val.verb && val.id);
-
-                        const isFromSelf = val.from?.id === pageIdOrIgId;
-
-                        if (isAdd && !val.is_hidden && !isFromSelf) {
-                            interactionPromises.push(
-                                supabaseAdmin.from('social_interactions').upsert({
-                                    integration_id: matchedIntegration!.id,
-                                    platform: (isInstagram ? 'instagram' : 'facebook'),
-                                    interaction_type: 'comment',
-                                    external_id: val.comment_id || val.id,
-                                    sender_id: val.from?.id || 'unknown',
-                                    message: val.text || val.message,
-                                    context: {
-                                        post_id: val.post_id || val.media_id || val.media?.id,
-                                        sender_name: val.from?.name || val.from?.username || 'Seguidor',
-                                        raw: val,
-                                        page_id: pageIdOrIgId
-                                    }
-                                }, { onConflict: 'integration_id,external_id', ignoreDuplicates: true })
-                            );
-                        }
-                    }
-                }
+            // Process for all matched integrations found in the direct query
+            for (const matchedIntegration of matchedIntegrations) {
+                processEntryForIntegration(matchedIntegration, entry, body.object, pageIdOrIgId, interactionPromises);
             }
         }
 
@@ -165,8 +107,6 @@ export async function POST(request: Request) {
             await Promise.allSettled(interactionPromises);
 
             // Trigger the AI Community Manager worker
-            // We await this, because Vercel serverless functions kill background logic once response is returned
-            // We use an internal timeout of 10s to ensure we don't break Meta's 20s rule
             const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adsman.vercel.app';
 
             try {
@@ -192,5 +132,70 @@ export async function POST(request: Request) {
     } catch (error) {
         console.error("Webhook ingestion error:", error);
         return new NextResponse('Internal Server Error', { status: 500 });
+    }
+}
+
+/**
+ * Helper to process an entry and push promises for a specific integration
+ */
+function processEntryForIntegration(
+    integration: { id: string, platform: string },
+    entry: any,
+    objectType: string,
+    pageIdOrIgId: string,
+    interactionPromises: Promise<any>[]
+) {
+    // Handle Messaging (Inbox)
+    if (entry.messaging) {
+        for (const event of entry.messaging) {
+            if (event.message && !event.message.is_echo && event.sender.id !== pageIdOrIgId) {
+                interactionPromises.push(
+                    supabaseAdmin.from('social_interactions').upsert({
+                        integration_id: integration.id,
+                        platform: (objectType === 'instagram' ? 'instagram' : 'facebook'),
+                        interaction_type: 'message',
+                        external_id: event.message.mid,
+                        sender_id: event.sender.id,
+                        message: event.message.text || '[Media Attachment]',
+                        context: {
+                            raw: event,
+                            page_id: pageIdOrIgId,
+                            sender_name: event.sender.name || 'Usuário'
+                        }
+                    }, { onConflict: 'integration_id,external_id', ignoreDuplicates: true })
+                );
+            }
+        }
+    }
+
+    // Handle Changes (Comments/Feed)
+    if (entry.changes) {
+        for (const change of entry.changes) {
+            if (change.field === 'comments' || change.field === 'feed') {
+                const val = change.value;
+                const isInstagram = objectType === 'instagram' || val.media_id;
+                const isAdd = val.verb === 'add' || (!val.verb && val.id);
+                const isFromSelf = val.from?.id === pageIdOrIgId;
+
+                if (isAdd && !val.is_hidden && !isFromSelf) {
+                    interactionPromises.push(
+                        supabaseAdmin.from('social_interactions').upsert({
+                            integration_id: integration.id,
+                            platform: (isInstagram ? 'instagram' : 'facebook'),
+                            interaction_type: 'comment',
+                            external_id: val.comment_id || val.id,
+                            sender_id: val.from?.id || 'unknown',
+                            message: val.text || val.message,
+                            context: {
+                                post_id: val.post_id || val.media_id || val.media?.id,
+                                sender_name: val.from?.name || val.from?.username || 'Seguidor',
+                                raw: val,
+                                page_id: pageIdOrIgId
+                            }
+                        }, { onConflict: 'integration_id,external_id', ignoreDuplicates: true })
+                    );
+                }
+            }
+        }
     }
 }
