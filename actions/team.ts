@@ -50,15 +50,11 @@ export async function addTeamMember(email: string, role: string) {
         const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
         const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey);
 
-        // Search for existing user by email across all pages
+        // Search for existing user by email via direct auth.users query (reliable, no pagination issues)
         let targetUser: any = null;
-        let page = 1;
-        while (!targetUser) {
-            const { data: pageData, error: listErr } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
-            if (listErr || !pageData?.users?.length) break;
-            targetUser = pageData.users.find(u => u.email?.toLowerCase() === email.toLowerCase()) ?? null;
-            if (pageData.users.length < 1000) break; // last page
-            page++;
+        const { data: rpcUsers } = await supabaseAdmin.rpc('get_auth_user_by_email', { user_email: email.toLowerCase() });
+        if (rpcUsers && rpcUsers.length > 0) {
+            targetUser = rpcUsers[0];
         }
 
         if (!targetUser) {
@@ -67,9 +63,9 @@ export async function addTeamMember(email: string, role: string) {
                 redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://adsman.vercel.app'}/dashboard`
             });
             if (inviteErr) {
-                // inviteUserByEmail also fails if user exists but wasn't found in pagination — retry search
-                const { data: retryData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-                targetUser = retryData?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase()) ?? null;
+                // inviteUserByEmail fails if user already exists — try RPC lookup one more time
+                const { data: retryRpc } = await supabaseAdmin.rpc('get_auth_user_by_email', { user_email: email.toLowerCase() });
+                targetUser = retryRpc?.[0] ?? null;
                 if (!targetUser) {
                     return { success: false, error: `Erro ao enviar convite: ${inviteErr.message}` };
                 }
