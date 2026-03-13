@@ -4,30 +4,46 @@ import { useState } from "react";
 import { addTeamMember, removeTeamMember } from "@/actions/team";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { UserPlus, Shield, User, Trash2, ShieldAlert } from "lucide-react";
+import { UserPlus, Shield, User, Trash2, ShieldAlert, Copy, Check, Link2 } from "lucide-react";
 
 export function TeamManagement({ members }: { members: any[] }) {
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState("");
     const [role, setRole] = useState("reader");
+    const [inviteLink, setInviteLink] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!email) return toast.error("Digite o e-mail do usuário.");
 
         setLoading(true);
+        setInviteLink(null);
         try {
-            const { success, error } = await addTeamMember(email, role);
-            if (success) {
-                toast.success("Usuário adicionado à equipe.");
+            const result = await addTeamMember(email, role);
+            if (result.success) {
+                if (result.inviteLink) {
+                    // Existing confirmed user — show link for admin to share
+                    setInviteLink(result.inviteLink);
+                    toast.success("Usuário adicionado! Como ele já tem conta, copie o link abaixo e envie para ele.");
+                } else {
+                    toast.success("Convite enviado por e-mail com sucesso!");
+                }
                 setEmail("");
                 setRole("reader");
             } else {
-                toast.error(error);
+                toast.error(result.error);
             }
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleCopy = async () => {
+        if (!inviteLink) return;
+        await navigator.clipboard.writeText(inviteLink);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
     const handleRemove = async (id: string, memberEmail: string) => {
@@ -112,6 +128,31 @@ export function TeamManagement({ members }: { members: any[] }) {
                         {loading ? "Adicionando..." : "Convidar"}
                     </Button>
                 </form>
+
+                {/* Invite link for existing confirmed users */}
+                {inviteLink && (
+                    <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 space-y-3">
+                        <div className="flex items-center gap-2 text-amber-400">
+                            <Link2 className="h-4 w-4 flex-shrink-0" />
+                            <p className="text-sm font-semibold">Este usuário já tem conta — compartilhe o link de acesso:</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <input
+                                readOnly
+                                value={inviteLink}
+                                className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-400 font-mono truncate focus:outline-none"
+                            />
+                            <Button
+                                type="button"
+                                onClick={handleCopy}
+                                className="bg-slate-700 hover:bg-slate-600 text-white rounded-xl px-4 h-9 font-semibold flex-shrink-0"
+                            >
+                                {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                            </Button>
+                        </div>
+                        <p className="text-xs text-slate-500">O link expira em 1 hora. Envie via WhatsApp ou e-mail.</p>
+                    </div>
+                )}
 
                 {/* Members List */}
                 <div className="mt-4">

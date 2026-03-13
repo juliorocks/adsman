@@ -61,15 +61,25 @@ export async function addTeamMember(email: string, role: string) {
             redirectTo: `${appUrl}/auth/confirm`
         });
 
+        let inviteLink: string | null = null;
+
         if (!inviteErr) {
+            // New or unconfirmed user — invite email sent automatically
             targetUser = inviteData.user;
         } else {
-            // User already exists and is confirmed — look them up via RPC (no email sent, they can login normally)
+            // User already exists and is confirmed — find via RPC
             const { data: rpcUsers } = await supabaseAdmin.rpc('get_auth_user_by_email', { user_email: email.toLowerCase() });
             targetUser = rpcUsers?.[0] ?? null;
             if (!targetUser) {
                 return { success: false, error: `Erro ao convidar usuário: ${inviteErr.message}` };
             }
+            // Generate a magic link the admin can share directly (Supabase won't resend invite for confirmed users)
+            const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+                type: 'magiclink',
+                email,
+                options: { redirectTo: `${appUrl}/auth/confirm` }
+            });
+            inviteLink = linkData?.properties?.action_link ?? null;
         }
 
         if (targetUser.id === user.id) {
@@ -94,7 +104,7 @@ export async function addTeamMember(email: string, role: string) {
         }
 
         revalidatePath("/dashboard/settings");
-        return { success: true };
+        return { success: true, inviteLink };
     } catch (e: any) {
         console.error(e);
         return { success: false, error: e.message || "Erro inesperado ao adicionar o usuário." };
