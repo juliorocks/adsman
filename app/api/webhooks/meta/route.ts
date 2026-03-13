@@ -36,7 +36,8 @@ export async function POST(request: Request) {
         }
 
         // Fast tracking and processing array of entries
-        const interactionPromises: Promise<any>[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const interactionPromises: any[] = [];
 
         for (const entry of body.entry) {
             const pageIdOrIgId = entry.id; // Usually the object ID receiving the message
@@ -143,7 +144,7 @@ function processEntryForIntegration(
     entry: any,
     objectType: string,
     pageIdOrIgId: string,
-    interactionPromises: Promise<any>[]
+    interactionPromises: any[]
 ) {
     // Handle Messaging (Inbox)
     if (entry.messaging) {
