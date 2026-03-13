@@ -50,27 +50,25 @@ export async function addTeamMember(email: string, role: string) {
         const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
         const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey);
 
-        // Search for existing user by email via direct auth.users query (reliable, no pagination issues)
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adsman.vercel.app';
         let targetUser: any = null;
-        const { data: rpcUsers } = await supabaseAdmin.rpc('get_auth_user_by_email', { user_email: email.toLowerCase() });
-        if (rpcUsers && rpcUsers.length > 0) {
-            targetUser = rpcUsers[0];
-        }
 
-        if (!targetUser) {
-            // User doesn't exist — send invite email (creates account automatically)
-            const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-                redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://adsman.vercel.app'}/auth/confirm`
-            });
-            if (inviteErr) {
-                // inviteUserByEmail fails if user already exists — try RPC lookup one more time
-                const { data: retryRpc } = await supabaseAdmin.rpc('get_auth_user_by_email', { user_email: email.toLowerCase() });
-                targetUser = retryRpc?.[0] ?? null;
-                if (!targetUser) {
-                    return { success: false, error: `Erro ao enviar convite: ${inviteErr.message}` };
-                }
-            } else {
-                targetUser = inviteData.user;
+        // Always try invite first:
+        // - New user → creates account and sends invite email
+        // - Existing but unconfirmed user → re-sends invite email
+        // - Existing confirmed user → fails (that's fine, find them via RPC)
+        const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+            redirectTo: `${appUrl}/auth/confirm`
+        });
+
+        if (!inviteErr) {
+            targetUser = inviteData.user;
+        } else {
+            // User already exists and is confirmed — look them up via RPC (no email sent, they can login normally)
+            const { data: rpcUsers } = await supabaseAdmin.rpc('get_auth_user_by_email', { user_email: email.toLowerCase() });
+            targetUser = rpcUsers?.[0] ?? null;
+            if (!targetUser) {
+                return { success: false, error: `Erro ao convidar usuário: ${inviteErr.message}` };
             }
         }
 
