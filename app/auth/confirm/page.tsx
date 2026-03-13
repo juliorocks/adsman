@@ -11,31 +11,33 @@ export default function AuthConfirmPage() {
     const [errorMsg, setErrorMsg] = useState("");
 
     useEffect(() => {
-        // Supabase browser client automatically reads #access_token from the URL hash
-        // and establishes the session in localStorage/cookies
-        supabase.auth.getSession().then(({ data: { session }, error }) => {
-            if (error) {
-                setStatus("error");
-                setErrorMsg(error.message);
-                return;
-            }
-            if (session) {
-                router.replace("/dashboard");
-                return;
-            }
+        const hash = window.location.hash;
+        const params = new URLSearchParams(hash.substring(1)); // remove o #
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
 
-            // Listen for auth state changes (handles async token exchange)
-            const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (accessToken && refreshToken) {
+            // Processa o token do hash diretamente (invite, magic link, etc.)
+            supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+                .then(({ data, error }) => {
+                    if (error || !data.session) {
+                        setStatus("error");
+                        setErrorMsg(error?.message || "Sessão inválida. O link pode ter expirado.");
+                    } else {
+                        router.replace("/dashboard");
+                    }
+                });
+        } else {
+            // Sem hash — verifica se já existe sessão ativa
+            supabase.auth.getSession().then(({ data: { session } }) => {
                 if (session) {
-                    subscription.unsubscribe();
                     router.replace("/dashboard");
-                } else if (event === "SIGNED_OUT") {
-                    subscription.unsubscribe();
+                } else {
                     setStatus("error");
-                    setErrorMsg("Link expirado ou inválido. Solicite um novo convite.");
+                    setErrorMsg("Link inválido ou expirado. Solicite um novo acesso ao administrador.");
                 }
             });
-        });
+        }
     }, [router]);
 
     return (
