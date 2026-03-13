@@ -116,9 +116,13 @@ export async function approveAndSendInteraction(interactionId: string, editedRes
     }
 
     const db = getDbClient(user, supabase);
+    const adminDb = createAdminSupabase();
+
+    // Resolve workspace owner: team members inherit admin's integrations
+    const effectiveUserId = await getWorkspaceOwnerId(user.id);
 
     // 1. Fetch the interaction and the integration details
-    const { data: interaction, error: fetchErr } = await db
+    const { data: interaction, error: fetchErr } = await adminDb
         .from("social_interactions")
         .select(`
             *,
@@ -134,7 +138,8 @@ export async function approveAndSendInteraction(interactionId: string, editedRes
         return { success: false, error: "Interação não encontrada" };
     }
 
-    if (interaction.integration.user_id !== user.id) {
+    // Allow if the integration belongs to the user or to their workspace owner
+    if (interaction.integration.user_id !== user.id && interaction.integration.user_id !== effectiveUserId) {
         return { success: false, error: "Acesso negado" };
     }
 
@@ -258,7 +263,8 @@ export async function ignoreInteraction(interactionId: string) {
         return { success: false, error: "Não autorizado" };
     }
 
-    const db = getDbClient(user, supabase);
+    // Use admin client so team members can update interactions from the owner's integrations
+    const db = user.id === MOCK_USER_ID ? getDbClient(user, supabase) : createAdminSupabase();
 
     const { error } = await db.from("social_interactions").update({
         status: "IGNORED"
@@ -284,7 +290,8 @@ export async function regenerateInteraction(interactionId: string) {
         return { success: false, error: "Não autorizado" };
     }
 
-    const db = getDbClient(user, supabase);
+    // Use admin client so team members can update interactions from the owner's integrations
+    const db = user.id === MOCK_USER_ID ? getDbClient(user, supabase) : createAdminSupabase();
 
     // Reset status to PENDING
     const { error } = await db.from("social_interactions").update({
