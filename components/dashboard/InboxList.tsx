@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { approveAndSendInteraction, ignoreInteraction, regenerateInteraction, syncMetaMessages } from "@/actions/interactions";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, ThumbsUp, Trash2, Send, CheckCircle2, AlertCircle, RefreshCw, CloudDownload } from "lucide-react";
+import { MessageSquare, ThumbsUp, Trash2, Send, CheckCircle2, AlertCircle, RefreshCw, Download } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -153,7 +153,7 @@ export function InboxList({ records }: { records: any[] }) {
                             className="text-slate-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 gap-1.5 text-xs font-semibold"
                             title="Buscar mensagens sem resposta no Meta"
                         >
-                            <CloudDownload className={`h-4 w-4 ${isSyncing ? "animate-pulse" : ""}`} />
+                            <Download className={`h-4 w-4 ${isSyncing ? "animate-pulse" : ""}`} />
                             {isSyncing ? "Sincronizando..." : "Sincronizar"}
                         </Button>
                     </div>
