@@ -275,7 +275,7 @@ export async function ignoreInteraction(interactionId: string) {
     }
 
     revalidatePath("/dashboard/inbox");
-    return { success: true };
+    return { success: true, ignored: true };
 }
 
 export async function regenerateInteraction(interactionId: string) {
@@ -319,4 +319,132 @@ export async function regenerateInteraction(interactionId: string) {
 
     revalidatePath("/dashboard/inbox");
     return { success: true };
+}
+
+// Pulls unanswered DMs from Meta Graph API and inserts missing ones as PENDING
+export async function syncMetaMessages() {
+    const supabase = await createClient();
+    const { data: userAuth } = await supabase.auth.getUser();
+
+    let user = userAuth?.user as any;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: MOCK_USER_ID } as any;
+    if (!user) return { success: false, error: "Não autorizado", synced: 0 };
+
+    const adminDb = createAdminSupabase();
+    const effectiveUserId = await getWorkspaceOwnerId(user.id);
+
+    const { data: integrations } = await adminDb
+        .from("integrations")
+        .select("id, access_token_ref, preferred_page_id, preferred_instagram_id")
+        .eq("user_id", effectiveUserId)
+        .eq("platform", "meta")
+        .eq("status", "active");
+
+    if (!integrations || integrations.length === 0) {
+        return { success: false, error: "Nenhuma conta Meta conectada.", synced: 0 };
+    }
+
+    let totalSynced = 0;
+
+    for (const integration of integrations) {
+        try {
+            const userToken = decrypt(integration.access_token_ref);
+
+            const accountsRes = await fetch(
+                `${META_GRAPH_URL}/me/accounts?fields=id,access_token,instagram_business_account,name&access_token=${userToken}`
+            );
+            const accountsData = await accountsRes.json();
+            if (!accountsData.data) continue;
+
+            for (const page of accountsData.data) {
+                const pageToken = page.access_token;
+                const igId = page.instagram_business_account?.id;
+
+                // --- Instagram DMs ---
+                if (igId) {
+                    const convRes = await fetch(
+                        `${META_GRAPH_URL}/${igId}/conversations?platform=instagram&fields=messages{id,message,from,created_time}&access_token=${pageToken}&limit=20`
+                    );
+                    const convData = await convRes.json();
+                    if (!convData.error && convData.data) {
+                        for (const conv of convData.data) {
+                            const messages = conv.messages?.data || [];
+                            if (messages.length === 0) continue;
+                            // Skip if business already replied last
+                            if (messages[0].from?.id === igId) continue;
+
+                            for (const msg of messages) {
+                                if (msg.from?.id === igId) break; // hit business reply
+                                if (!msg.message?.trim()) continue;
+
+                                const { data: existing } = await adminDb
+                                    .from("social_interactions").select("id")
+                                    .eq("external_id", msg.id).maybeSingle();
+                                if (existing) continue;
+
+                                await adminDb.from("social_interactions").insert({
+                                    integration_id: integration.id,
+                                    platform: "instagram",
+                                    interaction_type: "message",
+                                    external_id: msg.id,
+                                    sender_id: msg.from?.id,
+                                    message: msg.message,
+                                    status: "PENDING",
+                                    context: {
+                                        sender_name: msg.from?.username || msg.from?.name || "Usuário",
+                                        page_id: igId,
+                                    }
+                                });
+                                totalSynced++;
+                            }
+                        }
+                    }
+                }
+
+                // --- Facebook Messenger DMs ---
+                const fbConvRes = await fetch(
+                    `${META_GRAPH_URL}/me/conversations?fields=messages{id,message,from,created_time}&access_token=${pageToken}&limit=20`
+                );
+                const fbConvData = await fbConvRes.json();
+                if (!fbConvData.error && fbConvData.data) {
+                    for (const conv of fbConvData.data) {
+                        const messages = conv.messages?.data || [];
+                        if (messages.length === 0) continue;
+                        if (messages[0].from?.id === page.id) continue;
+
+                        for (const msg of messages) {
+                            if (msg.from?.id === page.id) break;
+                            if (!msg.message?.trim()) continue;
+
+                            const { data: existing } = await adminDb
+                                .from("social_interactions").select("id")
+                                .eq("external_id", msg.id).maybeSingle();
+                            if (existing) continue;
+
+                            await adminDb.from("social_interactions").insert({
+                                integration_id: integration.id,
+                                platform: "facebook",
+                                interaction_type: "message",
+                                external_id: msg.id,
+                                sender_id: msg.from?.id,
+                                message: msg.message,
+                                status: "PENDING",
+                                context: {
+                                    sender_name: msg.from?.name || "Usuário",
+                                    page_id: page.id,
+                                }
+                            });
+                            totalSynced++;
+                        }
+                    }
+                }
+            }
+        } catch (e: any) {
+            console.error("syncMetaMessages: error for integration", integration.id, e.message);
+        }
+    }
+
+    revalidatePath("/dashboard/inbox");
+    return { success: true, synced: totalSynced };
 }

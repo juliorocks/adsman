@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { approveAndSendInteraction, ignoreInteraction, regenerateInteraction } from "@/actions/interactions";
+import { approveAndSendInteraction, ignoreInteraction, regenerateInteraction, syncMetaMessages } from "@/actions/interactions";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, ThumbsUp, Trash2, Send, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import { MessageSquare, ThumbsUp, Trash2, Send, CheckCircle2, AlertCircle, RefreshCw, CloudDownload } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -13,6 +13,7 @@ export function InboxList({ records }: { records: any[] }) {
     const [editedTexts, setEditedTexts] = useState<Record<string, string>>({});
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isBulkApproving, setIsBulkApproving] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
     const router = useRouter();
 
     const hasPending = records.some(r => r.status === "PENDING");
@@ -108,6 +109,25 @@ export function InboxList({ records }: { records: any[] }) {
         });
     };
 
+    const handleSync = async () => {
+        setIsSyncing(true);
+        try {
+            const result = await syncMetaMessages();
+            if (result.success) {
+                if (result.synced > 0) {
+                    toast.success(`${result.synced} nova(s) mensagem(ns) importada(s) do Meta!`);
+                    router.refresh();
+                } else {
+                    toast.info("Tudo sincronizado! Nenhuma mensagem nova sem resposta encontrada.");
+                }
+            } else {
+                toast.error(result.error || "Erro ao sincronizar.");
+            }
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
     const toggleSelectAll = () => {
         if (selectedIds.size === pending.length && pending.length > 0) {
             setSelectedIds(new Set());
@@ -120,10 +140,23 @@ export function InboxList({ records }: { records: any[] }) {
         <div className="space-y-8">
             <div>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
-                    <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
-                        <MessageSquare className="h-5 w-5 text-primary-600" />
-                        Copiloto de Atendimento ({pending.length} Pendentes)
-                    </h2>
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                            <MessageSquare className="h-5 w-5 text-primary-600" />
+                            Copiloto de Atendimento ({pending.length} Pendentes)
+                        </h2>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleSync}
+                            disabled={isSyncing}
+                            className="text-slate-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 gap-1.5 text-xs font-semibold"
+                            title="Buscar mensagens sem resposta no Meta"
+                        >
+                            <CloudDownload className={`h-4 w-4 ${isSyncing ? "animate-pulse" : ""}`} />
+                            {isSyncing ? "Sincronizando..." : "Sincronizar"}
+                        </Button>
+                    </div>
                     {pending.length > 0 && (
                         <div className="flex items-center gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-lg shadow-sm">
                             <label className="flex items-center gap-2 text-sm cursor-pointer text-slate-700 dark:text-slate-200 font-medium">
