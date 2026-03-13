@@ -16,6 +16,7 @@ const getDbClient = (user: any, defaultClient: any) => {
 const META_GRAPH_URL = "https://graph.facebook.com/v21.0";
 
 import { createAdminClient as createAdminSupabase } from "@/lib/supabase/admin";
+import { getWorkspaceOwnerId } from "@/lib/data/settings";
 
 const MOCK_USER_ID = "de70c0de-ad00-4000-8000-000000000000";
 
@@ -33,18 +34,21 @@ export async function getInteractions() {
 
     const adminDb = createAdminSupabase();
 
+    // Resolve workspace owner: team members inherit admin's integrations
+    const effectiveUserId = await getWorkspaceOwnerId(user.id);
+
     // Prioridade 1: cliente explicitamente selecionado via cookie (selectClient)
     const activeIntegrationId = cookies().get("active_integration_id")?.value;
 
     let integrationIds: string[] = [];
 
     if (activeIntegrationId) {
-        // Valida que esse integration_id pertence ao usuário logado (segurança)
+        // Valida que esse integration_id pertence ao workspace do usuário
         const { data: integCheck } = await adminDb
             .from("integrations")
             .select("id")
             .eq("id", activeIntegrationId)
-            .eq("user_id", user.id)
+            .eq("user_id", effectiveUserId)
             .single();
 
         if (integCheck) {
@@ -52,12 +56,12 @@ export async function getInteractions() {
         }
     }
 
-    // Prioridade 2: se não tiver cookie ou não pertencer ao usuário, usa todas as integrations Meta do usuário
+    // Prioridade 2: se não tiver cookie ou não pertencer ao workspace, usa todas as integrations Meta
     if (integrationIds.length === 0) {
         const { data: userIntegrations } = await adminDb
             .from("integrations")
             .select("id")
-            .eq("user_id", user.id)
+            .eq("user_id", effectiveUserId)
             .eq("platform", "meta");
 
         integrationIds = (userIntegrations || []).map((i: any) => i.id);

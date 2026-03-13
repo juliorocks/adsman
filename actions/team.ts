@@ -62,21 +62,25 @@ export async function addTeamMember(email: string, role: string) {
             return { success: false, error: "Erro interno ao validar e-mail do usuário." };
         }
 
-        const targetUser = usersData.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+        let targetUser = usersData.users.find(u => u.email?.toLowerCase() === email.toLowerCase()) as any;
 
         if (!targetUser) {
-            return {
-                success: false,
-                error: "Usuário não encontrado. Peça para a pessoa acessar o painel e fazer login pelo menos uma vez antes de adicioná-la à equipe."
-            };
+            // User doesn't exist yet — invite them via email (no manual signup needed)
+            const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+                redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://adsman.vercel.app'}/dashboard`
+            });
+            if (inviteErr) {
+                return { success: false, error: `Erro ao enviar convite: ${inviteErr.message}` };
+            }
+            targetUser = inviteData.user;
         }
 
         if (targetUser.id === user.id) {
             return { success: false, error: "Você não pode adicionar a si mesmo (você já é o SuperAdmin)." };
         }
 
-        // Add to team
-        const { error: insertError } = await supabase
+        // Add to team (use admin client to bypass RLS on insert)
+        const { error: insertError } = await supabaseAdmin
             .from('team_members')
             .insert({
                 owner_id: user.id,

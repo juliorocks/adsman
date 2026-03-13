@@ -1,12 +1,12 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUserId } from "@/lib/data/settings";
+import { getEffectiveUserId } from "@/lib/data/settings";
 import { revalidatePath } from "next/cache";
 
 export async function getKnowledgeBases() {
     try {
-        const userId = await getCurrentUserId();
+        const userId = await getEffectiveUserId();
         if (!userId) return [];
 
         const supabase = await createClient();
@@ -30,7 +30,7 @@ export async function getKnowledgeBases() {
 
 export async function createKnowledgeBase(formData: FormData) {
     try {
-        const userId = await getCurrentUserId();
+        const userId = await getEffectiveUserId();
         if (!userId) return { success: false, error: "Usuário não autenticado." };
 
         const client_name = formData.get("client_name")?.toString();
@@ -68,7 +68,7 @@ export async function createKnowledgeBase(formData: FormData) {
 
 export async function deleteKnowledgeBase(id: string) {
     try {
-        const userId = await getCurrentUserId();
+        const userId = await getEffectiveUserId();
         if (!userId) return { success: false, error: "Usuário não autenticado." };
 
         const supabase = await createClient();
@@ -91,7 +91,7 @@ export async function deleteKnowledgeBase(id: string) {
 
 export async function getKnowledgeBaseById(id: string) {
     try {
-        const userId = await getCurrentUserId();
+        const userId = await getEffectiveUserId();
         if (!userId) return null;
 
         const supabase = await createClient();
@@ -116,7 +116,7 @@ export async function getKnowledgeBaseById(id: string) {
 
 export async function updateKnowledgeBase(id: string, formData: FormData) {
     try {
-        const userId = await getCurrentUserId();
+        const userId = await getEffectiveUserId();
         if (!userId) return { success: false, error: "Usuário não autenticado." };
 
         const content = formData.get("content")?.toString();
@@ -145,7 +145,7 @@ export async function updateKnowledgeBase(id: string, formData: FormData) {
 
 export async function getKnowledgeSources(knowledgeBaseId: string) {
     try {
-        const userId = await getCurrentUserId();
+        const userId = await getEffectiveUserId();
         if (!userId) return [];
 
         const supabase = await createClient();
@@ -175,7 +175,7 @@ export async function addKnowledgeSource(
     metadata: any = {}
 ) {
     try {
-        const userId = await getCurrentUserId();
+        const userId = await getEffectiveUserId();
         if (!userId) return { success: false, error: "Usuário não autenticado." };
 
         const supabase = await createClient();
@@ -207,7 +207,7 @@ export async function addKnowledgeSource(
 
 export async function deleteKnowledgeSource(id: string, knowledgeBaseId: string) {
     try {
-        const userId = await getCurrentUserId();
+        const userId = await getEffectiveUserId();
         if (!userId) return { success: false, error: "Usuário não autenticado." };
 
         const supabase = await createClient();
@@ -230,7 +230,7 @@ export async function deleteKnowledgeSource(id: string, knowledgeBaseId: string)
 
 export async function triggerKnowledgeSync(knowledgeBaseId: string) {
     try {
-        const userId = await getCurrentUserId();
+        const userId = await getEffectiveUserId();
         if (!userId) return { success: false, error: "Usuário não autenticado." };
 
         const supabase = await createClient();

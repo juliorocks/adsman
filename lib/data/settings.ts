@@ -21,6 +21,37 @@ export async function getCurrentUserId(): Promise<string | null> {
     return null;
 }
 
+/**
+ * Returns the workspace owner's user_id for the given user.
+ * If the user is a team member, returns their owner's id.
+ * If the user is an owner (or solo user), returns their own id.
+ */
+export async function getWorkspaceOwnerId(userId: string): Promise<string> {
+    if (userId === MOCK_USER_ID) return userId;
+    try {
+        const adminClient = createAdminClient();
+        const { data } = await adminClient
+            .from('team_members')
+            .select('owner_id')
+            .eq('user_id', userId)
+            .limit(1)
+            .maybeSingle();
+        return data?.owner_id || userId;
+    } catch {
+        return userId;
+    }
+}
+
+/**
+ * Convenience: resolves the effective workspace owner id for the current user.
+ * Use this anywhere you need to scope data to the workspace (integrations, knowledge, etc.)
+ */
+export async function getEffectiveUserId(): Promise<string | null> {
+    const userId = await getCurrentUserId();
+    if (!userId) return null;
+    return getWorkspaceOwnerId(userId);
+}
+
 export async function getIntegration() {
     try {
         let supabase;
@@ -77,10 +108,13 @@ export async function getIntegration() {
 
         if (!supabase) return null;
 
-        const { data, error } = await supabase
+        // Resolve workspace owner so team members see the admin's integration
+        const ownerId = await getWorkspaceOwnerId(user.id);
+        const adminCl = createAdminClient();
+        const { data, error } = await adminCl
             .from("integrations")
             .select("*")
-            .eq("user_id", user.id)
+            .eq("user_id", ownerId)
             .eq("platform", "meta")
             .eq("status", "active")  // só retorna integração ativa — desconectar apaga o dashboard
             .single();
@@ -99,11 +133,12 @@ export async function getIntegration() {
 
 export async function getGoogleIntegration() {
     try {
-        const userId = await getCurrentUserId();
-        if (!userId) {
+        const rawUserId = await getCurrentUserId();
+        if (!rawUserId) {
             console.log("[getGoogleIntegration] No userId found");
             return null;
         }
+        const userId = await getWorkspaceOwnerId(rawUserId);
 
         const adminClient = createAdminClient();
         const { data, error } = await adminClient
@@ -168,10 +203,12 @@ export async function getOpenAIKey() {
                 encryptedKey = cookies().get("dev_openai_token")?.value || null;
             }
         } else {
-            const { data } = await supabase
+            const ownerId = await getWorkspaceOwnerId(user.id);
+            const adminCl = createAdminClient();
+            const { data } = await adminCl
                 .from("integrations")
                 .select("access_token_ref")
-                .eq("user_id", user.id)
+                .eq("user_id", ownerId)
                 .eq("platform", "openai")
                 .single();
 
@@ -218,10 +255,12 @@ export async function getModalKey() {
                 encryptedKey = cookies().get("dev_modal_token")?.value || null;
             }
         } else {
-            const { data } = await supabase
+            const ownerId = await getWorkspaceOwnerId(user.id);
+            const adminCl = createAdminClient();
+            const { data } = await adminCl
                 .from("integrations")
                 .select("access_token_ref")
-                .eq("user_id", user.id)
+                .eq("user_id", ownerId)
                 .eq("platform", "modal")
                 .single();
 
@@ -271,10 +310,12 @@ export async function getPollinationsKey() {
                 encryptedKey = cookies().get("dev_pollinations_token")?.value || null;
             }
         } else {
-            const { data } = await supabase
+            const ownerId = await getWorkspaceOwnerId(user.id);
+            const adminCl = createAdminClient();
+            const { data } = await adminCl
                 .from("integrations")
                 .select("access_token_ref")
-                .eq("user_id", user.id)
+                .eq("user_id", ownerId)
                 .eq("platform", "pollinations")
                 .single();
 
