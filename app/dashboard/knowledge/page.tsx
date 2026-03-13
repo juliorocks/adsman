@@ -1,11 +1,13 @@
-import { getKnowledgeBases, createKnowledgeBase, deleteKnowledgeBase } from "@/actions/knowledge";
-import { Database, Folder, FileText, Plus, Search, Trash2, ArrowRight, Bot } from "lucide-react";
+
+import { getKnowledgeBases, createKnowledgeBase } from "@/actions/knowledge";
+import { Database, Plus, Search, FileText, Layout, BookOpen, Sparkles, Folder } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { AgentContextForm } from "@/components/dashboard/AgentContextForm";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { cn } from "@/lib/utils";
 
 export const dynamic = 'force-dynamic';
 
@@ -41,128 +43,96 @@ export default async function KnowledgeBasesPage() {
         console.error("KnowledgePage: Error loading bases/integrations:", e);
     }
 
-    // Grouping by Client
-    const grouped = bases.reduce((acc, curr) => {
-        const client = curr.client_name || "Sem Cliente";
-        if (!acc[client]) acc[client] = [];
-        acc[client].push(curr);
-        return acc;
-    }, {} as Record<string, any[]>);
-
     return (
-        <div className="max-w-6xl mx-auto space-y-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-white mb-2 flex items-center gap-3">
-                        <Database className="h-8 w-8 text-primary-500" />
-                        Bases de Conhecimento
-                    </h1>
-                    <p className="text-slate-400">Gerencie todo o contexto dos seus clientes, copy, avatares e regras de negócio para a IA utilizar.</p>
+        <div className="space-y-12 animate-in fade-in duration-700">
+            {/* Introduction Section */}
+            <div className="space-y-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-400 text-xs font-bold uppercase tracking-wider">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Bem-vindo à sua Documentação de Marca
                 </div>
-
-                {/* Form to Create New Local Base */}
-                <form action={createKnowledgeBase as any} className="flex flex-col md:flex-row gap-3 bg-slate-900 border border-slate-800 p-3 rounded-2xl w-full md:w-auto shadow-sm">
-                    <input
-                        type="text"
-                        name="client_name"
-                        placeholder="Nome do Cliente/Pasta"
-                        required
-                        className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary-500 w-full md:w-40"
-                    />
-                    <input
-                        type="text"
-                        name="name"
-                        placeholder="Nome do Documento (Ex: Persona)"
-                        required
-                        className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary-500 w-full md:w-60"
-                    />
-                    <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white rounded-lg gap-2">
-                        <Plus className="h-4 w-4" /> Nova Base
-                    </Button>
-                </form>
+                <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white sm:text-5xl">
+                    Introdução
+                </h1>
+                <p className="text-xl text-slate-500 dark:text-slate-400 leading-relaxed max-w-2xl">
+                    Sua Base de Conhecimento centraliza todas as informações que sua IA utiliza para responder clientes, criar copies e manter o tom de voz da sua marca.
+                </p>
+                <div className="flex items-center gap-4 pt-4">
+                    <div className="flex -space-x-2">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="h-8 w-8 rounded-full border-2 border-white dark:border-slate-900 bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                                {i}
+                            </div>
+                        ))}
+                    </div>
+                    <span className="text-sm text-slate-400 font-medium">Equipe utilizando {bases.length} bases ativas</span>
+                </div>
             </div>
 
-            {/* AI Agents Identity Section (New Feature) */}
+            {/* Quick Actions / Creation */}
+            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-3xl p-8 border border-slate-200/60 dark:border-slate-800/60 shadow-sm">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="space-y-1">
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-white">Adicionar Novo Documento</h2>
+                        <p className="text-sm text-slate-500">Crie uma nova base para um cliente ou campanha específica.</p>
+                    </div>
+
+                    <form action={createKnowledgeBase as any} className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                        <input
+                            type="text"
+                            name="client_name"
+                            placeholder="Nome do Cliente"
+                            required
+                            className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all w-full sm:w-48 placeholder:text-slate-400 text-slate-900 dark:text-white"
+                        />
+                        <input
+                            type="text"
+                            name="name"
+                            placeholder="Nome do Documento (Ex: Persona)"
+                            required
+                            className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all w-full sm:w-64 placeholder:text-slate-400 text-slate-900 dark:text-white"
+                        />
+                        <Button type="submit" className="bg-primary-600 hover:bg-primary-700 text-white rounded-xl shadow-lg shadow-primary-200 dark:shadow-none py-6 px-6 gap-2">
+                            <Plus className="h-4 w-4" /> Criar Documento
+                        </Button>
+                    </form>
+                </div>
+            </div>
+
+            {/* AI Persona Section */}
             {integrations.length > 0 && (
-                <div className="space-y-4">
-                    <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                        <Bot className="h-6 w-6 text-primary-500" />
-                        Identidade dos Agentes (Social)
-                    </h2>
+                <section className="pt-8 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="h-10 w-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center">
+                            <BookOpen className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <h2 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-white">
+                            Configuração da IA (Copiloto)
+                        </h2>
+                    </div>
                     <div className="grid grid-cols-1 gap-6">
                         {integrations.map(intg => (
                             <AgentContextForm key={intg.id} integration={intg} />
                         ))}
                     </div>
-                </div>
+                </section>
             )}
 
-            <div className="pt-4 border-t border-slate-800">
-                <h2 className="text-xl font-bold tracking-tight text-white mb-6 flex items-center gap-2">
-                    <Folder className="h-6 w-6 text-primary-500" />
-                    Pastas de Contexto Geral
-                </h2>
-
-                {Object.keys(grouped).length === 0 ? (
-                    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-16 flex flex-col items-center justify-center text-center space-y-4">
-                        <div className="h-20 w-20 bg-slate-800 rounded-full flex items-center justify-center">
-                            <Folder className="h-10 w-10 text-slate-500" />
+            {/* Tutorial Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-12">
+                {[
+                    { title: "Defina sua Persona", desc: "A IA precisa saber quem ela é ao responder um cliente.", icon: FileText, color: "text-blue-500", bg: "bg-blue-500/10" },
+                    { title: "Suba seus PDFs", desc: "Manuais, tabelas de preço e catálogos ajudam nas respostas.", icon: Database, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+                    { title: "Regras de Ouro", desc: "Crie documentos com o que a IA NUNCA deve falar.", icon: Layout, color: "text-amber-500", bg: "bg-amber-500/10" }
+                ].map((item, i) => (
+                    <div key={i} className="p-6 rounded-3xl border border-slate-100 dark:border-slate-800 hover:border-primary-500/30 transition-all group">
+                        <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 duration-300", item.bg)}>
+                            <item.icon className={cn("h-6 w-6", item.color)} />
                         </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-white">Nenhuma base encontrada</h3>
-                            <p className="text-slate-400 max-w-sm mx-auto mt-2">Crie sua primeira pasta de cliente preenchendo o formulário acima. Depois você poderá inserir os PDFs e textos lá dentro.</p>
-                        </div>
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">{item.title}</h3>
+                        <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
                     </div>
-                ) : (
-                    <div className="space-y-6">
-                        {(Object.entries(grouped) as [string, any[]][]).map(([clientName, clientBases]) => (
-                            <div key={clientName} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                                {/* Folder Header */}
-                                <div className="bg-slate-950/50 p-4 border-b border-slate-800 flex items-center gap-3">
-                                    <Folder className="h-5 w-5 text-blue-400" />
-                                    <h2 className="text-lg font-bold text-white">{clientName}</h2>
-                                    <span className="bg-slate-800 text-xs px-2 py-0.5 rounded-full text-slate-400">
-                                        {clientBases.length} arquivos
-                                    </span>
-                                </div>
-
-                                {/* Files Table */}
-                                <div className="divide-y divide-slate-800">
-                                    {clientBases.map((base: any) => (
-                                        <div key={base.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-800/30 transition-colors">
-                                            <div className="flex items-start gap-3">
-                                                <div className="mt-1 h-8 w-8 bg-slate-800 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                    <FileText className="h-4 w-4 text-slate-400" />
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-sm font-semibold text-white">{base.name}</h3>
-                                                    <p className="text-xs text-slate-500 mt-1 line-clamp-1">
-                                                        {base.content ? (base.content.substring(0, 100) + '...') : 'Nenhum contexto inserido ainda. Clique para editar.'}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-2">
-                                                <Link href={`/dashboard/knowledge/${base.id}`}>
-                                                    <Button variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 group">
-                                                        Acessar Contexto
-                                                        <ArrowRight className="ml-2 h-4 w-4 text-slate-500 group-hover:text-primary-400 transition-colors" />
-                                                    </Button>
-                                                </Link>
-
-                                                <form action={deleteKnowledgeBase.bind(null, base.id) as any}>
-                                                    <Button type="submit" variant="ghost" size="icon" className="text-slate-500 hover:bg-red-950 hover:text-red-400" title="Apagar Rascunho">
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                ))}
             </div>
         </div>
     );
