@@ -74,7 +74,7 @@ export function TeamManagement({ members }: { members: any[] }) {
                     <h3 className="text-xl font-bold text-white mb-2">Equipe e Convidados</h3>
                     <p className="text-sm text-slate-400">
                         Adicione membros da sua equipe ou clientes para visualizarem/operarem este Workspace.
-                        <strong> Eles precisam fazer login na plataforma antes de você adicioná-los aqui.</strong>
+                        Se o usuário ainda não tiver conta, <strong>um convite será enviado por e-mail automaticamente.</strong>
                     </p>
                 </div>
 

@@ -4,9 +4,11 @@ import { OpenAIKeyForm } from "@/components/settings/OpenAIKeyForm";
 import { GoogleDriveCard } from "@/components/settings/GoogleDriveCard";
 import { TeamManagement } from "@/components/settings/TeamManagement";
 import { ProfileForm } from "@/components/settings/ProfileForm";
+import { PasswordForm } from "@/components/settings/PasswordForm";
 import { getTeamMembers } from "@/actions/team";
-import { Users2, UserCircle } from "lucide-react";
+import { Users2, UserCircle, KeyRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { cookies } from "next/headers";
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +19,7 @@ export default async function SettingsPage() {
     let userId: string | null = null;
     let teamMembers: any[] = [];
     let currentUser: any = null;
+    let isMember = false;
 
     const MOCK_USER_ID = "de70c0de-ad00-4000-8000-000000000000";
 
@@ -24,7 +27,6 @@ export default async function SettingsPage() {
         userId = await getCurrentUserId();
         integration = await getIntegration();
 
-        // Only workspace owners can manage team
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         const devSession = cookies().get("dev_session");
@@ -34,8 +36,21 @@ export default async function SettingsPage() {
                 name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "",
                 email: user.email || "",
             };
-            // Check if this user is NOT a member (only owners see team management)
-            teamMembers = await getTeamMembers();
+
+            // Check if this user is a team member or owner
+            const adminDb = createAdminClient();
+            const { data: membership } = await adminDb
+                .from("team_members")
+                .select("owner_id")
+                .eq("user_id", user.id)
+                .maybeSingle();
+
+            isMember = !!membership;
+
+            // Only owners can manage their team
+            if (!isMember) {
+                teamMembers = await getTeamMembers();
+            }
         } else if (devSession) {
             currentUser = { name: "Dev User", email: "dev@local" };
         }
@@ -74,32 +89,52 @@ export default async function SettingsPage() {
                 </section>
             )}
 
-            {/* Team — only visible to workspace owners (not team members) */}
-            <section className="space-y-6">
-                <div className="flex items-center gap-2">
-                    <Users2 className="text-slate-400 h-5 w-5" />
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Gerenciamento de Equipe</h3>
-                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                </div>
-                <TeamManagement members={teamMembers} />
-            </section>
+            {/* Password — for all real users (especially invited members) */}
+            {currentUser && !isMockUser && (
+                <section className="space-y-6">
+                    <div className="flex items-center gap-2">
+                        <KeyRound className="text-slate-400 h-5 w-5" />
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Segurança</h3>
+                        <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                    </div>
+                    <PasswordForm />
+                </section>
+            )}
 
-            <section className="space-y-6">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Fonte de Dados</h3>
-                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                </div>
-                <ConnectMetaButton isConnected={isConnected} />
-                <GoogleDriveCard isConnected={!!googleIntegration} userId={userId} />
-            </section>
+            {/* Team — only visible to workspace owners */}
+            {!isMember && (
+                <section className="space-y-6">
+                    <div className="flex items-center gap-2">
+                        <Users2 className="text-slate-400 h-5 w-5" />
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Gerenciamento de Equipe</h3>
+                        <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                    </div>
+                    <TeamManagement members={teamMembers} />
+                </section>
+            )}
 
-            <section className="space-y-6">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Inteligência Artificial</h3>
-                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                </div>
-                <OpenAIKeyForm hasKey={hasOpenAI} />
-            </section>
+            {/* Data sources — owners only (members inherit from owner) */}
+            {!isMember && (
+                <section className="space-y-6">
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Fonte de Dados</h3>
+                        <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                    </div>
+                    <ConnectMetaButton isConnected={isConnected} />
+                    <GoogleDriveCard isConnected={!!googleIntegration} userId={userId} />
+                </section>
+            )}
+
+            {/* AI — owners only */}
+            {!isMember && (
+                <section className="space-y-6">
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Inteligência Artificial</h3>
+                        <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                    </div>
+                    <OpenAIKeyForm hasKey={hasOpenAI} />
+                </section>
+            )}
         </div>
     );
 }

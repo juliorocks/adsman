@@ -26,6 +26,16 @@ export async function logout() {
     redirect("/login");
 }
 
+export async function updatePassword(password: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Não autenticado" };
+
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+}
+
 export async function updateProfile(name: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

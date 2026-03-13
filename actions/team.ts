@@ -60,7 +60,7 @@ export async function addTeamMember(email: string, role: string) {
         if (!targetUser) {
             // User doesn't exist — send invite email (creates account automatically)
             const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-                redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://adsman.vercel.app'}/dashboard`
+                redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://adsman.vercel.app'}/auth/confirm`
             });
             if (inviteErr) {
                 // inviteUserByEmail fails if user already exists — try RPC lookup one more time
