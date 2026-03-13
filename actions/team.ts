@@ -46,33 +46,36 @@ export async function addTeamMember(email: string, role: string) {
     }
 
     try {
-        // Need to find the user by email using Admin client
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
         const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
         const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey);
 
-        // Fetch users to find matching email - in V1 this is acceptable, 
-        // ideally supabase admin has getUserById, but for email we can list users or use a standard approach.
-        // There is supabaseAdmin.auth.admin.getUserById but no getByEmail directly unless using getUser() but that requires JWT.
-        // If the user already signed up with that email, they will be in the system.
-        const { data: usersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
-
-        if (usersError) {
-            console.error(usersError);
-            return { success: false, error: "Erro interno ao validar e-mail do usuário." };
+        // Search for existing user by email across all pages
+        let targetUser: any = null;
+        let page = 1;
+        while (!targetUser) {
+            const { data: pageData, error: listErr } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+            if (listErr || !pageData?.users?.length) break;
+            targetUser = pageData.users.find(u => u.email?.toLowerCase() === email.toLowerCase()) ?? null;
+            if (pageData.users.length < 1000) break; // last page
+            page++;
         }
 
-        let targetUser = usersData.users.find(u => u.email?.toLowerCase() === email.toLowerCase()) as any;
-
         if (!targetUser) {
-            // User doesn't exist yet — invite them via email (no manual signup needed)
+            // User doesn't exist — send invite email (creates account automatically)
             const { data: inviteData, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
                 redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://adsman.vercel.app'}/dashboard`
             });
             if (inviteErr) {
-                return { success: false, error: `Erro ao enviar convite: ${inviteErr.message}` };
+                // inviteUserByEmail also fails if user exists but wasn't found in pagination — retry search
+                const { data: retryData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+                targetUser = retryData?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase()) ?? null;
+                if (!targetUser) {
+                    return { success: false, error: `Erro ao enviar convite: ${inviteErr.message}` };
+                }
+            } else {
+                targetUser = inviteData.user;
             }
-            targetUser = inviteData.user;
         }
 
         if (targetUser.id === user.id) {
