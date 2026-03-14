@@ -43,37 +43,77 @@ export async function finalizeIntegration(integrationId: string, accountId: stri
     const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
     console.log(`[finalizeIntegration] Updating integration record...`);
-    try {
-        // Use upsert to avoid unique constraint issues during update
-        const { error, data } = await supabaseAdmin
+
+    // Get the pending integration's access token before potentially deleting it
+    const { data: pendingInteg } = await supabaseAdmin
+        .from("integrations")
+        .select("access_token_ref")
+        .eq("id", integrationId)
+        .single();
+
+    // Check if an existing integration already uses this ad_account_id (reconnection scenario)
+    // If so, reuse that integration's ID to preserve linked social_interactions
+    const { data: existingInteg } = await supabaseAdmin
+        .from("integrations")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("platform", "meta")
+        .eq("ad_account_id", accountId)
+        .neq("id", integrationId)
+        .maybeSingle();
+
+    if (existingInteg) {
+        console.log(`[finalizeIntegration] Reconnecting existing integration ${existingInteg.id}, discarding pending ${integrationId}`);
+        // Update the existing integration with the new token and re-activate it
+        const { error } = await supabaseAdmin
             .from("integrations")
-            .upsert({
-                id: integrationId,
-                user_id: user.id,
-                platform: "meta",
-                ad_account_id: accountId,
+            .update({
+                access_token_ref: pendingInteg?.access_token_ref,
                 client_name: clientName,
                 status: "active",
                 updated_at: new Date().toISOString()
-            }, {
-                onConflict: "id"
             })
-            .select();
+            .eq("id", existingInteg.id);
 
-        console.log(`[finalizeIntegration] Upsert response: error=${error ? error.message : 'NONE'}, rowsAffected=${data?.length || 0}`);
+        if (error) throw new Error("Falha ao reatualizar integração: " + error.message);
 
-        if (error) {
-            console.error("[finalizeIntegration] Database error:", error);
-            throw new Error("Falha ao salvar integração: " + error.message);
+        // Delete the temporary pending integration
+        await supabaseAdmin.from("integrations").delete().eq("id", integrationId);
+
+        // Use the existing integration's ID going forward
+        integrationId = existingInteg.id;
+    } else {
+        try {
+            const { error, data } = await supabaseAdmin
+                .from("integrations")
+                .upsert({
+                    id: integrationId,
+                    user_id: user.id,
+                    platform: "meta",
+                    ad_account_id: accountId,
+                    client_name: clientName,
+                    status: "active",
+                    updated_at: new Date().toISOString()
+                }, {
+                    onConflict: "id"
+                })
+                .select();
+
+            console.log(`[finalizeIntegration] Upsert response: error=${error ? error.message : 'NONE'}, rowsAffected=${data?.length || 0}`);
+
+            if (error) {
+                console.error("[finalizeIntegration] Database error:", error);
+                throw new Error("Falha ao salvar integração: " + error.message);
+            }
+
+            if (!data || data.length === 0) {
+                console.warn("[finalizeIntegration] No rows updated - integration may not exist or user mismatch");
+                throw new Error("Integração não encontrada ou acesso negado");
+            }
+        } catch (err: any) {
+            console.error("[finalizeIntegration] Exception:", err.message);
+            throw err;
         }
-
-        if (!data || data.length === 0) {
-            console.warn("[finalizeIntegration] No rows updated - integration may not exist or user mismatch");
-            throw new Error("Integração não encontrada ou acesso negado");
-        }
-    } catch (err: any) {
-        console.error("[finalizeIntegration] Exception:", err.message);
-        throw err;
     }
 
     // Clear pending setup cookie
