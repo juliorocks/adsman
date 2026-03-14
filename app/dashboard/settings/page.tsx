@@ -18,6 +18,7 @@ export default async function SettingsPage() {
     let openAIKey: string | null = null;
     let userId: string | null = null;
     let teamMembers: any[] = [];
+    let metaIntegrations: any[] = [];
     let currentUser: any = null;
     let isMember = false;
 
@@ -50,6 +51,15 @@ export default async function SettingsPage() {
             // Only owners can manage their team
             if (!isMember) {
                 teamMembers = await getTeamMembers();
+
+                // Fetch meta integrations to show in team member access management
+                const { data: integrationsData } = await adminDb
+                    .from("integrations")
+                    .select("id, client_name, ad_account_id")
+                    .eq("user_id", user.id)
+                    .eq("platform", "meta")
+                    .eq("status", "active");
+                metaIntegrations = integrationsData || [];
             }
         } else if (devSession) {
             currentUser = { name: "Dev User", email: "dev@local" };
@@ -109,7 +119,7 @@ export default async function SettingsPage() {
                         <h3 className="text-lg font-bold text-slate-900 dark:text-white">Gerenciamento de Equipe</h3>
                         <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
                     </div>
-                    <TeamManagement members={teamMembers} />
+                    <TeamManagement members={teamMembers} integrations={metaIntegrations} />
                 </section>
             )}
 

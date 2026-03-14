@@ -37,6 +37,17 @@ export async function getInteractions() {
     // Resolve workspace owner: team members inherit admin's integrations
     const effectiveUserId = await getWorkspaceOwnerId(user.id);
 
+    // For members: check which integrations they are allowed to access
+    let allowedIntegrationIds: string[] | null = null;
+    if (user.id !== effectiveUserId && user.id !== MOCK_USER_ID) {
+        const { data: membership } = await adminDb
+            .from("team_members")
+            .select("allowed_integration_ids")
+            .eq("user_id", user.id)
+            .maybeSingle();
+        allowedIntegrationIds = membership?.allowed_integration_ids ?? null;
+    }
+
     // Prioridade 1: cliente explicitamente selecionado via cookie (selectClient)
     const activeIntegrationId = cookies().get("active_integration_id")?.value;
 
@@ -51,7 +62,9 @@ export async function getInteractions() {
             .eq("user_id", effectiveUserId)
             .single();
 
-        if (integCheck) {
+        // Also ensure member is allowed to access this specific integration
+        const memberAllowed = allowedIntegrationIds === null || allowedIntegrationIds.includes(activeIntegrationId);
+        if (integCheck && memberAllowed) {
             integrationIds = [activeIntegrationId];
         }
     }
@@ -64,7 +77,14 @@ export async function getInteractions() {
             .eq("user_id", effectiveUserId)
             .eq("platform", "meta");
 
-        integrationIds = (userIntegrations || []).map((i: any) => i.id);
+        let ids = (userIntegrations || []).map((i: any) => i.id);
+
+        // Apply member restriction
+        if (allowedIntegrationIds !== null) {
+            ids = ids.filter((id: string) => allowedIntegrationIds!.includes(id));
+        }
+
+        integrationIds = ids;
     }
 
     if (integrationIds.length === 0) {
@@ -334,14 +354,40 @@ export async function syncMetaMessages() {
     const adminDb = createAdminSupabase();
     const effectiveUserId = await getWorkspaceOwnerId(user.id);
 
-    const { data: integrations } = await adminDb
+    // For members: check which integrations they are allowed to access
+    let allowedIntegrationIds: string[] | null = null;
+    if (user.id !== effectiveUserId && user.id !== MOCK_USER_ID) {
+        const { data: membership } = await adminDb
+            .from("team_members")
+            .select("allowed_integration_ids")
+            .eq("user_id", user.id)
+            .maybeSingle();
+        allowedIntegrationIds = membership?.allowed_integration_ids ?? null;
+    }
+
+    // Respect active_integration_id cookie: sync only the selected client
+    const activeIntegrationId = cookies().get("active_integration_id")?.value;
+
+    const { data: allIntegrations } = await adminDb
         .from("integrations")
         .select("id, access_token_ref, preferred_page_id, preferred_instagram_id")
         .eq("user_id", effectiveUserId)
         .eq("platform", "meta")
         .eq("status", "active");
 
-    if (!integrations || integrations.length === 0) {
+    let integrations = allIntegrations || [];
+
+    // Filter to active selected client if set
+    if (activeIntegrationId) {
+        integrations = integrations.filter(i => i.id === activeIntegrationId);
+    }
+
+    // Apply member restriction
+    if (allowedIntegrationIds !== null) {
+        integrations = integrations.filter(i => allowedIntegrationIds!.includes(i.id));
+    }
+
+    if (integrations.length === 0) {
         return { success: false, error: "Nenhuma conta Meta conectada.", synced: 0 };
     }
 

@@ -24,6 +24,7 @@ export async function getTeamMembers() {
             user_id,
             email,
             role,
+            allowed_integration_ids,
             created_at
         `)
         .eq('owner_id', user.id)
@@ -109,6 +110,30 @@ export async function addTeamMember(email: string, role: string) {
         console.error(e);
         return { success: false, error: e.message || "Erro inesperado ao adicionar o usuário." };
     }
+}
+
+export async function updateMemberIntegrations(memberId: string, integrationIds: string[] | null) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { success: false, error: "Não autenticado" };
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const supabaseAdmin = createAdminClient(supabaseUrl, supabaseKey);
+
+    const { error } = await supabaseAdmin
+        .from('team_members')
+        .update({ allowed_integration_ids: integrationIds })
+        .eq('id', memberId)
+        .eq('owner_id', user.id);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/dashboard/settings");
+    return { success: true };
 }
 
 export async function removeTeamMember(id: string) {
