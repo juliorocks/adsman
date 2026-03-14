@@ -28,22 +28,22 @@ export async function getActiveIntegrationId(): Promise<string | null> {
 // Finalizes a pending Meta integration: sets client_name, ad_account_id, and marks as active.
 // Called from the select-account page after OAuth.
 export async function finalizeIntegration(integrationId: string, accountId: string, clientName: string) {
+    console.log(`[finalizeIntegration] Starting: integrationId=${integrationId}, accountId=${accountId}, clientName=${clientName}`);
+
+    const supabase = await createClient();
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+    let user = supabaseUser;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
+
+    console.log(`[finalizeIntegration] User ID: ${user?.id || 'NULL'}`);
+    if (!user) throw new Error("Unauthorized - No user found");
+
+    const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+    console.log(`[finalizeIntegration] Updating integration record...`);
     try {
-        console.log(`[finalizeIntegration] Starting: integrationId=${integrationId}, accountId=${accountId}, clientName=${clientName}`);
-
-        const supabase = await createClient();
-        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-
-        let user = supabaseUser;
-        const devSession = cookies().get("dev_session");
-        if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
-
-        console.log(`[finalizeIntegration] User ID: ${user?.id || 'NULL'}`);
-        if (!user) throw new Error("Unauthorized - No user found");
-
-        const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-
-        console.log(`[finalizeIntegration] Updating integration record...`);
         const { error, data } = await supabaseAdmin
             .from("integrations")
             .update({
