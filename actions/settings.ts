@@ -44,19 +44,23 @@ export async function finalizeIntegration(integrationId: string, accountId: stri
 
     console.log(`[finalizeIntegration] Updating integration record...`);
     try {
+        // Use upsert to avoid unique constraint issues during update
         const { error, data } = await supabaseAdmin
             .from("integrations")
-            .update({
+            .upsert({
+                id: integrationId,
+                user_id: user.id,
+                platform: "meta",
                 ad_account_id: accountId,
                 client_name: clientName,
                 status: "active",
                 updated_at: new Date().toISOString()
+            }, {
+                onConflict: "id"
             })
-            .eq("id", integrationId)
-            .eq("user_id", user.id)
             .select();
 
-        console.log(`[finalizeIntegration] Update response: error=${error ? error.message : 'NONE'}, rowsAffected=${data?.length || 0}`);
+        console.log(`[finalizeIntegration] Upsert response: error=${error ? error.message : 'NONE'}, rowsAffected=${data?.length || 0}`);
 
         if (error) {
             console.error("[finalizeIntegration] Database error:", error);
