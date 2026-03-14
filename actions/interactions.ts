@@ -39,7 +39,9 @@ export async function getInteractions() {
 
     // For members: check which integrations they are allowed to access
     let allowedIntegrationIds: string[] | null = null;
+    let isMember = false;
     if (user.id !== effectiveUserId && user.id !== MOCK_USER_ID) {
+        isMember = true;
         const { data: membership } = await adminDb
             .from("team_members")
             .select("allowed_integration_ids")
@@ -63,7 +65,8 @@ export async function getInteractions() {
             .single();
 
         // Also ensure member is allowed to access this specific integration
-        const memberAllowed = allowedIntegrationIds === null || allowedIntegrationIds.includes(activeIntegrationId);
+        // Members with NULL allowedIntegrationIds have NO access by default
+        const memberAllowed = !isMember || (allowedIntegrationIds !== null && allowedIntegrationIds.includes(activeIntegrationId));
         if (integCheck && memberAllowed) {
             integrationIds = [activeIntegrationId];
         }
@@ -79,8 +82,10 @@ export async function getInteractions() {
 
         let ids = (userIntegrations || []).map((i: any) => i.id);
 
-        // Apply member restriction
-        if (allowedIntegrationIds !== null) {
+        // Apply member restriction: NULL means NO access by default
+        if (isMember && allowedIntegrationIds === null) {
+            ids = [];
+        } else if (isMember && allowedIntegrationIds !== null) {
             ids = ids.filter((id: string) => allowedIntegrationIds!.includes(id));
         }
 
@@ -356,7 +361,9 @@ export async function syncMetaMessages() {
 
     // For members: check which integrations they are allowed to access
     let allowedIntegrationIds: string[] | null = null;
+    let isMember = false;
     if (user.id !== effectiveUserId && user.id !== MOCK_USER_ID) {
+        isMember = true;
         const { data: membership } = await adminDb
             .from("team_members")
             .select("allowed_integration_ids")
@@ -382,8 +389,10 @@ export async function syncMetaMessages() {
         integrations = integrations.filter(i => i.id === activeIntegrationId);
     }
 
-    // Apply member restriction
-    if (allowedIntegrationIds !== null) {
+    // Apply member restriction: NULL means NO access by default
+    if (isMember && allowedIntegrationIds === null) {
+        integrations = [];
+    } else if (isMember && allowedIntegrationIds !== null) {
         integrations = integrations.filter(i => allowedIntegrationIds!.includes(i.id));
     }
 
