@@ -21,7 +21,7 @@ export function ClientSelector({
 
     const active = clients.find((c) => c.id === activeIntegrationId) || clients[0];
 
-    if (!clients || clients.length <= 1) return null;
+    if (!clients || clients.length === 0) return null;
 
     const handleSelect = (integrationId: string) => {
         if (integrationId === activeIntegrationId) return;

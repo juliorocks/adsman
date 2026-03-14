@@ -83,7 +83,7 @@ export default async function DashboardPage({
                 <div className="flex flex-col items-end gap-4">
                     {/* Client Selector & Theme Toggle */}
                     <div className="flex items-center gap-2">
-                        {visibleIntegrations.length > 1 && (
+                        {visibleIntegrations.length > 0 && (
                             <div className="w-[280px]">
                                 <ClientSelector
                                     clients={visibleIntegrations}

@@ -62,7 +62,8 @@ export async function getInteractions() {
             .select("id")
             .eq("id", activeIntegrationId)
             .eq("user_id", effectiveUserId)
-            .single();
+            .eq("status", "active")
+            .maybeSingle();
 
         // Also ensure member is allowed to access this specific integration
         // Members with NULL allowedIntegrationIds have NO access by default
@@ -78,7 +79,8 @@ export async function getInteractions() {
             .from("integrations")
             .select("id")
             .eq("user_id", effectiveUserId)
-            .eq("platform", "meta");
+            .eq("platform", "meta")
+            .eq("status", "active");
 
         let ids = (userIntegrations || []).map((i: any) => i.id);
 
