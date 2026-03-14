@@ -32,7 +32,6 @@ export async function GET(request: NextRequest) {
             accessToken = await exchangeCodeForToken(code, redirectUri);
         } catch (tokenErr) {
             console.error("Meta Token Exchange Error:", tokenErr);
-            // Pass the error message in the URL for immediate user troubleshooting
             const msg = encodeURIComponent((tokenErr as Error).message || "token_exchange_failed");
             return redirect(`/dashboard/settings?error=meta_exchange_failed&details=${msg}`);
         }
@@ -40,23 +39,32 @@ export async function GET(request: NextRequest) {
         // 2. Encrypt Token
         const encryptedToken = encrypt(accessToken);
 
-        // 3. Save Integration — Uses Admin Client to bypass RLS and ensures the record is active
+        // 3. INSERT a new integration row (one per client — no longer overwrite existing)
         const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-        const { error: dbError } = await supabaseAdmin
+        const { data: newIntegration, error: dbError } = await supabaseAdmin
             .from("integrations")
-            .upsert({
+            .insert({
                 user_id: userId,
                 platform: "meta",
                 access_token_ref: encryptedToken,
-                status: "active",
+                status: "pending_setup",
                 updated_at: new Date().toISOString()
-            }, { onConflict: "user_id, platform" });
+            })
+            .select("id")
+            .single();
 
         if (dbError) {
-            console.error("Meta DB Upsert Error:", dbError);
+            console.error("Meta DB Insert Error:", dbError);
             throw dbError;
         }
+
+        // 4. Store the new integration ID so select-account page knows which one to configure
+        cookies().set("pending_integration_id", newIntegration.id, {
+            httpOnly: true,
+            path: "/",
+            maxAge: 60 * 60 // 1 hour — user must complete setup or it expires
+        });
 
         // Keep cookie strictly for dev UI edge cases if needed (Mock User)
         if (userId === "de70c0de-ad00-4000-8000-000000000000") {

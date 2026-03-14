@@ -25,36 +25,79 @@ export async function getActiveIntegrationId(): Promise<string | null> {
 }
 
 
-export async function selectAdAccount(accountId: string, formData: FormData) {
+// Finalizes a pending Meta integration: sets client_name, ad_account_id, and marks as active.
+// Called from the select-account page after OAuth.
+export async function finalizeIntegration(integrationId: string, accountId: string, clientName: string) {
     const supabase = await createClient();
     const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
     let user = supabaseUser;
     const devSession = cookies().get("dev_session");
-
-    if (!user && devSession) {
-        user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
-    }
-
+    if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
     if (!user) throw new Error("Unauthorized");
 
-    let error;
-    if (user.id === "de70c0de-ad00-4000-8000-000000000000") {
-        const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-        const { error: adError } = await supabaseAdmin
-            .from("integrations")
-            .update({ ad_account_id: accountId })
-            .eq("user_id", user.id)
-            .eq("platform", "meta");
-        error = adError;
-    } else {
-        const { error: adError } = await supabase
-            .from("integrations")
-            .update({ ad_account_id: accountId })
-            .eq("user_id", user.id)
-            .eq("platform", "meta");
-        error = adError;
+    const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+    const { error } = await supabaseAdmin
+        .from("integrations")
+        .update({
+            ad_account_id: accountId,
+            client_name: clientName,
+            status: "active",
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", integrationId)
+        .eq("user_id", user.id);
+
+    if (error) {
+        console.error("finalizeIntegration error:", error);
+        throw new Error("Falha ao salvar integração: " + error.message);
     }
+
+    // Clear pending setup cookie
+    cookies().delete("pending_integration_id");
+
+    // Set this as the active integration (switches the dashboard to this client)
+    cookies().set("active_integration_id", integrationId, {
+        httpOnly: true,
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30
+    });
+
+    if (user.id === "de70c0de-ad00-4000-8000-000000000000") {
+        cookies().set("dev_ad_account_id", accountId, { httpOnly: true, path: "/" });
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/inbox");
+    redirect("/dashboard");
+}
+
+// Legacy: keeps the ability to switch ad account within an existing integration
+export async function selectAdAccount(accountId: string, _formData: FormData) {
+    const supabase = await createClient();
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+    let user = supabaseUser;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
+    if (!user) throw new Error("Unauthorized");
+
+    // Update only the currently active integration, not all meta integrations
+    const activeIntegrationId = cookies().get("active_integration_id")?.value;
+    const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+    let queryBuilder = supabaseAdmin
+        .from("integrations")
+        .update({ ad_account_id: accountId })
+        .eq("user_id", user.id)
+        .eq("platform", "meta");
+
+    if (activeIntegrationId) {
+        queryBuilder = (queryBuilder as any).eq("id", activeIntegrationId);
+    }
+
+    const { error } = await queryBuilder;
 
     if (error) {
         console.error(error);

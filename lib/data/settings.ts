@@ -111,13 +111,28 @@ export async function getIntegration() {
         // Resolve workspace owner so team members see the admin's integration
         const ownerId = await getWorkspaceOwnerId(user.id);
         const adminCl = createAdminClient();
-        const { data, error } = await adminCl
+
+        // If a specific client is selected (via cookie), use that integration
+        let activeIntegrationId: string | null = null;
+        try {
+            activeIntegrationId = cookies().get("active_integration_id")?.value || null;
+        } catch (e) { }
+
+        let query = adminCl
             .from("integrations")
             .select("*")
             .eq("user_id", ownerId)
             .eq("platform", "meta")
-            .eq("status", "active")  // só retorna integração ativa — desconectar apaga o dashboard
-            .single();
+            .eq("status", "active");
+
+        if (activeIntegrationId) {
+            query = query.eq("id", activeIntegrationId) as any;
+        }
+
+        const { data, error } = await (query as any)
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
         if (error) {
             console.error("getIntegration query error:", error);
