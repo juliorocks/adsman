@@ -28,30 +28,48 @@ export async function getActiveIntegrationId(): Promise<string | null> {
 // Finalizes a pending Meta integration: sets client_name, ad_account_id, and marks as active.
 // Called from the select-account page after OAuth.
 export async function finalizeIntegration(integrationId: string, accountId: string, clientName: string) {
-    const supabase = await createClient();
-    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+    try {
+        console.log(`[finalizeIntegration] Starting: integrationId=${integrationId}, accountId=${accountId}, clientName=${clientName}`);
 
-    let user = supabaseUser;
-    const devSession = cookies().get("dev_session");
-    if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
-    if (!user) throw new Error("Unauthorized");
+        const supabase = await createClient();
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
-    const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        let user = supabaseUser;
+        const devSession = cookies().get("dev_session");
+        if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
 
-    const { error } = await supabaseAdmin
-        .from("integrations")
-        .update({
-            ad_account_id: accountId,
-            client_name: clientName,
-            status: "active",
-            updated_at: new Date().toISOString()
-        })
-        .eq("id", integrationId)
-        .eq("user_id", user.id);
+        console.log(`[finalizeIntegration] User ID: ${user?.id || 'NULL'}`);
+        if (!user) throw new Error("Unauthorized - No user found");
 
-    if (error) {
-        console.error("finalizeIntegration error:", error);
-        throw new Error("Falha ao salvar integração: " + error.message);
+        const supabaseAdmin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+        console.log(`[finalizeIntegration] Updating integration record...`);
+        const { error, data } = await supabaseAdmin
+            .from("integrations")
+            .update({
+                ad_account_id: accountId,
+                client_name: clientName,
+                status: "active",
+                updated_at: new Date().toISOString()
+            })
+            .eq("id", integrationId)
+            .eq("user_id", user.id)
+            .select();
+
+        console.log(`[finalizeIntegration] Update response: error=${error ? error.message : 'NONE'}, rowsAffected=${data?.length || 0}`);
+
+        if (error) {
+            console.error("[finalizeIntegration] Database error:", error);
+            throw new Error("Falha ao salvar integração: " + error.message);
+        }
+
+        if (!data || data.length === 0) {
+            console.warn("[finalizeIntegration] No rows updated - integration may not exist or user mismatch");
+            throw new Error("Integração não encontrada ou acesso negado");
+        }
+    } catch (err: any) {
+        console.error("[finalizeIntegration] Exception:", err.message);
+        throw err;
     }
 
     // Clear pending setup cookie
