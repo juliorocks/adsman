@@ -6,8 +6,8 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { getDashboardMetrics, getRecentActivity, getDailyPerformance } from "@/lib/data/metrics";
-import { getIntegration, getAvailableAdAccounts } from "@/lib/data/settings";
-import { AccountSelector } from "@/components/settings/AccountSelector";
+import { getIntegration, getVisibleIntegrations } from "@/lib/data/settings";
+import { ClientSelector } from "@/components/layout/ClientSelector";
 import { DateRangeSelector } from "@/components/dashboard/DateRangeSelector";
 import { DraggableGrid } from "@/components/dashboard/DraggableGrid";
 import { ManualRevenueModal } from "@/components/dashboard/ManualRevenueModal";
@@ -41,15 +41,15 @@ export default async function DashboardPage({
     let recentCampaigns: any[] = [];
     let dailyPerformance: any[] = [];
     let integration: any = null;
-    let accounts: any[] = [];
+    let visibleIntegrations: any[] = [];
 
     try {
-        [metrics, recentCampaigns, dailyPerformance, integration, accounts] = await Promise.all([
+        [metrics, recentCampaigns, dailyPerformance, integration, visibleIntegrations] = await Promise.all([
             getDashboardMetrics(filter),
             getRecentActivity(),
             getDailyPerformance(filter),
             getIntegration(),
-            getAvailableAdAccounts()
+            getVisibleIntegrations()
         ]);
     } catch (err) {
         console.error("DashboardPage data fetch error:", err);
@@ -81,14 +81,16 @@ export default async function DashboardPage({
                 </div>
 
                 <div className="flex flex-col items-end gap-4">
-                    {/* Account Selector & Theme Toggle */}
+                    {/* Client Selector & Theme Toggle */}
                     <div className="flex items-center gap-2">
-                        <div className="w-[280px]">
-                            <AccountSelector
-                                accounts={accounts || []}
-                                currentAccountId={integration?.ad_account_id}
-                            />
-                        </div>
+                        {visibleIntegrations.length > 1 && (
+                            <div className="w-[280px]">
+                                <ClientSelector
+                                    clients={visibleIntegrations}
+                                    activeIntegrationId={integration?.id || null}
+                                />
+                            </div>
+                        )}
                         <ModeToggle />
                     </div>
 

@@ -189,6 +189,46 @@ export async function getAvailableAdAccounts(): Promise<AdAccount[]> {
         return [];
     }
 }
+
+/** Returns only the integrations visible to the current user (respects member permissions). */
+export async function getVisibleIntegrations(): Promise<{ id: string; client_name: string | null; ad_account_id: string | null }[]> {
+    try {
+        const userId = await getCurrentUserId();
+        if (!userId) return [];
+
+        const adminClient = createAdminClient();
+        const effectiveOwnerId = await getWorkspaceOwnerId(userId);
+
+        const { data } = await adminClient
+            .from("integrations")
+            .select("id, client_name, ad_account_id")
+            .eq("user_id", effectiveOwnerId)
+            .eq("platform", "meta")
+            .eq("status", "active")
+            .order("client_name");
+
+        let integrations = data || [];
+
+        // For members: filter by allowed_integration_ids (NULL = no access)
+        if (userId !== effectiveOwnerId && userId !== MOCK_USER_ID) {
+            const { data: memberData } = await adminClient
+                .from("team_members")
+                .select("allowed_integration_ids")
+                .eq("user_id", userId)
+                .maybeSingle();
+            const allowed = memberData?.allowed_integration_ids;
+            if (allowed === null || allowed === undefined) {
+                return [];
+            }
+            integrations = integrations.filter((i: any) => allowed.includes(i.id));
+        }
+
+        return integrations;
+    } catch (e) {
+        console.error("getVisibleIntegrations error:", e);
+        return [];
+    }
+}
 export async function getOpenAIKey() {
     try {
         const supabase = await createClient();
