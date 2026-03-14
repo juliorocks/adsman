@@ -55,9 +55,27 @@ export default async function DashboardLayout({
                 .select("id, client_name, ad_account_id")
                 .eq("user_id", effectiveOwnerId)
                 .eq("platform", "meta")
+                .eq("status", "active")
                 .order("client_name");
 
-            clients = data || [];
+            let allClients = data || [];
+
+            // For members: filter by allowed_integration_ids (NULL = no access)
+            if (membership) {
+                const { data: memberData } = await adminDb
+                    .from("team_members")
+                    .select("allowed_integration_ids")
+                    .eq("user_id", userId)
+                    .maybeSingle();
+                const allowed = memberData?.allowed_integration_ids;
+                if (allowed === null || allowed === undefined) {
+                    allClients = []; // no access by default
+                } else {
+                    allClients = allClients.filter((c: any) => allowed.includes(c.id));
+                }
+            }
+
+            clients = allClients;
             activeIntegrationId = cookies().get("active_integration_id")?.value || null;
             if (!activeIntegrationId && clients.length > 0) {
                 activeIntegrationId = clients[0].id;
