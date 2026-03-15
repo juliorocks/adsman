@@ -75,13 +75,13 @@ export async function POST(request: Request) {
                             );
 
                             if (repliedByAccount) {
-                                const { count } = await supabaseAdmin
+                                const { data: updated } = await supabaseAdmin
                                     .from('social_interactions')
                                     .update({ status: 'COMPLETED' })
                                     .eq('external_id', comment.id)
                                     .in('status', ['PENDING', 'DRAFT'])
-                                    .select('id', { count: 'exact', head: true });
-                                if (count && count > 0) totalCompleted++;
+                                    .select('id');
+                                if (updated && updated.length > 0) totalCompleted++;
                                 continue;
                             }
 
