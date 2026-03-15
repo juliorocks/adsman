@@ -96,12 +96,13 @@ async function processInteraction(interaction: any, supabaseAdmin: any) {
         if (baseIds.length > 0) {
             const { data: knowledgeDocs } = await supabaseAdmin
                 .from('knowledge_documents')
-                .select('content')
+                .select('content, title')
                 .in('knowledge_base_id', baseIds)
-                .limit(3);
+                .order('updated_at', { ascending: false })
+                .limit(20);
 
             if (knowledgeDocs && knowledgeDocs.length > 0) {
-                contextText = knowledgeDocs.map((k: any) => k.content).join("\n\n");
+                contextText = knowledgeDocs.map((k: any) => k.title ? `### ${k.title}\n${k.content}` : k.content).join("\n\n");
             }
         }
 
@@ -138,13 +139,17 @@ async function processInteraction(interaction: any, supabaseAdmin: any) {
         }
         const aiPrompt = `
 Seu objetivo é responder a uma interação social (Comentário ou Inbox) de forma PESSOAL.
-Responda sempre em PRIMEIRA PESSOA (use "Eu", "Amei", "Estou", e não "Nós" ou "A equipe").
-A resposta deve ser extremamente humana, curta, simpática e focada na venda/suporte, como se você estivesse digitando do seu próprio celular.
+Responda sempre em PRIMEIRA PESSOA (use "Eu", "Amei", e não "Nós" ou "A equipe").
+A resposta deve ser extremamente humana, curta, simpática, como se você estivesse digitando do seu próprio celular.
 
 CONDIÇÃO ESPECIAL: Se a mensagem for um elogio simples, responda com gratidão e um toque de carinho.
 
-CONTEXTO DA MARCA E REGRAS DE NEGÓCIO:
-${contextText || "Siga as diretrizes definidas no seu contexto de agente. Seja educada e use um tom de voz autêntico."}
+${contextText ? `==============================
+INSTRUÇÕES OBRIGATÓRIAS DA BASE DE CONHECIMENTO (SIGA À RISCA):
+${contextText}
+==============================
+ATENÇÃO: As instruções acima são REGRAS ABSOLUTAS. Qualquer orientação acima que proíba certas frases ou comportamentos deve ser seguida sem exceção, mesmo que pareça mais natural ignorá-las.
+` : "Siga as diretrizes definidas no seu contexto de agente. Seja educada e use um tom de voz autêntico."}
 
 TIPO DE INTERAÇÃO: ${interaction_type} (${platform})
 MENSAGEM DO CLIENTE: "${message}"
