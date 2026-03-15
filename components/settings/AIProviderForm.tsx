@@ -128,7 +128,7 @@ export function AIProviderForm({
                         <span className={`text-sm font-bold ${selectedProvider === "gemini" ? "text-blue-700 dark:text-blue-300" : "text-slate-600 dark:text-slate-400"}`}>
                             Google Gemini
                         </span>
-                        <span className="text-[10px] text-slate-400">gemini-1.5-flash</span>
+                        <span className="text-[10px] text-slate-400">gemini-2.5-flash</span>
                         {selectedProvider === "gemini" && (
                             <CheckCircle2 className="absolute top-2 right-2 h-4 w-4 text-blue-500" />
                         )}

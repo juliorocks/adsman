@@ -183,7 +183,7 @@ Crie SOMENTE a resposta exata para o cliente, sem aspas, sem introduções suas.
 
             const genai = new GoogleGenAI({ apiKey: geminiApiKey });
             const geminiResponse = await genai.models.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-2.5-flash',
                 contents: `${systemPersona}\n\n${aiPrompt}`,
             });
             finalReply = geminiResponse.text || finalReply;
