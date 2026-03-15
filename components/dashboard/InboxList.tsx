@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { approveAndSendInteraction, ignoreInteraction, regenerateInteraction, syncMetaMessages } from "@/actions/interactions";
+import { approveAndSendInteraction, ignoreInteraction, regenerateInteraction, syncMetaMessages, triggerFullSync } from "@/actions/interactions";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, ThumbsUp, Trash2, Send, CheckCircle2, AlertCircle, RefreshCw, Download } from "lucide-react";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ export function InboxList({ records }: { records: any[] }) {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isBulkApproving, setIsBulkApproving] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isFullSyncing, setIsFullSyncing] = useState(false);
     const router = useRouter();
 
     const hasPending = records.some(r => r.status === "PENDING");
@@ -113,6 +114,7 @@ export function InboxList({ records }: { records: any[] }) {
     const handleSync = async () => {
         setIsSyncing(true);
         try {
+            // Pega o integration_id ativo do cookie via server action
             const result = await syncMetaMessages();
             if (result.success) {
                 if (result.synced > 0) {
@@ -126,6 +128,18 @@ export function InboxList({ records }: { records: any[] }) {
             }
         } finally {
             setIsSyncing(false);
+        }
+    };
+
+
+    const handleFullSync = async () => {
+        setIsFullSyncing(true);
+        toast.info("Importação completa iniciada — pode levar alguns minutos. A página atualizará automaticamente.");
+        try {
+            const result = await triggerFullSync();
+            if (!result.success) toast.error(result.error || "Erro ao iniciar importação.");
+        } finally {
+            setIsFullSyncing(false);
         }
     };
 
@@ -150,12 +164,23 @@ export function InboxList({ records }: { records: any[] }) {
                             variant="ghost"
                             size="sm"
                             onClick={handleSync}
-                            disabled={isSyncing}
+                            disabled={isSyncing || isFullSyncing}
                             className="text-slate-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 gap-1.5 text-xs font-semibold"
-                            title="Buscar mensagens sem resposta no Meta"
+                            title="Buscar mensagens recentes sem resposta"
                         >
                             <Download className={`h-4 w-4 ${isSyncing ? "animate-pulse" : ""}`} />
                             {isSyncing ? "Sincronizando..." : "Sincronizar"}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleFullSync}
+                            disabled={isSyncing || isFullSyncing}
+                            className="text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 gap-1.5 text-xs font-semibold"
+                            title="Importar todo o histórico de comentários sem resposta"
+                        >
+                            <Download className={`h-4 w-4 ${isFullSyncing ? "animate-pulse" : ""}`} />
+                            {isFullSyncing ? "Importando..." : "Importar Tudo"}
                         </Button>
                     </div>
                     {pending.length > 0 && (

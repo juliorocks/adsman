@@ -118,7 +118,7 @@ export async function getInteractions() {
         .in("integration_id", integrationIds)
         .in("status", ["PENDING", "DRAFT", "COMPLETED", "FAILED"])
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(200);
 
     if (error) {
         console.error("Error fetching interactions:", error);
@@ -597,4 +597,41 @@ export async function syncMetaMessages() {
 
     revalidatePath("/dashboard/inbox");
     return { success: true, synced: totalSynced };
+}
+
+// Dispara o sync completo (todos os posts/histórico) via API route em background
+export async function triggerFullSync() {
+    const supabase = await createClient();
+    const { data: userAuth } = await supabase.auth.getUser();
+    let user = userAuth?.user as any;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: MOCK_USER_ID } as any;
+    if (!user) return { success: false, error: "Não autorizado" };
+
+    const adminDb = createAdminSupabase();
+    const effectiveUserId = await getWorkspaceOwnerId(user.id);
+
+    const activeIntegrationId = cookies().get("active_integration_id")?.value;
+    if (!activeIntegrationId) return { success: false, error: "Nenhum cliente ativo selecionado" };
+
+    // Verificar que integração pertence ao workspace
+    const { data: integ } = await adminDb
+        .from("integrations")
+        .select("id")
+        .eq("id", activeIntegrationId)
+        .eq("user_id", effectiveUserId)
+        .eq("status", "active")
+        .single();
+
+    if (!integ) return { success: false, error: "Integração não encontrada" };
+
+    // Dispara em background — não aguarda resposta
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adsman.vercel.app';
+    fetch(`${appUrl}/api/sync/meta`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ integrationId: activeIntegrationId, userId: effectiveUserId })
+    }).catch(() => {});
+
+    return { success: true };
 }
