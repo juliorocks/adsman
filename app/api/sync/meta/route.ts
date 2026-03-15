@@ -52,7 +52,7 @@ export async function POST(request: Request) {
             if (igId) {
                 // Paginar todos os posts do Instagram
                 let mediaUrl: string | null =
-                    `${META_GRAPH_URL}/${igId}/media?fields=id,caption,media_url,permalink,timestamp&access_token=${pageToken}&limit=20`;
+                    `${META_GRAPH_URL}/${igId}/media?fields=id,caption,media_url,thumbnail_url,media_type,permalink,timestamp&access_token=${pageToken}&limit=20`;
                 let pageCount = 0;
 
                 while (mediaUrl && pageCount < 20) { // até 400 posts
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
                                     sender_name: comment.username || 'Seguidor',
                                     post_id: post.id,
                                     post_preview: post.caption?.slice(0, 100),
-                                    post_image: post.media_url,
+                                    post_image: post.thumbnail_url || post.media_url || null,
                                     post_link: post.permalink,
                                     page_id: igId,
                                 }

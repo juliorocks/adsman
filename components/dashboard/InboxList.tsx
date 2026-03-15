@@ -235,7 +235,12 @@ export function InboxList({ records }: { records: any[] }) {
                                                 rel="noopener noreferrer"
                                                 className="block hover:opacity-80 transition-opacity"
                                             >
-                                                <img src={record.context.post_image} className="w-full h-32 sm:h-full object-cover rounded-lg border border-slate-200 dark:border-slate-700 aspect-square" alt="Post" />
+                                                <img
+                                                    src={record.context.post_image}
+                                                    className="w-full h-32 sm:h-full object-cover rounded-lg border border-slate-200 dark:border-slate-700 aspect-square"
+                                                    alt="Post"
+                                                    onError={(e) => { (e.currentTarget as HTMLImageElement).parentElement!.parentElement!.style.display = 'none'; }}
+                                                />
                                             </a>
                                         </div>
                                     )}
