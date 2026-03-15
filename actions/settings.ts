@@ -6,6 +6,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { decrypt } from "@/lib/security/vault";
 
 // Salva o cliente (integration_id) ativo em cookie para que o Inbox filtre pelo cliente correto
 export async function selectClient(integrationId: string) {
@@ -118,6 +119,52 @@ export async function finalizeIntegration(integrationId: string, accountId: stri
             console.error("[finalizeIntegration] Exception:", err.message);
             throw err;
         }
+    }
+
+    // Auto-discover preferred_page_id and preferred_instagram_id so the webhook
+    // can route events directly without the fallback (which causes cross-client contamination)
+    try {
+        const META_GRAPH_URL = "https://graph.facebook.com/v21.0";
+        const userToken = decrypt(pendingInteg!.access_token_ref);
+
+        // Get pages + their Instagram accounts
+        const pagesRes = await fetch(
+            `${META_GRAPH_URL}/me/accounts?fields=id,instagram_business_account{id}&access_token=${userToken}&limit=100`
+        );
+        const pagesData = await pagesRes.json();
+
+        if (pagesData.data?.length > 0) {
+            // Get Instagram accounts specifically linked to THIS ad account
+            const adAccRes = await fetch(
+                `${META_GRAPH_URL}/${accountId}?fields=instagram_accounts{id}&access_token=${userToken}`
+            );
+            const adAccData = await adAccRes.json();
+            const linkedIgIds = new Set(
+                (adAccData.instagram_accounts?.data || []).map((ig: any) => ig.id)
+            );
+
+            let foundPageId: string | null = null;
+            let foundIgId: string | null = null;
+
+            for (const page of pagesData.data) {
+                const pageIgId = page.instagram_business_account?.id;
+                if (pageIgId && linkedIgIds.has(pageIgId)) {
+                    foundPageId = page.id;
+                    foundIgId = pageIgId;
+                    break;
+                }
+            }
+
+            if (foundPageId || foundIgId) {
+                await supabaseAdmin.from("integrations").update({
+                    preferred_page_id: foundPageId,
+                    preferred_instagram_id: foundIgId
+                }).eq("id", integrationId);
+                console.log(`[finalizeIntegration] Auto-linked page=${foundPageId}, ig=${foundIgId}`);
+            }
+        }
+    } catch (e: any) {
+        console.warn("[finalizeIntegration] Could not auto-discover page/IG IDs:", e.message);
     }
 
     // Clear pending setup cookie
