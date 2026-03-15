@@ -94,9 +94,8 @@ export function TeamManagement({ members, integrations }: { members: Member[]; i
     const handleSaveAccess = async (memberId: string) => {
         setSavingAccess(true);
         try {
-            // If all integrations are selected, save as null (unrestricted)
-            const allSelected = integrations.every(i => editingAllowed.includes(i.id));
-            const payload = allSelected ? null : editingAllowed;
+            // Always save explicit array — null means NO ACCESS for members
+            const payload = editingAllowed.length > 0 ? editingAllowed : [];
             const result = await updateMemberIntegrations(memberId, payload);
             if (result.success) {
                 toast.success("Acesso atualizado com sucesso.");
@@ -131,8 +130,11 @@ export function TeamManagement({ members, integrations }: { members: Member[]; i
     };
 
     const getAccessLabel = (member: Member) => {
-        if (!member.allowed_integration_ids || member.allowed_integration_ids.length === 0) {
-            return "Todas as contas";
+        if (!member.allowed_integration_ids) {
+            return "Sem acesso a contas";
+        }
+        if (member.allowed_integration_ids.length === 0) {
+            return "Sem acesso a contas";
         }
         if (member.allowed_integration_ids.length === integrations.length) {
             return "Todas as contas";
