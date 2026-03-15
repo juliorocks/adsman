@@ -90,10 +90,23 @@ async function processInteraction(interaction: any, supabaseAdmin: any) {
         // 2. Fetch Knowledge Base for this context (RAG)
         let contextText = "";
 
-        // Find bases for user
-        const { data: bases } = await supabaseAdmin.from('knowledge_bases').select('id').eq('user_id', userId);
-        const baseIds = bases?.map((b: any) => b.id) || [];
+        // Find bases for user — include content field directly written by user
+        const { data: bases } = await supabaseAdmin
+            .from('knowledge_bases')
+            .select('id, name, content')
+            .eq('user_id', userId);
 
+        const contextParts: string[] = [];
+
+        // 2a. Direct text content from each knowledge base document
+        for (const base of bases || []) {
+            if (base.content?.trim()) {
+                contextParts.push(base.name ? `### ${base.name}\n${base.content}` : base.content);
+            }
+        }
+
+        // 2b. Synced documents (PDFs, URLs) from knowledge_documents table
+        const baseIds = (bases || []).map((b: any) => b.id);
         if (baseIds.length > 0) {
             const { data: knowledgeDocs } = await supabaseAdmin
                 .from('knowledge_documents')
@@ -102,9 +115,15 @@ async function processInteraction(interaction: any, supabaseAdmin: any) {
                 .order('updated_at', { ascending: false })
                 .limit(20);
 
-            if (knowledgeDocs && knowledgeDocs.length > 0) {
-                contextText = knowledgeDocs.map((k: any) => k.title ? `### ${k.title}\n${k.content}` : k.content).join("\n\n");
+            for (const doc of knowledgeDocs || []) {
+                if (doc.content?.trim()) {
+                    contextParts.push(doc.title ? `### ${doc.title}\n${doc.content}` : doc.content);
+                }
             }
+        }
+
+        if (contextParts.length > 0) {
+            contextText = contextParts.join("\n\n");
         }
 
         // 2.1 Fetch Business Context (quick rules/links)
