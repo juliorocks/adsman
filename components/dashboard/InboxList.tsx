@@ -18,17 +18,18 @@ export function InboxList({ records }: { records: any[] }) {
 
     const hasPending = records.some(r => r.status === "PENDING");
 
+    // Fast refresh while items are being processed by AI
     useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (hasPending) {
-            interval = setInterval(() => {
-                router.refresh();
-            }, 3000);
-        }
-        return () => {
-            if (interval) clearInterval(interval);
-        };
+        if (!hasPending) return;
+        const interval = setInterval(() => router.refresh(), 3000);
+        return () => clearInterval(interval);
     }, [hasPending, router]);
+
+    // Background poll for new incoming messages every 30s
+    useEffect(() => {
+        const interval = setInterval(() => router.refresh(), 30000);
+        return () => clearInterval(interval);
+    }, [router]);
 
     const handleApprove = async (interactionId: string) => {
         const record = records.find(r => r.id === interactionId);
