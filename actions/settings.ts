@@ -383,19 +383,29 @@ export async function saveGeminiKey(key: string) {
     if (!user) throw new Error("Unauthorized");
 
     const encryptedKey = encrypt(key.trim());
-    const adminDb = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const adminDb = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 
-    const { error } = await adminDb
+    // Select first, then update or insert
+    const { data: existing } = await adminDb
         .from("integrations")
-        .upsert({
-            user_id: user.id,
-            platform: "gemini",
-            access_token_ref: encryptedKey,
-            status: "active",
-            updated_at: new Date().toISOString()
-        }, { onConflict: "user_id,platform" });
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("platform", "gemini")
+        .maybeSingle();
 
-    if (error) throw new Error(error.message);
+    if (existing) {
+        const { error } = await adminDb
+            .from("integrations")
+            .update({ access_token_ref: encryptedKey, status: "active", updated_at: new Date().toISOString() })
+            .eq("id", existing.id);
+        if (error) throw new Error(error.message);
+    } else {
+        const { error } = await adminDb
+            .from("integrations")
+            .insert({ user_id: user.id, platform: "gemini", access_token_ref: encryptedKey, status: "active" });
+        if (error) throw new Error(error.message);
+    }
+
     revalidatePath("/dashboard/settings");
     return { success: true };
 }
@@ -409,19 +419,28 @@ export async function saveAIProvider(provider: 'openai' | 'gemini') {
     if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
     if (!user) throw new Error("Unauthorized");
 
-    const adminDb = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const adminDb = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 
-    const { error } = await adminDb
+    const { data: existing } = await adminDb
         .from("integrations")
-        .upsert({
-            user_id: user.id,
-            platform: "ai_settings",
-            agent_context: provider,
-            status: "active",
-            updated_at: new Date().toISOString()
-        }, { onConflict: "user_id,platform" });
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("platform", "ai_settings")
+        .maybeSingle();
 
-    if (error) throw new Error(error.message);
+    if (existing) {
+        const { error } = await adminDb
+            .from("integrations")
+            .update({ agent_context: provider, updated_at: new Date().toISOString() })
+            .eq("id", existing.id);
+        if (error) throw new Error(error.message);
+    } else {
+        const { error } = await adminDb
+            .from("integrations")
+            .insert({ user_id: user.id, platform: "ai_settings", agent_context: provider, status: "active" });
+        if (error) throw new Error(error.message);
+    }
+
     revalidatePath("/dashboard/settings");
     return { success: true };
 }
