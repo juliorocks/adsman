@@ -99,33 +99,32 @@ export async function getInteractions() {
         return [];
     }
 
-    // Busca interações SOMENTE das integrations do cliente selecionado
-    const { data: interactions, error } = await adminDb
-        .from("social_interactions")
-        .select(`
-            id,
-            platform,
-            interaction_type,
-            message,
-            sender_id,
-            status,
-            ai_response,
-            error_log,
-            created_at,
-            context,
-            integration_id
-        `)
-        .in("integration_id", integrationIds)
-        .in("status", ["PENDING", "DRAFT", "COMPLETED", "FAILED"])
-        .order("created_at", { ascending: false })
-        .limit(200);
+    const fields = `id, platform, interaction_type, message, sender_id, status, ai_response, error_log, created_at, context, integration_id`;
 
-    if (error) {
-        console.error("Error fetching interactions:", error);
+    // Pendentes/Rascunhos/Falhas — até 500 (número real de itens a revisar)
+    const { data: pending, error: pendingErr } = await adminDb
+        .from("social_interactions")
+        .select(fields)
+        .in("integration_id", integrationIds)
+        .in("status", ["PENDING", "DRAFT", "FAILED"])
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+    if (pendingErr) {
+        console.error("Error fetching pending interactions:", pendingErr);
         return [];
     }
 
-    return interactions;
+    // Histórico recente — apenas os 20 últimos concluídos
+    const { data: history } = await adminDb
+        .from("social_interactions")
+        .select(fields)
+        .in("integration_id", integrationIds)
+        .in("status", ["COMPLETED", "IGNORED"])
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+    return [...(pending || []), ...(history || [])];
 }
 
 
