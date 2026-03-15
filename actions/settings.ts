@@ -53,7 +53,7 @@ export async function finalizeIntegration(integrationId: string, accountId: stri
         .single();
 
     // Find ALL existing integrations with this ad_account_id (handles duplicates from prior reconnects)
-    // Keep the oldest one (most likely to have social_interactions history), delete the rest
+    // Keep the one with the MOST social_interactions (preserves message history), delete the rest
     const { data: existingIntegs } = await supabaseAdmin
         .from("integrations")
         .select("id, created_at")
@@ -64,7 +64,19 @@ export async function finalizeIntegration(integrationId: string, accountId: stri
         .order("created_at", { ascending: true });
 
     if (existingIntegs && existingIntegs.length > 0) {
-        const keeper = existingIntegs[0]; // oldest = the one with comment/message history
+        // Pick the integration with most interactions as keeper (fallback: oldest)
+        let keeper = existingIntegs[0];
+        for (const integ of existingIntegs) {
+            const { count: currentCount } = await supabaseAdmin
+                .from("social_interactions")
+                .select("id", { count: "exact", head: true })
+                .eq("integration_id", integ.id);
+            const { count: keeperCount } = await supabaseAdmin
+                .from("social_interactions")
+                .select("id", { count: "exact", head: true })
+                .eq("integration_id", keeper.id);
+            if ((currentCount || 0) > (keeperCount || 0)) keeper = integ;
+        }
         const duplicateIds = existingIntegs.slice(1).map((i: any) => i.id);
 
         console.log(`[finalizeIntegration] Reusing integration ${keeper.id}, removing ${duplicateIds.length} duplicate(s) + pending ${integrationId}`);
