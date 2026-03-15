@@ -459,6 +459,61 @@ export async function syncMetaMessages() {
                     }
                 }
 
+                // --- Instagram Comments (posts sem resposta da conta) ---
+                if (igId) {
+                    try {
+                        const mediaRes = await fetch(
+                            `${META_GRAPH_URL}/${igId}/media?fields=id,caption,media_url,permalink,timestamp&access_token=${pageToken}&limit=20`
+                        );
+                        const mediaData = await mediaRes.json();
+                        if (!mediaData.error && mediaData.data) {
+                            for (const post of mediaData.data) {
+                                const commentsRes = await fetch(
+                                    `${META_GRAPH_URL}/${post.id}/comments?fields=id,text,username,timestamp,replies{id,username,from}&access_token=${pageToken}&limit=50`
+                                );
+                                const commentsData = await commentsRes.json();
+                                if (commentsData.error || !commentsData.data) continue;
+
+                                for (const comment of commentsData.data) {
+                                    if (!comment.text?.trim()) continue;
+
+                                    // Pula comentários da própria conta
+                                    const alreadyReplied = (comment.replies?.data || []).some(
+                                        (r: any) => r.username && r.from?.id === igId
+                                    );
+                                    if (alreadyReplied) continue;
+
+                                    const { data: existing } = await adminDb
+                                        .from("social_interactions").select("id")
+                                        .eq("external_id", comment.id).maybeSingle();
+                                    if (existing) continue;
+
+                                    await adminDb.from("social_interactions").insert({
+                                        integration_id: integration.id,
+                                        platform: "instagram",
+                                        interaction_type: "comment",
+                                        external_id: comment.id,
+                                        sender_id: comment.username || "unknown",
+                                        message: comment.text,
+                                        status: "PENDING",
+                                        context: {
+                                            sender_name: comment.username || "Seguidor",
+                                            post_id: post.id,
+                                            post_preview: post.caption?.slice(0, 100),
+                                            post_image: post.media_url,
+                                            post_link: post.permalink,
+                                            page_id: igId,
+                                        }
+                                    });
+                                    totalSynced++;
+                                }
+                            }
+                        }
+                    } catch (igErr: any) {
+                        console.warn("syncMetaMessages: IG comments error", igErr.message);
+                    }
+                }
+
                 // --- Facebook Messenger DMs ---
                 const fbConvRes = await fetch(
                     `${META_GRAPH_URL}/me/conversations?fields=messages{id,message,from,created_time}&access_token=${pageToken}&limit=20`
