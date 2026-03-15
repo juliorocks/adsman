@@ -48,7 +48,7 @@ export async function finalizeIntegration(integrationId: string, accountId: stri
     // Get the pending integration's access token before potentially deleting it
     const { data: pendingInteg } = await supabaseAdmin
         .from("integrations")
-        .select("access_token_ref")
+        .select("access_token_ref, agent_context")
         .eq("id", integrationId)
         .single();
 
@@ -56,7 +56,7 @@ export async function finalizeIntegration(integrationId: string, accountId: stri
     // Keep the one with the MOST social_interactions (preserves message history), delete the rest
     const { data: existingIntegs } = await supabaseAdmin
         .from("integrations")
-        .select("id, created_at")
+        .select("id, created_at, agent_context")
         .eq("user_id", user.id)
         .eq("platform", "meta")
         .eq("ad_account_id", accountId)
@@ -81,12 +81,19 @@ export async function finalizeIntegration(integrationId: string, accountId: stri
 
         console.log(`[finalizeIntegration] Reusing integration ${keeper.id}, removing ${duplicateIds.length} duplicate(s) + pending ${integrationId}`);
 
+        // Preserve agent_context: use keeper's if set, else fall back to any other integration that has it
+        const allCandidates = [...existingIntegs, pendingInteg].filter(Boolean);
+        const bestAgentContext = keeper.agent_context
+            || allCandidates.find((i: any) => i?.agent_context)?.agent_context
+            || null;
+
         // Update the keeper with the new token and re-activate
         const { error } = await supabaseAdmin
             .from("integrations")
             .update({
                 access_token_ref: pendingInteg?.access_token_ref,
                 client_name: clientName,
+                agent_context: bestAgentContext,
                 status: "active",
                 updated_at: new Date().toISOString()
             })
