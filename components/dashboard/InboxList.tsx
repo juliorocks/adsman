@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { approveAndSendInteraction, ignoreInteraction, regenerateInteraction, regenerateAllDraftInteractions, syncMetaMessages, triggerFullSync } from "@/actions/interactions";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, ThumbsUp, Trash2, Send, CheckCircle2, AlertCircle, RefreshCw, Download, Sparkles } from "lucide-react";
+import { MessageSquare, ThumbsUp, Trash2, Send, AlertCircle, RefreshCw, Download, Sparkles, History } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -83,7 +84,6 @@ export function InboxList({ records }: { records: any[] }) {
     };
 
     const pending = records.filter(r => ["DRAFT", "FAILED", "PENDING"].includes(r.status));
-    const completed = records.filter(r => ["COMPLETED", "IGNORED"].includes(r.status));
 
     const handleBulkApprove = async () => {
         if (selectedIds.size === 0) return;
@@ -394,25 +394,15 @@ export function InboxList({ records }: { records: any[] }) {
                 </div>
             </div>
 
-            {completed.length > 0 && (
-                <div>
-                    <h3 className="text-lg font-bold mb-4 text-slate-700 dark:text-slate-300">Histórico Recente</h3>
-                    <div className="space-y-3 opacity-70">
-                        {completed.map(record => (
-                            <div key={record.id} className="border border-slate-200 dark:border-slate-800 p-4 rounded-lg bg-slate-50 dark:bg-slate-900 text-sm">
-                                <div className="flex gap-2 items-center mb-1">
-                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                    <span className="text-slate-500 dark:text-slate-400 text-xs">Aprovado e Enviado em {new Date(record.created_at).toLocaleDateString()}</span>
-                                </div>
-                                <div className="text-slate-600 dark:text-slate-300 flex flex-col gap-1 mt-2">
-                                    <p><strong className="text-slate-800 dark:text-slate-100">Cliente:</strong> "{record.message}"</p>
-                                    <p><strong className="text-primary-600 dark:text-primary-400">Sua Marca:</strong> {record.ai_response}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                <Link
+                    href="/dashboard/inbox/historico"
+                    className="flex items-center gap-2 text-sm text-slate-500 hover:text-primary-600 dark:hover:text-primary-400 font-medium transition-colors"
+                >
+                    <History className="h-4 w-4" />
+                    Ver Histórico de Respostas Enviadas
+                </Link>
+            </div>
         </div>
     );
 }

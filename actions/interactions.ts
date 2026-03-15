@@ -115,16 +115,44 @@ export async function getInteractions() {
         return [];
     }
 
-    // Histórico recente — apenas os 20 últimos concluídos
-    const { data: history } = await adminDb
+    return pending || [];
+}
+
+export async function getCompletedInteractions(page = 1, pageSize = 50) {
+    const supabase = await createClient();
+    const { data: userAuth } = await supabase.auth.getUser();
+
+    let user = userAuth?.user as any;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: MOCK_USER_ID } as any;
+
+    if (!user) return [];
+
+    const adminDb = createAdminSupabase();
+    const effectiveUserId = await getWorkspaceOwnerId(user.id);
+
+    const { data: userIntegrations } = await adminDb
+        .from("integrations")
+        .select("id")
+        .eq("user_id", effectiveUserId)
+        .eq("platform", "meta")
+        .eq("status", "active");
+
+    const integrationIds = (userIntegrations || []).map((i: any) => i.id);
+    if (integrationIds.length === 0) return [];
+
+    const fields = `id, platform, interaction_type, message, sender_id, status, ai_response, error_log, created_at, context, integration_id`;
+    const offset = (page - 1) * pageSize;
+
+    const { data } = await adminDb
         .from("social_interactions")
         .select(fields)
         .in("integration_id", integrationIds)
         .in("status", ["COMPLETED", "IGNORED"])
         .order("created_at", { ascending: false })
-        .limit(20);
+        .range(offset, offset + pageSize - 1);
 
-    return [...(pending || []), ...(history || [])];
+    return data || [];
 }
 
 
