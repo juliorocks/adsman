@@ -366,6 +366,59 @@ export async function saveOpenAIKey(key: string) {
     return { success: true };
 }
 
+export async function saveGeminiKey(key: string) {
+    const supabase = await createClient();
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+    let user = supabaseUser;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
+    if (!user) throw new Error("Unauthorized");
+
+    const encryptedKey = encrypt(key.trim());
+    const adminDb = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+    const { error } = await adminDb
+        .from("integrations")
+        .upsert({
+            user_id: user.id,
+            platform: "gemini",
+            access_token_ref: encryptedKey,
+            status: "active",
+            updated_at: new Date().toISOString()
+        }, { onConflict: "user_id,platform" });
+
+    if (error) throw new Error(error.message);
+    revalidatePath("/dashboard/settings");
+    return { success: true };
+}
+
+export async function saveAIProvider(provider: 'openai' | 'gemini') {
+    const supabase = await createClient();
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+    let user = supabaseUser;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
+    if (!user) throw new Error("Unauthorized");
+
+    const adminDb = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+    const { error } = await adminDb
+        .from("integrations")
+        .upsert({
+            user_id: user.id,
+            platform: "ai_settings",
+            agent_context: provider,
+            status: "active",
+            updated_at: new Date().toISOString()
+        }, { onConflict: "user_id,platform" });
+
+    if (error) throw new Error(error.message);
+    revalidatePath("/dashboard/settings");
+    return { success: true };
+}
+
 export async function toggleAutonomousMode(enabled: boolean) {
     const supabase = await createClient();
     const { data: { user: supabaseUser } } = await supabase.auth.getUser();

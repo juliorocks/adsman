@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
 import { decrypt } from '@/lib/security/vault';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -117,26 +118,17 @@ async function processInteraction(interaction: any, supabaseAdmin: any) {
             contextText += `\n\nREGRAS E LINKS ADICIONAIS:\n${bText}`;
         }
 
-        // 3. AI Generation setup and Key Decryption
-        let openaiClient = defaultOpenai;
-        const { data: openAiIntegration } = await supabaseAdmin
+        // 3. AI Generation — detect active provider
+        const { data: aiSettings } = await supabaseAdmin
             .from('integrations')
-            .select('access_token_ref')
+            .select('agent_context')
             .eq('user_id', userId)
-            .eq('platform', 'openai')
-            .limit(1)
-            .single();
+            .eq('platform', 'ai_settings')
+            .maybeSingle();
+        const activeProvider: 'openai' | 'gemini' = aiSettings?.agent_context === 'gemini' ? 'gemini' : 'openai';
 
-        if (openAiIntegration?.access_token_ref) {
-            try {
-                const decKey = decrypt(openAiIntegration.access_token_ref);
-                if (decKey) {
-                    openaiClient = new OpenAI({ apiKey: decKey });
-                }
-            } catch (kErr) {
-                console.error("User OpenAI key could not be decrypted:", kErr);
-            }
-        }
+        const systemPersona = integration.agent_context || "Você é um assistente de atendimento humanizado. Você responde seguidores de forma calorosa, em primeira pessoa e com muita autenticidade.";
+
         const aiPrompt = `
 Seu objetivo é responder a uma interação social (Comentário ou Inbox) de forma PESSOAL.
 Responda sempre em PRIMEIRA PESSOA (use "Eu", "Amei", e não "Nós" ou "A equipe").
@@ -156,17 +148,54 @@ MENSAGEM DO CLIENTE: "${message}"
 
 Crie SOMENTE a resposta exata para o cliente, sem aspas, sem introduções suas.`;
 
-        const systemPersona = integration.agent_context || "Você é um assistente de atendimento humanizado. Você responde seguidores de forma calorosa, em primeira pessoa e com muita autenticidade.";
+        let finalReply = "Olá! Como posso ajudar?";
 
-        const response = await openaiClient.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [
-                { role: "system", content: systemPersona },
-                { role: "user", content: aiPrompt }
-            ]
-        });
+        if (activeProvider === 'gemini') {
+            const { data: geminiIntegration } = await supabaseAdmin
+                .from('integrations')
+                .select('access_token_ref')
+                .eq('user_id', userId)
+                .eq('platform', 'gemini')
+                .maybeSingle();
 
-        const finalReply = response.choices[0].message.content || "Olá! Como podemos ajudar?";
+            const geminiApiKey = geminiIntegration?.access_token_ref
+                ? decrypt(geminiIntegration.access_token_ref)
+                : process.env.GEMINI_API_KEY;
+
+            const genai = new GoogleGenAI({ apiKey: geminiApiKey });
+            const geminiResponse = await genai.models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: `${systemPersona}\n\n${aiPrompt}`,
+            });
+            finalReply = geminiResponse.text || finalReply;
+        } else {
+            let openaiClient = defaultOpenai;
+            const { data: openAiIntegration } = await supabaseAdmin
+                .from('integrations')
+                .select('access_token_ref')
+                .eq('user_id', userId)
+                .eq('platform', 'openai')
+                .limit(1)
+                .maybeSingle();
+
+            if (openAiIntegration?.access_token_ref) {
+                try {
+                    const decKey = decrypt(openAiIntegration.access_token_ref);
+                    if (decKey) openaiClient = new OpenAI({ apiKey: decKey });
+                } catch (kErr) {
+                    console.error("User OpenAI key could not be decrypted:", kErr);
+                }
+            }
+
+            const response = await openaiClient.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: systemPersona },
+                    { role: "user", content: aiPrompt }
+                ]
+            });
+            finalReply = response.choices[0].message.content || finalReply;
+        }
 
         // 4. Metadata Enrichment (Optional info for UI)
         let enrichedContext = { ...interaction.context };

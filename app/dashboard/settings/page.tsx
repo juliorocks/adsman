@@ -1,6 +1,6 @@
 import { ConnectMetaButton } from "@/components/settings/ConnectMetaButton";
-import { getIntegration, getOpenAIKey, getGoogleIntegration, getCurrentUserId } from "@/lib/data/settings";
-import { OpenAIKeyForm } from "@/components/settings/OpenAIKeyForm";
+import { getIntegration, getOpenAIKey, getGeminiKey, getAIProvider, getGoogleIntegration, getCurrentUserId } from "@/lib/data/settings";
+import { AIProviderForm } from "@/components/settings/AIProviderForm";
 import { GoogleDriveCard } from "@/components/settings/GoogleDriveCard";
 import { TeamManagement } from "@/components/settings/TeamManagement";
 import { ProfileForm } from "@/components/settings/ProfileForm";
@@ -70,14 +70,19 @@ export default async function SettingsPage() {
 
     const googleIntegration = await getGoogleIntegration();
 
+    let geminiKey: string | null = null;
+    let activeProvider: 'openai' | 'gemini' = 'openai';
     try {
         openAIKey = await getOpenAIKey();
+        geminiKey = await getGeminiKey();
+        activeProvider = await getAIProvider();
     } catch (e) {
-        console.error("SettingsPage: Error loading OpenAI key:", e);
+        console.error("SettingsPage: Error loading AI keys:", e);
     }
 
     const isConnected = !!integration && integration.status === "active";
     const hasOpenAI = !!openAIKey;
+    const hasGemini = !!geminiKey;
     const isMockUser = userId === MOCK_USER_ID;
 
     return (
@@ -142,7 +147,7 @@ export default async function SettingsPage() {
                         <h3 className="text-lg font-bold text-slate-900 dark:text-white">Inteligência Artificial</h3>
                         <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
                     </div>
-                    <OpenAIKeyForm hasKey={hasOpenAI} />
+                    <AIProviderForm hasOpenAI={hasOpenAI} hasGemini={hasGemini} activeProvider={activeProvider} />
                 </section>
             )}
         </div>

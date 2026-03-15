@@ -282,6 +282,69 @@ export async function getOpenAIKey() {
         return process.env.OPENAI_API_KEY || null;
     }
 }
+export async function getGeminiKey() {
+    try {
+        const supabase = await createClient();
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+        let user = supabaseUser;
+        try {
+            const devSession = cookies().get("dev_session");
+            if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
+        } catch (e) { }
+        if (!user) return null;
+
+        const ownerId = user.id === "de70c0de-ad00-4000-8000-000000000000"
+            ? user.id
+            : await getWorkspaceOwnerId(user.id);
+
+        const adminCl = createAdminClient();
+        const { data } = await adminCl
+            .from("integrations")
+            .select("access_token_ref")
+            .eq("user_id", ownerId)
+            .eq("platform", "gemini")
+            .maybeSingle();
+
+        if (!data?.access_token_ref) return null;
+        try { return decrypt(data.access_token_ref); } catch { return null; }
+    } catch (err) {
+        return null;
+    }
+}
+
+export async function getAIProvider(): Promise<'openai' | 'gemini'> {
+    try {
+        const supabase = await createClient();
+        const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+        let user = supabaseUser;
+        try {
+            const devSession = cookies().get("dev_session");
+            if (!user && devSession) user = { id: "de70c0de-ad00-4000-8000-000000000000" } as any;
+        } catch (e) { }
+        if (!user) return 'openai';
+
+        const ownerId = user.id === "de70c0de-ad00-4000-8000-000000000000"
+            ? user.id
+            : await getWorkspaceOwnerId(user.id);
+
+        const adminCl = createAdminClient();
+        const { data } = await adminCl
+            .from("integrations")
+            .select("agent_context")
+            .eq("user_id", ownerId)
+            .eq("platform", "ai_settings")
+            .maybeSingle();
+
+        const provider = data?.agent_context;
+        if (provider === 'gemini') return 'gemini';
+        return 'openai';
+    } catch {
+        return 'openai';
+    }
+}
+
 export async function getModalKey() {
     try {
         const supabase = await createClient();
