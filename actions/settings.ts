@@ -51,20 +51,24 @@ export async function finalizeIntegration(integrationId: string, accountId: stri
         .eq("id", integrationId)
         .single();
 
-    // Check if an existing integration already uses this ad_account_id (reconnection scenario)
-    // If so, reuse that integration's ID to preserve linked social_interactions
-    const { data: existingInteg } = await supabaseAdmin
+    // Find ALL existing integrations with this ad_account_id (handles duplicates from prior reconnects)
+    // Keep the oldest one (most likely to have social_interactions history), delete the rest
+    const { data: existingIntegs } = await supabaseAdmin
         .from("integrations")
-        .select("id")
+        .select("id, created_at")
         .eq("user_id", user.id)
         .eq("platform", "meta")
         .eq("ad_account_id", accountId)
         .neq("id", integrationId)
-        .maybeSingle();
+        .order("created_at", { ascending: true });
 
-    if (existingInteg) {
-        console.log(`[finalizeIntegration] Reconnecting existing integration ${existingInteg.id}, discarding pending ${integrationId}`);
-        // Update the existing integration with the new token and re-activate it
+    if (existingIntegs && existingIntegs.length > 0) {
+        const keeper = existingIntegs[0]; // oldest = the one with comment/message history
+        const duplicateIds = existingIntegs.slice(1).map((i: any) => i.id);
+
+        console.log(`[finalizeIntegration] Reusing integration ${keeper.id}, removing ${duplicateIds.length} duplicate(s) + pending ${integrationId}`);
+
+        // Update the keeper with the new token and re-activate
         const { error } = await supabaseAdmin
             .from("integrations")
             .update({
@@ -73,15 +77,15 @@ export async function finalizeIntegration(integrationId: string, accountId: stri
                 status: "active",
                 updated_at: new Date().toISOString()
             })
-            .eq("id", existingInteg.id);
+            .eq("id", keeper.id);
 
         if (error) throw new Error("Falha ao reatualizar integração: " + error.message);
 
-        // Delete the temporary pending integration
-        await supabaseAdmin.from("integrations").delete().eq("id", integrationId);
+        // Delete duplicates and the pending integration
+        const toDelete = [...duplicateIds, integrationId];
+        await supabaseAdmin.from("integrations").delete().in("id", toDelete);
 
-        // Use the existing integration's ID going forward
-        integrationId = existingInteg.id;
+        integrationId = keeper.id;
     } else {
         try {
             const { error, data } = await supabaseAdmin
