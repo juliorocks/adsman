@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { approveAndSendInteraction, ignoreInteraction, regenerateInteraction, syncMetaMessages, triggerFullSync } from "@/actions/interactions";
+import { approveAndSendInteraction, ignoreInteraction, regenerateInteraction, regenerateAllDraftInteractions, syncMetaMessages, triggerFullSync } from "@/actions/interactions";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, ThumbsUp, Trash2, Send, CheckCircle2, AlertCircle, RefreshCw, Download } from "lucide-react";
+import { MessageSquare, ThumbsUp, Trash2, Send, CheckCircle2, AlertCircle, RefreshCw, Download, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -15,6 +15,7 @@ export function InboxList({ records }: { records: any[] }) {
     const [isBulkApproving, setIsBulkApproving] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [isFullSyncing, setIsFullSyncing] = useState(false);
+    const [isRegeneratingAll, setIsRegeneratingAll] = useState(false);
     const router = useRouter();
 
     const hasPending = records.some(r => r.status === "PENDING");
@@ -132,6 +133,21 @@ export function InboxList({ records }: { records: any[] }) {
     };
 
 
+    const handleRegenerateAll = async () => {
+        setIsRegeneratingAll(true);
+        try {
+            const result = await regenerateAllDraftInteractions();
+            if (result.success) {
+                toast.success("Todas as respostas foram enviadas para reprocessamento!");
+                router.refresh();
+            } else {
+                toast.error(result.error || "Erro ao regenerar respostas.");
+            }
+        } finally {
+            setIsRegeneratingAll(false);
+        }
+    };
+
     const handleFullSync = async () => {
         setIsFullSyncing(true);
         toast.info("Importação completa iniciada — pode levar alguns minutos. A página atualizará automaticamente.");
@@ -181,6 +197,17 @@ export function InboxList({ records }: { records: any[] }) {
                         >
                             <Download className={`h-4 w-4 ${isFullSyncing ? "animate-pulse" : ""}`} />
                             {isFullSyncing ? "Importando..." : "Importar Tudo"}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRegenerateAll}
+                            disabled={isRegeneratingAll || isSyncing || isFullSyncing}
+                            className="text-slate-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 gap-1.5 text-xs font-semibold"
+                            title="Regenerar todas as respostas com as instruções atuais da base de conhecimento"
+                        >
+                            <Sparkles className={`h-4 w-4 ${isRegeneratingAll ? "animate-pulse" : ""}`} />
+                            {isRegeneratingAll ? "Regenerando..." : "Regenerar Todas"}
                         </Button>
                     </div>
                     {pending.length > 0 && (

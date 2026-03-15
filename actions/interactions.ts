@@ -347,6 +347,51 @@ export async function regenerateInteraction(interactionId: string) {
     return { success: true };
 }
 
+export async function regenerateAllDraftInteractions() {
+    const supabase = await createClient();
+    const { data: userAuth } = await supabase.auth.getUser();
+
+    let user = userAuth?.user as any;
+    const devSession = cookies().get("dev_session");
+    if (!user && devSession) user = { id: MOCK_USER_ID } as any;
+
+    if (!user) return { success: false, error: "Não autorizado" };
+
+    const adminDb = createAdminSupabase();
+    const effectiveUserId = await getWorkspaceOwnerId(user.id);
+
+    // Get all active meta integration IDs for this workspace
+    const { data: integrations } = await adminDb
+        .from("integrations")
+        .select("id")
+        .eq("user_id", effectiveUserId)
+        .eq("platform", "meta")
+        .eq("status", "active");
+
+    const integrationIds = (integrations || []).map((i: any) => i.id);
+    if (integrationIds.length === 0) return { success: false, error: "Nenhuma integração ativa." };
+
+    const { error } = await adminDb
+        .from("social_interactions")
+        .update({ status: "PENDING", ai_response: null, error_log: null })
+        .in("integration_id", integrationIds)
+        .in("status", ["DRAFT", "FAILED"]);
+
+    if (error) return { success: false, error: error.message };
+
+    // Ping the cron to process immediately
+    try {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://adsman.vercel.app';
+        fetch(`${appUrl}/api/cron/community-manager`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET || ''}` }
+        }).catch(() => { });
+    } catch (e) { }
+
+    revalidatePath("/dashboard/inbox");
+    return { success: true };
+}
+
 // Pulls unanswered DMs from Meta Graph API and inserts missing ones as PENDING
 export async function syncMetaMessages() {
     const supabase = await createClient();
