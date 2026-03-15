@@ -3,19 +3,22 @@
 import { supabase } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { loginDev } from "@/actions/auth";
-import { Facebook, Zap } from "lucide-react";
+import { Facebook, Zap, Mail, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
 export default function LoginPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [showEmailForm, setShowEmailForm] = useState(false);
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleFacebookLogin = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase.auth.signInWithOAuth({
+            const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'facebook',
                 options: {
                     redirectTo: `${window.location.origin}/auth/callback`,
@@ -29,10 +32,22 @@ export default function LoginPage() {
         }
     };
 
-    const handleDevLogin = async () => {
+    const handleEmailLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!email || !password) return;
         setLoading(true);
-        await loginDev();
-        // Redirect is handled inside loginDev action typically
+        try {
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            router.push("/dashboard");
+        } catch (error: any) {
+            toast.error(error.message === "Invalid login credentials"
+                ? "Email ou senha incorretos."
+                : `Erro: ${error.message}`
+            );
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -49,9 +64,11 @@ export default function LoginPage() {
                 </div>
 
                 <h1 className="text-3xl font-extrabold text-white tracking-tight mb-2">ADS.AI</h1>
-                <p className="text-slate-400 text-sm mb-8 px-4">Faça login com sua conta do Facebook. Nós já conectaremos suas Páginas, BM e Instagram automaticamente.</p>
+                <p className="text-slate-400 text-sm mb-8 px-4">
+                    Entre com sua conta para acessar o painel.
+                </p>
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                     <button
                         onClick={handleFacebookLogin}
                         disabled={loading}
@@ -61,17 +78,63 @@ export default function LoginPage() {
                         {loading ? "Conectando..." : "Entrar com Facebook"}
                     </button>
 
-                    <div className="pt-6 mt-6 border-t border-slate-800">
-                        <p className="text-xs text-slate-500 mb-3 uppercase tracking-wider font-bold">Modo Desenvolvedor</p>
-                        <Button
-                            variant="outline"
-                            onClick={handleDevLogin}
-                            disabled={loading}
-                            className="w-full text-slate-300 border-slate-700 hover:bg-slate-800"
-                        >
-                            Entrar como Teste Sisiático
-                        </Button>
+                    <div className="flex items-center gap-3 py-1">
+                        <div className="flex-1 h-px bg-slate-800" />
+                        <span className="text-xs text-slate-500 font-medium">ou</span>
+                        <div className="flex-1 h-px bg-slate-800" />
                     </div>
+
+                    {!showEmailForm ? (
+                        <button
+                            onClick={() => setShowEmailForm(true)}
+                            className="w-full flex items-center justify-center gap-2 text-slate-300 border border-slate-700 hover:bg-slate-800 font-semibold py-3.5 px-4 rounded-xl transition-all text-sm"
+                        >
+                            <Mail className="h-4 w-4" />
+                            Entrar com Email e Senha
+                        </button>
+                    ) : (
+                        <form onSubmit={handleEmailLogin} className="space-y-3 text-left">
+                            <input
+                                type="email"
+                                placeholder="seu@email.com"
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                required
+                                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary-500 transition-colors"
+                            />
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    placeholder="Senha"
+                                    value={password}
+                                    onChange={e => setPassword(e.target.value)}
+                                    required
+                                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary-500 transition-colors"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                                >
+                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
+                            </div>
+                            <Button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 rounded-xl"
+                            >
+                                {loading ? "Entrando..." : "Entrar"}
+                            </Button>
+                            <button
+                                type="button"
+                                onClick={() => setShowEmailForm(false)}
+                                className="w-full text-xs text-slate-500 hover:text-slate-400 py-1"
+                            >
+                                Cancelar
+                            </button>
+                        </form>
+                    )}
                 </div>
             </div>
         </div>
