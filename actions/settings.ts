@@ -86,6 +86,32 @@ export async function finalizeIntegration(integrationId: string, accountId: stri
         const toDelete = [...duplicateIds, integrationId];
         await supabaseAdmin.from("integrations").delete().in("id", toDelete);
 
+        // Update team_members: replace any deleted integration IDs with the keeper ID
+        // so members don't lose access after a reconnect
+        if (toDelete.length > 0) {
+            const { data: affectedMembers } = await supabaseAdmin
+                .from("team_members")
+                .select("id, allowed_integration_ids")
+                .eq("owner_id", user.id);
+
+            for (const member of affectedMembers || []) {
+                const ids: string[] = member.allowed_integration_ids || [];
+                const hasOld = ids.some((id: string) => toDelete.includes(id));
+                if (!hasOld) continue;
+
+                const updated = [
+                    ...ids.filter((id: string) => !toDelete.includes(id)),
+                    keeper.id
+                ];
+                // deduplicate
+                const deduped = Array.from(new Set(updated));
+                await supabaseAdmin
+                    .from("team_members")
+                    .update({ allowed_integration_ids: deduped })
+                    .eq("id", member.id);
+            }
+        }
+
         integrationId = keeper.id;
     } else {
         try {
