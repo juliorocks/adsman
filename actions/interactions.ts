@@ -459,14 +459,20 @@ export async function syncMetaMessages() {
                     }
                 }
 
-                // --- Instagram Comments (posts sem resposta da conta) ---
+                // --- Instagram Comments: todos os posts paginados ---
                 if (igId) {
                     try {
-                        const mediaRes = await fetch(
-                            `${META_GRAPH_URL}/${igId}/media?fields=id,caption,media_url,permalink,timestamp&access_token=${pageToken}&limit=20`
-                        );
-                        const mediaData = await mediaRes.json();
-                        if (!mediaData.error && mediaData.data) {
+                        let mediaUrl: string | null =
+                            `${META_GRAPH_URL}/${igId}/media?fields=id,caption,media_url,permalink,timestamp&access_token=${pageToken}&limit=20`;
+
+                        let pageCount = 0;
+                        const MAX_PAGES = 10; // até 200 posts
+
+                        while (mediaUrl && pageCount < MAX_PAGES) {
+                            const mediaRes: Response = await fetch(mediaUrl);
+                            const mediaData: any = await mediaRes.json();
+                            if (mediaData.error || !mediaData.data) break;
+
                             for (const post of mediaData.data) {
                                 const commentsRes = await fetch(
                                     `${META_GRAPH_URL}/${post.id}/comments?fields=id,text,username,timestamp,replies{id,username,from}&access_token=${pageToken}&limit=50`
@@ -477,11 +483,19 @@ export async function syncMetaMessages() {
                                 for (const comment of commentsData.data) {
                                     if (!comment.text?.trim()) continue;
 
-                                    // Pula comentários da própria conta
-                                    const alreadyReplied = (comment.replies?.data || []).some(
-                                        (r: any) => r.username && r.from?.id === igId
+                                    const repliedByAccount = (comment.replies?.data || []).some(
+                                        (r: any) => r.from?.id === igId
                                     );
-                                    if (alreadyReplied) continue;
+
+                                    // Se já respondeu no IG, marca interação existente como CONCLUÍDA
+                                    if (repliedByAccount) {
+                                        await adminDb
+                                            .from("social_interactions")
+                                            .update({ status: "COMPLETED" })
+                                            .eq("external_id", comment.id)
+                                            .in("status", ["PENDING", "DRAFT"]);
+                                        continue;
+                                    }
 
                                     const { data: existing } = await adminDb
                                         .from("social_interactions").select("id")
@@ -506,6 +520,30 @@ export async function syncMetaMessages() {
                                         }
                                     });
                                     totalSynced++;
+                                }
+                            }
+
+                            // Paginação
+                            mediaUrl = mediaData.paging?.next || null;
+                            pageCount++;
+                        }
+
+                        // Marcar DMs respondidos como CONCLUÍDO
+                        const convRes2 = await fetch(
+                            `${META_GRAPH_URL}/${igId}/conversations?platform=instagram&fields=messages{id,message,from}&access_token=${pageToken}&limit=20`
+                        );
+                        const convData2 = await convRes2.json();
+                        if (!convData2.error && convData2.data) {
+                            for (const conv of convData2.data) {
+                                const msgs = conv.messages?.data || [];
+                                if (msgs.length === 0) continue;
+                                // Se o último a falar foi a conta oficial, marca o DM como concluído
+                                if (msgs[0].from?.id === igId) {
+                                    await adminDb
+                                        .from("social_interactions")
+                                        .update({ status: "COMPLETED" })
+                                        .eq("external_id", msgs[msgs.length - 1].id)
+                                        .in("status", ["PENDING", "DRAFT"]);
                                 }
                             }
                         }
