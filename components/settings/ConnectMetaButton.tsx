@@ -1,6 +1,6 @@
 "use client";
 
-import { Facebook, LogOut } from "lucide-react";
+import { Facebook, LogOut, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { disconnectMeta } from "@/actions/settings";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,10 @@ import { useState } from "react";
 export function ConnectMetaButton({ isConnected }: { isConnected: boolean }) {
     const router = useRouter();
     const [isDisconnecting, setIsDisconnecting] = useState(false);
+
+    const handleReconnect = () => {
+        window.location.href = "/api/auth/meta";
+    };
 
     const handleConnect = () => {
         window.location.href = "/api/auth/meta";
@@ -44,11 +48,21 @@ export function ConnectMetaButton({ isConnected }: { isConnected: boolean }) {
                         </p>
                     </div>
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex items-center gap-2">
                     {isConnected ? (
                         <>
-                            <Button variant="outline" className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 cursor-default">
+                            <span className="text-sm font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-3 py-1.5 rounded-lg">
                                 Conectado
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleReconnect}
+                                className="gap-1.5 text-slate-600 dark:text-slate-300"
+                                title="Renovar token de acesso (se expirou)"
+                            >
+                                <RefreshCw className="h-4 w-4" />
+                                Reconectar
                             </Button>
                             <Button
                                 variant="ghost"
