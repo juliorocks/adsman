@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { approveAndSendInteraction, ignoreInteraction, regenerateInteraction, regenerateAllDraftInteractions, syncMetaMessages, triggerFullSync } from "@/actions/interactions";
+import { approveAndSendInteraction, ignoreInteraction, syncMetaMessages, triggerFullSync } from "@/actions/interactions";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, ThumbsUp, Trash2, Send, AlertCircle, RefreshCw, Download, Sparkles, History } from "lucide-react";
+import { MessageSquare, ThumbsUp, Trash2, Send, AlertCircle, Download, History } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -16,17 +16,7 @@ export function InboxList({ records }: { records: any[] }) {
     const [isBulkApproving, setIsBulkApproving] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [isFullSyncing, setIsFullSyncing] = useState(false);
-    const [isRegeneratingAll, setIsRegeneratingAll] = useState(false);
     const router = useRouter();
-
-    const hasPending = records.some(r => r.status === "PENDING");
-
-    // Fast refresh while items are being processed by AI
-    useEffect(() => {
-        if (!hasPending) return;
-        const interval = setInterval(() => router.refresh(), 3000);
-        return () => clearInterval(interval);
-    }, [hasPending, router]);
 
     // Background poll for new incoming messages every 30s
     useEffect(() => {
@@ -65,24 +55,6 @@ export function InboxList({ records }: { records: any[] }) {
         }
     };
 
-    const handleRegenerate = async (interactionId: string) => {
-        setLoadingMap(prev => ({ ...prev, [interactionId]: true }));
-        try {
-            const { success } = await regenerateInteraction(interactionId);
-            if (success) {
-                // Clear any manual edits
-                setEditedTexts(prev => {
-                    const next = { ...prev };
-                    delete next[interactionId];
-                    return next;
-                });
-                toast.success("Resposta enviada para reprocessamento.");
-            }
-        } finally {
-            setLoadingMap(prev => ({ ...prev, [interactionId]: false }));
-        }
-    };
-
     const pending = records.filter(r => ["DRAFT", "FAILED", "PENDING"].includes(r.status));
 
     const handleBulkApprove = async () => {
@@ -91,7 +63,9 @@ export function InboxList({ records }: { records: any[] }) {
         let successCount = 0;
 
         const promises = Array.from(selectedIds).map(async (id) => {
-            const textToApprove = editedTexts[id] || records.find(r => r.id === id)?.ai_response || "";
+            const record = records.find(r => r.id === id);
+            const textToApprove = editedTexts[id] || record?.ai_response || "";
+            if (!textToApprove.trim()) return;
             const { success } = await approveAndSendInteraction(id, textToApprove);
             if (success) successCount++;
         });
@@ -133,20 +107,6 @@ export function InboxList({ records }: { records: any[] }) {
     };
 
 
-    const handleRegenerateAll = async () => {
-        setIsRegeneratingAll(true);
-        try {
-            const result = await regenerateAllDraftInteractions();
-            if (result.success) {
-                toast.success("Todas as respostas foram enviadas para reprocessamento!");
-                router.refresh();
-            } else {
-                toast.error(result.error || "Erro ao regenerar respostas.");
-            }
-        } finally {
-            setIsRegeneratingAll(false);
-        }
-    };
 
     const handleFullSync = async () => {
         setIsFullSyncing(true);
@@ -197,17 +157,6 @@ export function InboxList({ records }: { records: any[] }) {
                         >
                             <Download className={`h-4 w-4 ${isFullSyncing ? "animate-pulse" : ""}`} />
                             {isFullSyncing ? "Importando..." : "Importar Tudo"}
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleRegenerateAll}
-                            disabled={isRegeneratingAll || isSyncing || isFullSyncing}
-                            className="text-slate-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 gap-1.5 text-xs font-semibold"
-                            title="Regenerar todas as respostas com as instruções atuais da base de conhecimento"
-                        >
-                            <Sparkles className={`h-4 w-4 ${isRegeneratingAll ? "animate-pulse" : ""}`} />
-                            {isRegeneratingAll ? "Regenerando..." : "Regenerar Todas"}
                         </Button>
                     </div>
                     {pending.length > 0 && (
@@ -337,16 +286,6 @@ export function InboxList({ records }: { records: any[] }) {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-8 w-8 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                                                    onClick={() => handleRegenerate(record.id)}
-                                                    disabled={loadingMap[record.id] || record.status === 'PENDING'}
-                                                    title="Regerar Resposta (IA)"
-                                                >
-                                                    <RefreshCw className={`h-4 w-4 ${loadingMap[record.id] ? "animate-spin" : ""}`} />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
                                                     className="h-8 w-8 text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                                                     onClick={() => handleIgnore(record.id)}
                                                     disabled={loadingMap[record.id]}
@@ -359,8 +298,8 @@ export function InboxList({ records }: { records: any[] }) {
                                                     size="icon"
                                                     className="h-8 w-8 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
                                                     onClick={() => handleApprove(record.id)}
-                                                    disabled={loadingMap[record.id] || record.status === 'PENDING'}
-                                                    title="Aprovar e Enviar"
+                                                    disabled={loadingMap[record.id] || !(editedTexts[record.id] ?? record.ai_response ?? "").trim()}
+                                                    title="Enviar Resposta"
                                                 >
                                                     <Send className="h-4 w-4" />
                                                 </Button>
@@ -372,13 +311,14 @@ export function InboxList({ records }: { records: any[] }) {
 
                                         <div className="relative pl-[52px]">
                                             <div className="absolute top-2 left-[64px] -translate-y-1/2 bg-white dark:bg-slate-900 px-1 text-[10px] font-bold text-primary-600 dark:text-primary-400 z-10 transition-colors">
-                                                Sugestão da IA
+                                                Sua Resposta
                                             </div>
                                             <textarea
                                                 className="w-full relative rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 pt-4 pb-2 px-3 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-50 transition-colors"
-                                                value={record.status === 'PENDING' ? "O agente de IA está processando esta mensagem e criando uma resposta..." : (editedTexts[record.id] ?? record.ai_response ?? "")}
+                                                placeholder="Escreva sua resposta aqui..."
+                                                value={editedTexts[record.id] ?? record.ai_response ?? ""}
                                                 onChange={(e: any) => setEditedTexts(prev => ({ ...prev, [record.id]: e.target.value }))}
-                                                disabled={loadingMap[record.id] || record.status === 'PENDING'}
+                                                disabled={loadingMap[record.id]}
                                             />
                                         </div>
                                         {record.error_log && record.status === 'FAILED' && (

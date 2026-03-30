@@ -197,7 +197,7 @@ export async function approveAndSendInteraction(interactionId: string, editedRes
         return { success: false, error: "Acesso negado" };
     }
 
-    if (interaction.status !== "DRAFT" && interaction.status !== "FAILED") {
+    if (!["DRAFT", "FAILED", "PENDING"].includes(interaction.status)) {
         return { success: false, error: "Interação já processada" };
     }
 
